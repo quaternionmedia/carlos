@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eurorack Boilerplate - Core Components</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <style>
+        /* === BASE STYLES === */
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+            font-family: 'Courier New', monospace;
+            color: #00ff88;
+        }
+
+        .rack-container {
+            background: #111;
+            border: 3px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        /* === MODULE STYLES === */
+        .module {
+            display: inline-block;
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+            border: 2px solid #444;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px;
+            width: 200px;
+            vertical-align: top;
+        }
+
+        .module-title {
+            text-align: center;
+            color: #00ff88;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        /* === CONTROL STYLES === */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            margin: 15px 0;
+        }
+
+        .knob {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            margin: 5px;
+            cursor: pointer;
+        }
+
+        .knob-base {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, #333, #111);
+            border: 2px solid #555;
+            border-radius: 50%;
+        }
+
+        .knob-indicator {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            width: 2px;
+            height: 15px;
+            background: #00ff88;
+            transform-origin: 50% 15px;
+            transform: translateX(-50%);
+            border-radius: 1px;
+            box-shadow: 0 0 5px rgba(0, 255, 136, 0.8);
+        }
+
+        .knob-label {
+            text-align: center;
+            font-size: 8px;
+            color: #888;
+            margin-top: 3px;
+        }
+
+        /* === JACK STYLES === */
+        .patch-bay {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .jack-section h4 {
+            font-size: 10px;
+            color: #666;
+            margin: 0 0 8px 0;
+            text-align: center;
+        }
+
+        .jack {
+            width: 16px;
+            height: 16px;
+            background: radial-gradient(circle, #222, #000);
+            border: 1px solid #555;
+            border-radius: 50%;
+            margin: 3px auto;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .jack:hover {
+            border-color: #00ff88;
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+        }
+
+        .jack.connected {
+            background: radial-gradient(circle, #00ff88, #00aa55);
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+        }
+
+        /* === UI CONTROLS === */
+        .controls-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .controls-panel button {
+            background: linear-gradient(145deg, #333, #222);
+            color: #00ff88;
+            border: 1px solid #555;
+            padding: 8px 12px;
+            margin: 3px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
+        }
+
+        .controls-panel button:hover {
+            background: linear-gradient(145deg, #444, #333);
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.3);
+        }
+
+        .status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+
+        /* === PATCH CABLES === */
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+    <div class="rack-container" id="rack">
+        <svg id="patch-cables"></svg>
+        <!-- Modules will be added here dynamically -->
+    </div>
+
+    <div class="controls-panel">
+        <button onclick="system.addModule('oscillator')">Add VCO</button>
+        <button onclick="system.addModule('filter')">Add VCF</button>
+        <button onclick="system.randomizeAll()">Randomize</button>
+    </div>
+
+    <div class="status" id="status">System Ready</div>
+
+    <script>
+        // ===================================
+        // CORE COMPONENT: Parameter
+        // ===================================
+        class Parameter {
+            constructor(name, label, minValue = 0, maxValue = 127, defaultValue = null) {
+                this.name = name;
+                this.label = label;
+                this.minValue = minValue;
+                this.maxValue = maxValue;
+                this.value = defaultValue !== null ? defaultValue : (minValue + maxValue) / 2;
+                this.rotation = this.valueToRotation(this.value);
+            }
+
+            valueToRotation(value) {
+                const normalized = (value - this.minValue) / (this.maxValue - this.minValue);
+                return normalized * 270 - 135; // Map to -135° to +135°
+            }
+
+            rotationToValue(rotation) {
+                const normalized = (rotation + 135) / 270;
+                return normalized * (this.maxValue - this.minValue) + this.minValue;
+            }
+
+            setValue(value) {
+                this.value = Math.max(this.minValue, Math.min(this.maxValue, value));
+                this.rotation = this.valueToRotation(this.value);
+            }
+
+            setRotation(rotation) {
+                this.rotation = Math.max(-135, Math.min(135, rotation));
+                this.value = this.rotationToValue(this.rotation);
+            }
+
+            getState() {
+                return {
+                    value: this.value,
+                    rotation: this.rotation
+                };
+            }
+
+            setState(state) {
+                this.value = state.value;
+                this.rotation = state.rotation;
+            }
+        }
+
+        // ===================================
+        // CORE COMPONENT: Jack
+        // ===================================
+        class Jack {
+            constructor(name, type, signal, element = null) {
+                this.name = name;
+                this.type = type; // 'input' or 'output'
+                this.signal = signal; // 'audio', 'cv', 'gate', etc.
+                this.element = element;
+                this.connections = [];
+            }
+
+            canConnectTo(otherJack) {
+                return this.type !== otherJack.type && this !== otherJack;
+            }
+
+            connect(otherJack) {
+                if (this.canConnectTo(otherJack)) {
+                    this.connections.push(otherJack);
+                    otherJack.connections.push(this);
+                    this.element?.classList.add('connected');
+                    otherJack.element?.classList.add('connected');
+                    return true;
+                }
+                return false;
+            }
+
+            disconnect() {
+                this.connections.forEach(jack => {
+                    jack.connections = jack.connections.filter(conn => conn !== this);
+                    jack.element?.classList.remove('connected');
+                });
+                this.connections = [];
+                this.element?.classList.remove('connected');
+            }
+        }
+
+        // ===================================
+        // CORE COMPONENT: EurorackModule
+        // ===================================
+        class EurorackModule {
+            constructor(type, name) {
+                this.type = type;
+                this.name = name;
+                this.id = `module_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+                this.parameters = new Map();
+                this.jacks = new Map();
+                this.element = null;
+            }
+
+            // Add a parameter to this module
+            addParameter(name, label, min = 0, max = 127, defaultValue = null) {
+                this.parameters.set(name, new Parameter(name, label, min, max, defaultValue));
+                return this; // For chaining
+            }
+
+            // Add a jack to this module
+            addJack(name, type, signal) {
+                this.jacks.set(name, new Jack(name, type, signal));
+                return this; // For chaining
+            }
+
+            // Render the module HTML
+            render() {
+                const moduleEl = document.createElement('div');
+                moduleEl.className = 'module';
+                moduleEl.dataset.moduleId = this.id;
+
+                moduleEl.innerHTML = `
+                    <div class="module-title">${this.name}</div>
+                    <div class="controls">
+                        ${this.renderParameters()}
+                    </div>
+                    <div class="patch-bay">
+                        <div class="jack-section">
+                            <h4>IN</h4>
+                            ${this.renderJacks('input')}
+                        </div>
+                        <div class="jack-section">
+                            <h4>OUT</h4>
+                            ${this.renderJacks('output')}
+                        </div>
+                    </div>
+                `;
+
+                this.element = moduleEl;
+                this.setupInteractions();
+                return moduleEl;
+            }
+
+            renderParameters() {
+                return Array.from(this.parameters.entries()).map(([name, param]) => `
+                    <div class="knob" data-param="${name}">
+                        <div class="knob-base">
+                            <div class="knob-indicator"></div>
+                        </div>
+                        <div class="knob-label">${param.label}</div>
+                    </div>
+                `).join('');
+            }
+
+            renderJacks(type) {
+                return Array.from(this.jacks.entries())
+                    .filter(([_, jack]) => jack.type === type)
+                    .map(([name, jack]) => `
+                        <div class="jack" data-jack="${name}" data-type="${type}" data-signal="${jack.signal}"></div>
+                    `).join('');
+            }
+
+            setupInteractions() {
+                // Setup parameter knobs
+                this.element.querySelectorAll('.knob').forEach(knobEl => {
+                    const paramName = knobEl.dataset.param;
+                    const parameter = this.parameters.get(paramName);
+                    if (parameter) {
+                        this.setupKnob(knobEl, parameter);
+                    }
+                });
+
+                // Setup jacks
+                this.element.querySelectorAll('.jack').forEach(jackEl => {
+                    const jackName = jackEl.dataset.jack;
+                    const jack = this.jacks.get(jackName);
+                    if (jack) {
+                        jack.element = jackEl;
+                        jackEl.addEventListener('click', () => {
+                            system.patchBay.handleJackClick(jack);
+                        });
+                    }
+                });
+            }
+
+            setupKnob(knobEl, parameter) {
+                const indicator = knobEl.querySelector('.knob-indicator');
+                indicator.style.transform = `translateX(-50%) rotate(${parameter.rotation}deg)`;
+
+                knobEl.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    const startY = e.clientY;
+                    const startRotation = parameter.rotation;
+
+                    const onMouseMove = (e) => {
+                        const deltaY = startY - e.clientY;
+                        parameter.setRotation(startRotation + deltaY * 2);
+                        
+                        anime({
+                            targets: indicator,
+                            rotate: parameter.rotation,
+                            duration: 50,
+                            easing: 'linear'
+                        });
+
+                        system.status.update(`${parameter.label}: ${Math.round(parameter.value)}`);
+                    };
+
+                    const onMouseUp = () => {
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                        system.status.update('Ready');
+                    };
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+            }
+
+            // State management
+            getState() {
+                const state = {
+                    type: this.type,
+                    id: this.id,
+                    parameters: {}
+                };
+
+                this.parameters.forEach((param, name) => {
+                    state.parameters[name] = param.getState();
+                });
+
+                return state;
+            }
+
+            setState(state) {
+                Object.entries(state.parameters).forEach(([name, paramState]) => {
+                    const parameter = this.parameters.get(name);
+                    if (parameter) {
+                        parameter.setState(paramState);
+                        const knobEl = this.element.querySelector(`[data-param="${name}"]`);
+                        const indicator = knobEl?.querySelector('.knob-indicator');
+                        if (indicator) {
+                            anime({
+                                targets: indicator,
+                                rotate: parameter.rotation,
+                                duration: 500,
+                                easing: 'easeOutCubic'
+                            });
+                        }
+                    }
+                });
+            }
+        }
+
+        // ===================================
+        // SIMPLE COMPONENT: ModuleFactory
+        // ===================================
+        class ModuleFactory {
+            static definitions = {
+                oscillator: {
+                    name: 'VCO',
+                    parameters: [
+                        ['frequency', 'FREQ', 0, 127, 64],
+                        ['fine', 'FINE', 0, 127, 64]
+                    ],
+                    jacks: [
+                        ['cv_in', 'input', 'cv'],
+                        ['audio_out', 'output', 'audio']
+                    ]
+                },
+                filter: {
+                    name: 'VCF',
+                    parameters: [
+                        ['cutoff', 'CUTOFF', 0, 127, 64],
+                        ['resonance', 'RES', 0, 127, 32]
+                    ],
+                    jacks: [
+                        ['audio_in', 'input', 'audio'],
+                        ['audio_out', 'output', 'audio']
+                    ]
+                }
+            };
+
+            static create(type) {
+                const def = this.definitions[type];
+                if (!def) throw new Error(`Unknown module type: ${type}`);
+
+                const module = new EurorackModule(type, def.name);
+
+                // Add parameters
+                def.parameters.forEach(([name, label, min, max, defaultVal]) => {
+                    module.addParameter(name, label, min, max, defaultVal);
+                });
+
+                // Add jacks
+                def.jacks.forEach(([name, type, signal]) => {
+                    module.addJack(name, type, signal);
+                });
+
+                return module;
+            }
+        }
+
+        // ===================================
+        // SIMPLE COMPONENT: PatchBayManager
+        // ===================================
+        class PatchBayManager {
+            constructor() {
+                this.connections = [];
+                this.activeJack = null;
+                this.svg = document.getElementById('patch-cables');
+            }
+
+            handleJackClick(jack) {
+                if (!this.activeJack) {
+                    this.startConnection(jack);
+                } else {
+                    this.completeConnection(jack);
+                }
+            }
+
+            startConnection(jack) {
+                this.activeJack = jack;
+                system.status.update('Click another jack to connect');
+            }
+
+            completeConnection(jack) {
+                if (this.activeJack.canConnectTo(jack)) {
+                    this.createConnection(this.activeJack, jack);
+                    system.status.update('Connected!');
+                } else {
+                    system.status.update('Invalid connection');
+                }
+                this.activeJack = null;
+            }
+
+            createConnection(jack1, jack2) {
+                if (jack1.connect(jack2)) {
+                    const cable = this.createCable(jack1.element, jack2.element);
+                    this.connections.push({ jack1, jack2, cable });
+                }
+            }
+
+            createCable(el1, el2) {
+                const rect1 = el1.getBoundingClientRect();
+                const rect2 = el2.getBoundingClientRect();
+                const rackRect = document.getElementById('rack').getBoundingClientRect();
+
+                const x1 = rect1.left + rect1.width/2 - rackRect.left;
+                const y1 = rect1.top + rect1.height/2 - rackRect.top;
+                const x2 = rect2.left + rect2.width/2 - rackRect.left;
+                const y2 = rect2.top + rect2.height/2 - rackRect.top;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const midX = (x1 + x2) / 2;
+                const midY = Math.min(y1, y2) - 20;
+                
+                path.setAttribute('d', `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`);
+                path.setAttribute('stroke', '#00ff88');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('fill', 'none');
+                
+                this.svg.appendChild(path);
+                return path;
+            }
+        }
+
+        // ===================================
+        // SIMPLE COMPONENT: StatusManager
+        // ===================================
+        class StatusManager {
+            constructor() {
+                this.element = document.getElementById('status');
+            }
+
+            update(message) {
+                this.element.textContent = message;
+            }
+        }
+
+        // ===================================
+        // MAIN SYSTEM
+        // ===================================
+        class EurorackSystem {
+            constructor() {
+                this.modules = new Map();
+                this.patchBay = new PatchBayManager();
+                this.status = new StatusManager();
+                this.rackElement = document.getElementById('rack');
+            }
+
+            addModule(type) {
+                const module = ModuleFactory.create(type);
+                this.modules.set(module.id, module);
+                
+                const moduleElement = module.render();
+                this.rackElement.appendChild(moduleElement);
+                
+                // Animate appearance
+                anime({
+                    targets: moduleElement,
+                    translateY: [50, 0],
+                    opacity: [0, 1],
+                    duration: 800,
+                    easing: 'easeOutCubic'
+                });
+
+                this.status.update(`Added ${module.name}`);
+                return module;
+            }
+
+            randomizeAll() {
+                this.modules.forEach(module => {
+                    module.parameters.forEach(param => {
+                        const randomValue = Math.random() * (param.maxValue - param.minValue) + param.minValue;
+                        param.setValue(randomValue);
+                        
+                        const knobEl = module.element.querySelector(`[data-param="${param.name}"]`);
+                        const indicator = knobEl?.querySelector('.knob-indicator');
+                        if (indicator) {
+                            anime({
+                                targets: indicator,
+                                rotate: param.rotation,
+                                duration: 1000 + Math.random() * 500,
+                                easing: 'easeOutElastic(1, .8)',
+                                delay: Math.random() * 300
+                            });
+                        }
+                    });
+                });
+                
+                this.status.update('Randomized all parameters!');
+            }
+        }
+
+        // ===================================
+        // INITIALIZE SYSTEM
+        // ===================================
+        const system = new EurorackSystem();
+
+        // Add some initial modules
+        system.addModule('oscillator');
+        system.addModule('filter');
+
+        system.status.update('Eurorack System Ready!');
+    </script>
+</body>
+</html>
