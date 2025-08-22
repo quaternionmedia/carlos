@@ -14,7 +14,7 @@ Carlos is named after the famous artist, Wendy Carlos, known for pioneering work
 ```bash
 gh repo clone https://github.com/quaternionmedia/carlos.git
 cd carlos
-uv run main.py
+uv run src/main.py
 ```
 
 # Usage
