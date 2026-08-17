@@ -1,12 +1,17 @@
 [project]
 name = "carlos"
 version = "0.1.0"
-description = "Add your description here"
+description = "A browser workspace for sketching virtual synth patches."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.116.1",
     "jinja2>=3.1.6",
+    # Imported directly by patch_format, catalogue, midi and interop. It
+    # arrives transitively with FastAPI, which is not the same as being a
+    # dependency of this project: a FastAPI that stopped requiring it would
+    # break this app for a reason nothing here declared.
+    "pydantic>=2.0",
     "tinydb>=4.8.2",
     "uvicorn>=0.35.0",
 ]
