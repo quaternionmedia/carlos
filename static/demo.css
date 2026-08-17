@@ -1,0 +1,635 @@
+/* === BASE STYLES === */
+body {
+    margin: 0;
+    /* Room for the status line above and the patch bar below. */
+    padding: 56px 20px 90px;
+    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+    font-family: 'Courier New', monospace;
+    color: #00ff88;
+}
+
+.rack-container {
+    background: #111;
+    border: 3px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    position: relative;
+}
+
+/* === MODULE STYLES === */
+/* Width follows the device: a 2i2 is small, a DFAM's patch bay is not. */
+.module {
+    display: inline-block;
+    background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+    border: 2px solid #444;
+    border-radius: 6px;
+    padding: 15px;
+    margin: 10px;
+    min-width: 190px;
+    max-width: 340px;
+    vertical-align: top;
+}
+
+.module-title {
+    text-align: center;
+    color: #00ff88;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    padding-right: 22px;
+}
+
+.module-maker {
+    display: block;
+    font-size: 8px;
+    font-weight: normal;
+    color: #777;
+    letter-spacing: 1px;
+}
+
+/* === CONTROL STYLES === */
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    margin: 15px 0;
+}
+
+.knob {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    margin: 5px;
+    cursor: pointer;
+}
+
+.knob-base {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, #333, #111);
+    border: 2px solid #555;
+    border-radius: 50%;
+}
+
+.knob-indicator {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    width: 2px;
+    height: 15px;
+    background: #00ff88;
+    transform-origin: 50% 15px;
+    transform: translateX(-50%);
+    border-radius: 1px;
+    box-shadow: 0 0 5px rgba(0, 255, 136, 0.8);
+}
+
+.knob-label {
+    text-align: center;
+    font-size: 8px;
+    color: #888;
+    margin-top: 3px;
+}
+
+/* === JACK STYLES === */
+.patch-bay {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    align-items: flex-start;
+}
+
+.jack-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.jack-section h4 {
+    font-size: 10px;
+    color: #666;
+    margin: 0 0 6px 0;
+    text-align: center;
+    border-bottom: 1px solid #2a2a2a;
+    padding-bottom: 3px;
+}
+
+/* Jacks wrap into rows, so a 22-point patch bay stays inside the module. */
+.jack-slot {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    width: 46px;
+    margin-bottom: 4px;
+    vertical-align: top;
+}
+
+.jack-label {
+    font-size: 7px;
+    color: #777;
+    text-align: center;
+    line-height: 1.1;
+    margin-top: 2px;
+    overflow-wrap: anywhere;
+}
+
+.jack {
+    width: 16px;
+    height: 16px;
+    background: radial-gradient(circle, #222, #000);
+    border: 1px solid #555;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.jack:hover {
+    border-color: #00ff88;
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+}
+
+.jack.connected {
+    background: radial-gradient(circle, #00ff88, #00aa55);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+}
+
+/* === PATCH CABLES === */
+svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* === DEVICE SIDES === */
+/* A device turns in place. Nothing about the rack's layout changes when one
+   module is turned round, so the rack itself carries no view state. */
+.rack-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    flex-direction: column;
+}
+
+.module {
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* One face per side; only the active one is laid out. Toggled by class rather
+   than by a rule per side, so a new side needs no new CSS. */
+.face {
+    display: none;
+}
+
+.face.active {
+    display: block;
+}
+
+/* Any side that is not the front is somewhere you had to turn the device to
+   see, and looking at one should not be ambiguous. */
+.module:not([data-view="front"]) {
+    background: linear-gradient(145deg, #241d14, #161009);
+    border-color: #5a4326;
+}
+
+.module:not([data-view="front"]) .module-title,
+.module:not([data-view="front"]) .jack-section h4 {
+    color: #ff9f43;
+}
+
+.module:not([data-view="front"]) .jack:hover {
+    border-color: #ff9f43;
+    box-shadow: 0 0 8px rgba(255, 159, 67, 0.6);
+}
+
+.module:not([data-view="front"]) .jack.connected {
+    background: radial-gradient(circle, #ff9f43, #aa5f10);
+    box-shadow: 0 0 10px rgba(255, 159, 67, 0.8);
+}
+
+.side-tag {
+    font-size: 8px;
+    color: #8a6a3a;
+    margin-left: 6px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.module-flip:disabled {
+    opacity: 0.25;
+    cursor: default;
+}
+
+/* === GROUPS === */
+.rack-group {
+    width: 100%;
+    border: 1px dashed #333;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.rack-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border-bottom: 1px dashed #2a2a2a;
+}
+
+.rack-group-label {
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.rack-group-count {
+    font-size: 9px;
+    color: #555;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 0 6px;
+}
+
+.rack-group-remove {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 4px;
+}
+
+.rack-group-remove:hover {
+    color: #ff6b6b;
+}
+
+/* A row is a row: devices in it never wrap onto a second line. */
+.rack-shelf {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    align-items: flex-start;
+    padding: 4px;
+}
+
+.rack-loose {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    width: 100%;
+}
+
+/* The device Tab acts on. */
+.module.selected {
+    border-color: #ffe066;
+    box-shadow: 0 0 14px rgba(255, 224, 102, 0.35);
+}
+
+.module-flip {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: #1a1a1a;
+    color: #888;
+    border: 1px solid #444;
+    border-radius: 3px;
+    width: 20px;
+    height: 18px;
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+.module-flip:hover {
+    color: #00ff88;
+    border-color: #00ff88;
+}
+
+.module[data-view="back"] .module-flip:hover {
+    color: #ff9f43;
+    border-color: #ff9f43;
+}
+
+/* A jack whose cable runs round to the other side. */
+.jack.through {
+    border-style: dashed;
+    border-color: #8a6a3a;
+}
+
+.rear-tag {
+    font-size: 8px;
+    color: #8a6a3a;
+    margin-left: 6px;
+    letter-spacing: 1px;
+}
+
+.empty-bay {
+    font-size: 9px;
+    color: #555;
+    text-align: center;
+    margin-top: 15px;
+}
+
+/* A jack waiting for its other end. */
+.jack.arming {
+    border-color: #ffe066;
+    box-shadow: 0 0 12px rgba(255, 224, 102, 0.9);
+}
+
+/* === CONTROL PANEL EXTRAS === */
+.control-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.field-label,
+.view-label {
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+}
+
+#patch-name {
+    background: #111;
+    border: 1px solid #555;
+    color: #00ff88;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    width: 130px;
+}
+
+#patch-name:focus {
+    outline: none;
+    border-color: #00ff88;
+}
+
+/* Reached through the Import button, never directly. */
+#patch-file {
+    display: none;
+}
+
+#view-indicator {
+    font-size: 11px;
+    font-weight: bold;
+    color: #00ff88;
+    border: 1px solid #333;
+    border-radius: 3px;
+    padding: 3px 6px;
+}
+
+.key-hint {
+    font-size: 9px;
+    color: #666;
+}
+
+kbd {
+    background: #222;
+    border: 1px solid #555;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-family: inherit;
+    font-size: 9px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* === THEME TOKENS === */
+/* Colour is a token, never a literal — rad's contract requires it, because a
+   hex cannot survive a theme change and makes two implementations that agree
+   on meaning disagree on bytes. Intents carry token names like `color:signal`;
+   what they resolve to is the theme's business and lives here. */
+:root {
+    --rad-surface: #12140f;
+    --rad-surface-edge: #2f3a2b;
+    --rad-wedge: #1b2018;
+    --rad-wedge-hover: #24402f;
+    --rad-ink: #00ff88;
+    --rad-ink-dim: #6c7a68;
+    --rad-signal: #00ff88;
+    --rad-rear: #ff9f43;
+    --rad-danger: #ff6b6b;
+    --rad-hub: #0b0d09;
+}
+
+/* === PATCH BAR === */
+/* Not a menu. A name is a text field and a file input is a file input; neither
+   is expressible as a ring. */
+.patch-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 20px;
+    background: rgba(0, 0, 0, 0.94);
+    border-top: 1px solid var(--rad-surface-edge);
+}
+
+#patch-file {
+    display: none;
+}
+
+/* === RADIAL MENU === */
+.rad-layer {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 60;
+    pointer-events: none;
+}
+
+.rad-wedge {
+    fill: var(--rad-wedge);
+    stroke: var(--rad-surface-edge);
+    stroke-width: 1;
+    transition: fill 0.08s linear;
+}
+
+.rad-wedge.is-highlighted {
+    fill: var(--rad-wedge-hover);
+    stroke: var(--rad-ink);
+}
+
+.rad-wedge.is-destructive.is-highlighted {
+    stroke: var(--rad-danger);
+}
+
+.rad-wedge.is-disabled {
+    opacity: 0.35;
+}
+
+.rad-hub {
+    fill: var(--rad-hub);
+    stroke: var(--rad-surface-edge);
+    stroke-width: 1;
+}
+
+.rad-label {
+    fill: var(--rad-ink);
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+.rad-title {
+    fill: var(--rad-ink-dim);
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    text-anchor: middle;
+    pointer-events: none;
+}
+
+/* rad honours reduced motion: the menu still works, it just stops moving. */
+@media (prefers-reduced-motion: reduce) {
+    .rad-wedge {
+        transition: none;
+    }
+}
+
+/* === CABLES === */
+/* Every cable is drawn in every view. An end whose face is turned away is
+   anchored to its device's outline rather than dropped, so a lead can always be
+   followed to both of the devices it joins. */
+.cable {
+    pointer-events: none;
+}
+
+/* Part of this run is behind something. Still one continuous line. */
+.cable.is-occluded {
+    stroke-dasharray: 6 4;
+    opacity: 0.85;
+}
+
+/* Where a cable meets a device it enters out of sight. */
+.cable-anchor {
+    fill: var(--rad-hub, #0b0d09);
+    stroke: #8a6a3a;
+    stroke-width: 1.5;
+}
+
+/* Following one device: its cables come forward, the rest recede. Without this
+   a rack of any size is a plate of spaghetti. */
+svg.is-tracing .cable {
+    opacity: 0.18;
+}
+
+svg.is-tracing .cable.is-traced {
+    opacity: 1;
+    stroke-width: 3;
+}
+
+svg.is-tracing .cable-anchor {
+    opacity: 0.25;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cable {
+        transition: none;
+    }
+}
+
+/* === IRL PANEL === */
+/* The same device, drawn to its own proportions with its controls where they
+   sit. Abstract, not photographic: what has to be right is the arrangement. */
+.irl-panel {
+    position: relative;
+    width: 100%;
+    aspect-ratio: var(--aspect, 1);
+    min-height: 90px;
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.25)),
+        #16181a;
+    border: 1px solid #3a3f44;
+    border-radius: 4px;
+}
+
+.irl-panel.is-bare {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.irl-empty {
+    font-size: 9px;
+    color: #555;
+}
+
+.irl-knob,
+.irl-jack-slot {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+
+.irl-knob .knob-base {
+    width: calc(18px * var(--size, 1));
+    height: calc(18px * var(--size, 1));
+}
+
+.irl-knob-label {
+    display: block;
+    margin-top: 2px;
+    font-size: 6px;
+    color: #7c7c7c;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.irl-jack-slot .jack {
+    width: calc(11px * var(--size, 1));
+    height: calc(11px * var(--size, 1));
+}
+
+/* A device drawn as laid out needs room for its own proportions. */
+body[data-display-mode="irl"] .module {
+    min-width: 240px;
+    max-width: 420px;
+}
+
+/* === MIDI ACTIVITY === */
+/* A mapped message lights the device it belongs to. Transient: the binding is
+   state, the flash is not. */
+.module.is-active {
+    border-color: var(--rad-signal, #00ff88);
+    box-shadow: 0 0 calc(6px + 18px * var(--activity, 0.5))
+                rgba(0, 255, 136, calc(0.25 + 0.5 * var(--activity, 0.5)));
+}
+
+.jack.is-active {
+    background: radial-gradient(circle, #ffffff, var(--rad-signal, #00ff88));
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .module.is-active,
+    .jack.is-active {
+        transition: none;
+    }
+}

@@ -1,0 +1,23 @@
+{# The options drawer, the palette, the example picker and the row controls all
+   lived here. They are gone: menus are the radial menu, per rad's interaction
+   contract, and a second menu system would be a second answer to a question the
+   contract already settles. See docs/rad-integration.md.
+
+   What is left is not a menu. A patch name is a text field and a file input is
+   a file input; neither is expressible as a ring, and pretending otherwise
+   would be the deprecation eating something it was not meant to. #}
+<div class="patch-bar">
+  <label class="field-label" for="patch-name">Patch</label>
+  <input id="patch-name" type="text" value="Untitled Patch" spellcheck="false">
+
+  <label class="visually-hidden" for="patch-file">Patch file to import</label>
+  <input id="patch-file" type="file" accept=".json,application/json"
+         title="Patch file to import"
+         onchange="importPatch(this.files[0]); this.value = '';">
+
+  <span class="key-hint">
+    <kbd>Right-click</kbd> or <kbd>m</kbd> for the menu &middot;
+    long-press and release picks in one gesture &middot;
+    <kbd>Tab</kbd> turns &middot; <kbd>Esc</kbd> deselects
+  </span>
+</div>
