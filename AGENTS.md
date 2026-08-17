@@ -181,23 +181,45 @@ the project.
 uv sync
 ```
 
-## Run the dev server
+The governance corpus is a submodule at `governance/qm`. On a fresh clone,
+`git submodule update --init --recursive` before anything else — the CI gates
+run out of it, so without it they fail for a reason that has nothing to do with
+your change.
+
+## The development loop
+
+**Check, then run, then check again.**
 
 ```sh
-uv run python src/main.py
+uv run python -m unittest discover   # 1. check
+uv run python src/main.py            # 2. run, on http://localhost:8000
 ```
 
-Serves on `http://0.0.0.0:8000`. To pick the port explicitly:
+Use `uv run`. A bare `python -m unittest discover` fails with
+`ModuleNotFoundError: No module named 'fastapi'` — the system interpreter does
+not have the project's dependencies. Under `uv run`, `python -m unittest`
+without `discover` also works; `tests/__init__.py` makes the suite discoverable
+either way.
 
-```sh
-uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
-```
+| Changed | Needed |
+| --- | --- |
+| `src/*.py` | **restart the server yourself** — auto-reload does not work here |
+| `templates/**` | browser refresh — Jinja re-reads per request |
+| `static/**` | browser refresh — served from disk per request |
 
-Both forms are verified working. Run from the repository root — `Settings`
-resolves `data/db.json`, `templates/` and `static/` relative to the working
-directory, so starting from `src/` writes a second database at `src/data/`.
+**Do not trust the reload line.** uvicorn prints `StatReload detected changes
+... Reloading...` and then never starts the replacement process; the original
+child keeps the socket, so the code does not change and no further reload is
+detected. Both `python src/main.py` and `python -m uvicorn ... --reload` behave
+this way here.
 
-Check it is up:
+This is worth internalising beyond the symptom: an earlier session recorded
+reload as working because it saw that log line. Verifying the artifact — does
+the new route answer? — takes one more command and gives the opposite answer.
+The template and static rows above were established by fetching the changed
+bytes, which is why they survived the same scrutiny.
+
+Confirm it is up:
 
 ```sh
 curl -s http://127.0.0.1:8000/healthz
@@ -205,15 +227,53 @@ curl -s http://127.0.0.1:8000/healthz
 
 Expected: `{"ok":true,"app":"Carlos","version":"0.1.0"}`.
 
-## Tests
+**Run from the repository root.** `Settings` resolves `data/db.json`,
+`templates/` and `static/` against the working directory, so starting from
+`src/` silently writes a second database at `src/data/`.
+
+To choose the port, or to run without reload:
 
 ```sh
-uv run python -m unittest discover
+uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
 ```
 
-`uv run python -m unittest` (without `discover`) also works — `tests/__init__.py`
-makes the suite discoverable either way. Three smoke tests, no network, no
-`httpx` dependency, so `fastapi.testclient` is deliberately not used.
+## Tests
+
+207 tests, no network, no `httpx` — `fastapi.testclient` is deliberately unused
+so the suite has no dependency the project does not otherwise need.
+
+The `FrontendContractTests` are the ones to watch: they assert that
+`static/models.js` and `src/patch_format.py` still declare the same format and
+version. They are string assertions over the JS source, which is a weaker
+mechanism than a shared implementation — treat a failure there as real drift
+rather than a flaky test.
+
+## Governance gates
+
+```sh
+python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they
+```
+
+Runs the workflows' actual steps. Three gates fail today for reasons recorded in
+`GOVERNANCE.md` — `reuse-lint`, `submodule-check`, and `signature-check`.
+Anything else is yours.
+
+`signature-check` is the one to read carefully. Under the CI path it asks the
+forge about commits the forge has never seen and reports `E`, "could not be
+checked" — which is not the same as a bad signature. Verify locally, where the
+key exists:
+
+```sh
+python governance/qm/project-seed/ci/check_signatures.py \
+  --base-ref they --head-ref HEAD --source git
+```
+
+The runner cannot reproduce `uses:` steps, the runner image, or secrets, so a
+local pass is not a remote pass.
+
+Pass `--base-ref they` — this repository's default branch is `they`, not `main`,
+and the runner defaults to `main`, which fails two gates for a reason that is
+about the flag rather than the code.
 
 ## Conventions
 
@@ -223,6 +283,16 @@ makes the suite discoverable either way. Three smoke tests, no network, no
   rendered template. Do not reintroduce a CDN tag to save a vendoring step.
 - Templates live in `templates/`, partials in `templates/partials/`, browser
   assets in `static/`.
+- **The patch format is specified before it is implemented.** `docs/patch-format.md`
+  is the contract; `src/patch_format.py` and `static/models.js` are two
+  implementations of it. Changing one without the other is the drift the
+  `FrontendContractTests` in `tests/test_app.py` exist to catch.
+- **Derived state is not stored.** Knob rotation derives from the parameter
+  value; a jack's side derives from its module definition. Neither is written
+  into an exported document, because a second copy can only ever disagree with
+  the first.
+- Devices turn individually and in place. There is no rack-level view state —
+  what the rack appears to be showing is just what its devices are doing.
 
 ## Governance state
 

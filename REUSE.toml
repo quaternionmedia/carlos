@@ -1,0 +1,12 @@
+version = 1
+
+[[annotations]]
+path = [
+  ".gitignore",
+  ".python-version",
+  "uv.lock",
+  "data/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Quaternion Media"
+SPDX-License-Identifier = "MIT"

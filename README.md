@@ -1,34 +1,185 @@
-# carlos
+# Carlos
 
-<img width="571" height="421" alt="image" src="https://github.com/user-attachments/assets/0f390d78-3714-45da-993f-a98c8a197f76" />
+Carlos is a browser workspace for sketching rigs. Drop in devices from a
+catalogue of real gear — a Moog DFAM, a Squarp Hapax, an Allen & Heath Qu-24 —
+adjust their knobs, and patch cables between them on whichever face the sockets
+are actually on. Devices turn individually, so you can work on the back of one
+while the rest face forward, and gather into rows. A whole rig exports to and
+imports from a single versioned JSON document.
 
+Carlos is named for Wendy Carlos, whose work helped bring electronic music and
+synthesizers into wider public view.
 
-a browser tool for managing virtual synth patches. This tool allows users to create, edit, and manage patches for virtual synthesizers in a user-friendly web interface.
+## Status
 
-Carlos is named after the famous artist, Wendy Carlos, known for pioneering work in art, electronic music, and synthesizers.
+This repository is pre-release. The UI prototype is usable locally, but patch
+persistence and full patch management workflows are not complete yet.
 
-`Carlos` is built using Python and the `uv` framework, providing a simple and efficient way to manage synth patches without the need for complex installations or configurations. To run Carlos, you only need Python>3.8 and the `uv` framework installed on your system.
+## Requirements
 
-# Installation
+- Python 3.12 or newer
+- `uv`
+
+Clone with submodules — the governance corpus is vendored at `governance/qm`:
 
 ```bash
-gh repo clone https://github.com/quaternionmedia/carlos.git
-cd carlos
-uv run src/main.py
+git clone --recurse-submodules git@github.com:quaternionmedia/carlos.git
 ```
 
-# Usage
-Open the browser at `http://localhost:8000` to access the Carlos interface.
+On an existing clone: `git submodule update --init --recursive`.
 
-# Features
-- Create, edit, and delete synth patches
-- Save patches to a local database
-- Load patches from the database
-- View patch details including parameters and settings
-<!-- - Search for patches by name or tags -->
+## Development Loop
 
-# Contributing
-Contributions are welcome! Please fork the repository and submit a pull request with your changes.
+Check first, then run. The server stays up while you work.
 
-# Issues
-If you encounter any issues, please open an issue on the [GitHub repository](https://github.com/quaternionmedia/carlos).
+**1. Run the checks.**
+
+```bash
+uv run python -m unittest discover
+```
+
+`uv run` is required, not a convenience — the checks import FastAPI, and a bare
+`python -m unittest discover` fails with `ModuleNotFoundError: No module named
+'fastapi'` unless you have the project environment activated yourself.
+
+**2. Start the server.**
+
+```bash
+uv run python src/main.py
+```
+
+Open `http://localhost:8000`. It binds `0.0.0.0:8000`.
+
+**3. Edit.** What needs what, measured on Windows on 2026-08-17:
+
+| You changed | What to do |
+| --- | --- |
+| `src/*.py` | **Restart the server yourself.** Auto-reload does not work here — see below |
+| `templates/**` | Refresh the browser — Jinja re-reads the template per request |
+| `static/**` | Refresh the browser — files are served from disk each request |
+
+**Auto-reload is broken in this environment, and it fails misleadingly.**
+uvicorn logs `StatReload detected changes in 'src\main.py'. Reloading...` and
+then never starts the replacement process; the original keeps serving. So the
+log says it reloaded, the code did not change, and no further reload is ever
+detected. It behaves the same whether started via `src/main.py` or
+`python -m uvicorn ... --reload`.
+
+The failure is worth knowing about because the log line is not evidence. If you
+change a route and it 404s, restart before debugging the route.
+
+Front-end changes genuinely are a refresh away — that part was verified by
+fetching the changed bytes, not by reading a log line.
+
+**4. Re-run the checks before you call it done**, and see the frontend contract
+tests in particular — they are what catch `static/models.js` and
+`src/patch_format.py` drifting apart.
+
+To pick the port explicitly:
+
+```bash
+uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
+```
+
+## Current Features
+
+- Add devices from the catalogue, grouped by category
+- Adjust rendered knob values
+- Connect compatible input and output jacks
+- **Devices are n-sided, and each has only the sides its sockets are on.** A
+  DFAM has a front and a back; a K.O. II has a face and a top edge and no back
+  at all. Cables may run between any two sides. Losing track of a lead is part
+  of the instrument.
+- **Turn devices individually.** `Tab` turns the whole rack, `Shift`+`Tab` goes
+  back; click a device to select it and `Tab` turns just that one (`Esc`
+  deselects). Each module carries its own turn button, disabled when it has only
+  one side. A cable with one end out of sight is drawn as a dashed stub, so it
+  is visibly there rather than merely missing.
+- **Gather devices into rows.** Make a row, move the selected device into it, or
+  loosen it again. Deleting a row never deletes devices — a grouping is a way of
+  reading a rack, not a container the gear lives in. Rows are the first kind of
+  grouping; the format is shaped for more.
+- Hide the options drawer with `~`.
+- Randomize all module parameters
+- Export and import the whole rack as a `carlos.patch` document
+- Persist a local TinyDB file for future patch storage work
+
+## Device Catalogue
+
+Carlos ships a catalogue of real devices — an Allen & Heath Qu-24, a Focusrite
+Scarlett 2i2, a Squarp Hapax, a Nord Stage 3, a Teenage Engineering K.O. II, a
+Moog Subharmonicon and a Moog DFAM — alongside two generic Eurorack modules.
+Each carries its real sockets on whichever face they are actually on.
+
+**Adding a device is one JSON file and no code.** Entries live in
+`catalogue/devices/<id>.json` and become available in the palette, over the API,
+and to any application on the other side of the seam. Every device ships a
+simple and a complex worked example, loadable from the options drawer. See
+[docs/catalogue.md](docs/catalogue.md).
+
+Devices are addressed by a stable id — `moog.dfam`, `allen-heath.qu24` — which
+is the same string in a patch document, in an API route, and to a peer
+application.
+
+## Working With Other Applications
+
+Carlos is callable over REST + JSON with an OpenAPI description, and it can
+reshape what it sends with named transforms — a cable list, an inventory, a
+routing with the sound stripped out. Outbound calls to peer applications are
+specified and can be *planned*, showing exactly what would be sent, but this
+build does not send them. See [docs/interop.md](docs/interop.md) for the
+contract and for why it stops there.
+
+## MIDI and Display Modes
+
+Map MIDI activity onto the rack: bind a device to a channel, a note, a
+controller or the transport, and it lights when that arrives. Bindings are rack
+state and travel in the patch document; the flash is transient and never
+exported. No hardware needed to try it — the menu can inject a test message
+down the same path a real port uses.
+
+Two ways to draw the same rack: **minimal** (the abstract box every device
+shares) and **irl** (each device at its own panel proportions with controls
+where they actually sit — accurate, not photographic). Devices without a
+measured panel fall back to minimal rather than being held back.
+
+See [docs/midi-and-display.md](docs/midi-and-display.md).
+
+## Patch Interchange
+
+A rack exports to one versioned JSON document — its modules, which way each is
+facing, their parameter values, the cables between them, and how they are
+grouped into rows. The format is specified in
+[docs/patch-format.md](docs/patch-format.md) and implemented on both sides of
+the seam: `static/models.js` writes and reads it in the browser, and
+`src/patch_format.py` validates it on the server.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/patch/format` | The format name and the version this build writes |
+| `POST /api/patch/validate` | Validate a document; `422` names what is wrong |
+
+Validation stores nothing. Persisting *named* patches is a separate decision,
+blocked on the datastore question in [GOVERNANCE.md](GOVERNANCE.md).
+
+## Planned Work
+
+- Save and load named patches
+- Delete patches
+- Panel layouts for the devices that still fall back to minimal
+- Add more module definitions
+- Preserve device positions within a row (a version 4 change)
+- More grouping kinds: cases, channel strips, stage positions
+- Settle the motion library. `static/anime-shim.js` is a 25-line local stand-in
+  covering the three properties this app animates, not the vendored `anime.js`
+  the QM house-stack record names. Either vendor the real library or record the
+  shim as a decision — see [GOVERNANCE.md](GOVERNANCE.md).
+
+## Governance
+
+Carlos is intended to adopt the Quaternion Media governance corpus. The local
+status and adoption checklist live in [GOVERNANCE.md](GOVERNANCE.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
