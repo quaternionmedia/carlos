@@ -1,0 +1,101 @@
+{
+  "id": "carlos.vco",
+  "maker": "Carlos",
+  "model": "VCO",
+  "category": "eurorack",
+  "summary": "A generic voltage-controlled oscillator. Not a real product: the neutral module the workspace starts with, and the smallest example of a catalogue entry.",
+  "fidelity": "sketch",
+  "jacks": [
+    {
+      "name": "cv_in",
+      "label": "CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "audio_out",
+      "label": "OUT",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "sync_in",
+      "label": "SYNC",
+      "type": "input",
+      "signal": "gate",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "sub_out",
+      "label": "SUB",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "3.5mm"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "frequency",
+      "label": "FREQ",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "fine",
+      "label": "FINE",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    }
+  ],
+  "layout": {
+    "aspect": 0.38,
+    "controls": {
+      "frequency": {
+        "x": 0.5,
+        "y": 0.16,
+        "side": "front",
+        "size": 1.2
+      },
+      "fine": {
+        "x": 0.5,
+        "y": 0.36,
+        "side": "front",
+        "size": 1.2
+      }
+    },
+    "jacks": {
+      "cv_in": {
+        "x": 0.5,
+        "y": 0.62,
+        "side": "front",
+        "size": 1.0
+      },
+      "audio_out": {
+        "x": 0.5,
+        "y": 0.86,
+        "side": "front",
+        "size": 1.0
+      },
+      "sync_in": {
+        "x": 0.5,
+        "y": 0.62,
+        "side": "back",
+        "size": 1.0
+      },
+      "sub_out": {
+        "x": 0.5,
+        "y": 0.86,
+        "side": "back",
+        "size": 1.0
+      }
+    }
+  }
+}

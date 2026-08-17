@@ -1,0 +1,20 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "Subharmonicon alone, two subharmonics ringing",
+  "modules": [
+    {
+      "id": "sub",
+      "type": "moog.subharmonicon",
+      "view": "front",
+      "parameters": {
+        "vco1_freq": 45,
+        "vco1_sub1_div": 3,
+        "vco1_sub2_div": 5,
+        "cutoff": 70
+      }
+    }
+  ],
+  "connections": [],
+  "groups": []
+}

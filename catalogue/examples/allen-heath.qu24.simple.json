@@ -1,0 +1,19 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "Two microphones and a stereo pair of outputs",
+  "modules": [
+    {
+      "id": "desk",
+      "type": "allen-heath.qu24",
+      "view": "back",
+      "parameters": {
+        "ch1_gain": 60,
+        "ch1_fader": 95,
+        "ch2_fader": 95
+      }
+    }
+  ],
+  "connections": [],
+  "groups": []
+}

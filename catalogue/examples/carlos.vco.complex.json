@@ -1,0 +1,47 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "Oscillator into filter, filter env back to sync",
+  "modules": [
+    {
+      "id": "vco",
+      "type": "carlos.vco",
+      "view": "back",
+      "parameters": {
+        "frequency": 80
+      }
+    },
+    {
+      "id": "vcf",
+      "type": "carlos.vcf",
+      "view": "front",
+      "parameters": {
+        "cutoff": 45,
+        "resonance": 88
+      }
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "vco",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "vcf",
+        "jack": "audio_in"
+      }
+    },
+    {
+      "source": {
+        "module": "vcf",
+        "jack": "env_out"
+      },
+      "target": {
+        "module": "vco",
+        "jack": "sync_in"
+      }
+    }
+  ],
+  "groups": []
+}

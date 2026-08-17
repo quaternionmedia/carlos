@@ -1,0 +1,15 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "One oscillator",
+  "modules": [
+    {
+      "id": "vco",
+      "type": "carlos.vco",
+      "view": "front",
+      "parameters": {}
+    }
+  ],
+  "connections": [],
+  "groups": []
+}

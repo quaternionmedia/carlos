@@ -1,0 +1,33 @@
+{
+  "id": "squarp.hapax",
+  "maker": "Squarp Instruments",
+  "model": "Hapax",
+  "category": "sequencer",
+  "summary": "A two-project hardware sequencer with eight tracks per project, driving MIDI and CV/gate at once. Its output is time: notes, gates and clock. All connections are on the rear.",
+  "fidelity": "detailed",
+  "jacks": [
+    { "name": "midi_a_in", "label": "MIDI A IN", "type": "input", "signal": "midi", "side": "back", "connector": "DIN-5" },
+    { "name": "midi_a_out", "label": "MIDI A OUT", "type": "output", "signal": "midi", "side": "back", "connector": "DIN-5" },
+    { "name": "midi_b_in", "label": "MIDI B IN", "type": "input", "signal": "midi", "side": "back", "connector": "DIN-5" },
+    { "name": "midi_b_out", "label": "MIDI B OUT", "type": "output", "signal": "midi", "side": "back", "connector": "DIN-5" },
+    { "name": "usb_device", "label": "USB DEVICE", "type": "input", "signal": "usb", "side": "back", "connector": "USB-B", "note": "To a computer." },
+    { "name": "usb_host", "label": "USB HOST", "type": "output", "signal": "usb", "side": "back", "connector": "USB-A", "note": "To class-compliant MIDI gear." },
+
+    { "name": "cv_out_1", "label": "CV 1", "type": "output", "signal": "cv", "side": "back", "connector": "3.5mm" },
+    { "name": "cv_out_2", "label": "CV 2", "type": "output", "signal": "cv", "side": "back", "connector": "3.5mm" },
+    { "name": "cv_out_3", "label": "CV 3", "type": "output", "signal": "cv", "side": "back", "connector": "3.5mm" },
+    { "name": "cv_out_4", "label": "CV 4", "type": "output", "signal": "cv", "side": "back", "connector": "3.5mm" },
+    { "name": "gate_out_1", "label": "GATE 1", "type": "output", "signal": "gate", "side": "back", "connector": "3.5mm" },
+    { "name": "gate_out_2", "label": "GATE 2", "type": "output", "signal": "gate", "side": "back", "connector": "3.5mm" },
+    { "name": "gate_out_3", "label": "GATE 3", "type": "output", "signal": "gate", "side": "back", "connector": "3.5mm" },
+    { "name": "gate_out_4", "label": "GATE 4", "type": "output", "signal": "gate", "side": "back", "connector": "3.5mm" },
+
+    { "name": "clock_in", "label": "CLOCK IN", "type": "input", "signal": "clock", "side": "back", "connector": "3.5mm" },
+    { "name": "clock_out", "label": "CLOCK OUT", "type": "output", "signal": "clock", "side": "back", "connector": "3.5mm" }
+  ],
+  "parameters": [
+    { "name": "tempo", "label": "BPM", "min": 10, "max": 400, "default": 120, "unit": "bpm" },
+    { "name": "swing", "label": "SWING", "min": 0, "max": 100, "default": 50, "unit": "%" },
+    { "name": "gate_length", "label": "GATE LEN", "min": 0, "max": 127, "default": 64 }
+  ]
+}

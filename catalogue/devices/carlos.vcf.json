@@ -1,0 +1,101 @@
+{
+  "id": "carlos.vcf",
+  "maker": "Carlos",
+  "model": "VCF",
+  "category": "eurorack",
+  "summary": "A generic voltage-controlled filter. Not a real product: the neutral module the workspace starts with, paired with carlos.vco.",
+  "fidelity": "sketch",
+  "jacks": [
+    {
+      "name": "audio_in",
+      "label": "IN",
+      "type": "input",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "audio_out",
+      "label": "OUT",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "cutoff_cv_in",
+      "label": "CUTOFF CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "env_out",
+      "label": "ENV",
+      "type": "output",
+      "signal": "cv",
+      "side": "back",
+      "connector": "3.5mm"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "cutoff",
+      "label": "CUTOFF",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "resonance",
+      "label": "RES",
+      "min": 0,
+      "max": 127,
+      "default": 32
+    }
+  ],
+  "layout": {
+    "aspect": 0.38,
+    "controls": {
+      "cutoff": {
+        "x": 0.5,
+        "y": 0.16,
+        "side": "front",
+        "size": 1.2
+      },
+      "resonance": {
+        "x": 0.5,
+        "y": 0.36,
+        "side": "front",
+        "size": 1.2
+      }
+    },
+    "jacks": {
+      "audio_in": {
+        "x": 0.5,
+        "y": 0.62,
+        "side": "front",
+        "size": 1.0
+      },
+      "audio_out": {
+        "x": 0.5,
+        "y": 0.86,
+        "side": "front",
+        "size": 1.0
+      },
+      "cutoff_cv_in": {
+        "x": 0.5,
+        "y": 0.62,
+        "side": "back",
+        "size": 1.0
+      },
+      "env_out": {
+        "x": 0.5,
+        "y": 0.86,
+        "side": "back",
+        "size": 1.0
+      }
+    }
+  }
+}

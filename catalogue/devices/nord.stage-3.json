@@ -1,0 +1,31 @@
+{
+  "id": "nord.stage-3",
+  "maker": "Nord",
+  "model": "Stage 3",
+  "category": "keyboard",
+  "summary": "A stage keyboard combining three independent sections — organ, piano and synth — playable as layers or splits. Everything connects on the rear apart from the pedals underneath it.",
+  "fidelity": "detailed",
+  "jacks": [
+    { "name": "out_l", "label": "OUT L", "type": "output", "signal": "audio", "side": "back", "connector": "1/4in" },
+    { "name": "out_r", "label": "OUT R", "type": "output", "signal": "audio", "side": "back", "connector": "1/4in" },
+    { "name": "monitor_in", "label": "MONITOR IN", "type": "input", "signal": "audio", "side": "back", "connector": "3.5mm", "note": "Mixes a phone or player into the headphones." },
+    { "name": "phones_out", "label": "PHONES", "type": "output", "signal": "audio", "side": "back", "connector": "1/4in" },
+
+    { "name": "midi_in", "label": "MIDI IN", "type": "input", "signal": "midi", "side": "back", "connector": "DIN-5" },
+    { "name": "midi_out", "label": "MIDI OUT", "type": "output", "signal": "midi", "side": "back", "connector": "DIN-5" },
+    { "name": "usb", "label": "USB", "type": "output", "signal": "usb", "side": "back", "connector": "USB-B", "note": "MIDI over USB to a computer." },
+
+    { "name": "sustain_pedal", "label": "SUSTAIN", "type": "input", "signal": "gate", "side": "back", "connector": "1/4in" },
+    { "name": "control_pedal", "label": "CONTROL", "type": "input", "signal": "cv", "side": "back", "connector": "1/4in", "note": "Expression pedal." },
+    { "name": "rotor_pedal", "label": "ROTOR", "type": "input", "signal": "gate", "side": "back", "connector": "1/4in", "note": "Switches the rotary speaker speed." },
+    { "name": "organ_swell", "label": "ORGAN SWELL", "type": "input", "signal": "cv", "side": "back", "connector": "1/4in" }
+  ],
+  "parameters": [
+    { "name": "master_level", "label": "MASTER", "min": 0, "max": 127, "default": 90 },
+    { "name": "organ_level", "label": "ORGAN", "min": 0, "max": 127, "default": 70 },
+    { "name": "piano_level", "label": "PIANO", "min": 0, "max": 127, "default": 90 },
+    { "name": "synth_level", "label": "SYNTH", "min": 0, "max": 127, "default": 60 },
+    { "name": "rotary_speed", "label": "ROTARY", "min": 0, "max": 127, "default": 20 },
+    { "name": "reverb_amount", "label": "REVERB", "min": 0, "max": 127, "default": 40 }
+  ]
+}

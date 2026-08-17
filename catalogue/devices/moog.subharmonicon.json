@@ -1,0 +1,500 @@
+{
+  "id": "moog.subharmonicon",
+  "maker": "Moog",
+  "model": "Subharmonicon",
+  "category": "semi-modular",
+  "summary": "A semi-modular polyrhythmic analogue synthesiser: two VCOs each with two subharmonic oscillators, two 4-step sequencers, four rhythm generators, and a 32-point patch bay. Normalled, so it plays without patching. This entry sketches the patch bay rather than reproducing all 32 points.",
+  "fidelity": "sketch",
+  "jacks": [
+    {
+      "name": "vco1_cv_in",
+      "label": "VCO 1 CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco2_cv_in",
+      "label": "VCO 2 CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vcf_cutoff_in",
+      "label": "VCF CUTOFF",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vca_cv_in",
+      "label": "VCA CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vca_audio_in",
+      "label": "VCA IN",
+      "type": "input",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "eg_vca_trig_in",
+      "label": "VCA EG TRIG",
+      "type": "input",
+      "signal": "gate",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "eg_vcf_trig_in",
+      "label": "VCF EG TRIG",
+      "type": "input",
+      "signal": "gate",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "clock_in",
+      "label": "CLOCK IN",
+      "type": "input",
+      "signal": "clock",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "run_in",
+      "label": "RUN",
+      "type": "input",
+      "signal": "gate",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "reset_in",
+      "label": "RESET",
+      "type": "input",
+      "signal": "gate",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco1_out",
+      "label": "VCO 1",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco2_out",
+      "label": "VCO 2",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco1_sub1_out",
+      "label": "VCO 1 SUB 1",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco1_sub2_out",
+      "label": "VCO 1 SUB 2",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco2_sub1_out",
+      "label": "VCO 2 SUB 1",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco2_sub2_out",
+      "label": "VCO 2 SUB 2",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vcf_out",
+      "label": "VCF",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vca_out",
+      "label": "VCA",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vca_eg_out",
+      "label": "VCA EG",
+      "type": "output",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vcf_eg_out",
+      "label": "VCF EG",
+      "type": "output",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "seq1_out",
+      "label": "SEQ 1 CV",
+      "type": "output",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "seq2_out",
+      "label": "SEQ 2 CV",
+      "type": "output",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "clock_out",
+      "label": "CLOCK OUT",
+      "type": "output",
+      "signal": "clock",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "audio_out",
+      "label": "AUDIO OUT",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "1/4in"
+    },
+    {
+      "name": "phones_out",
+      "label": "PHONES",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "1/4in"
+    },
+    {
+      "name": "midi_in",
+      "label": "MIDI IN",
+      "type": "input",
+      "signal": "midi",
+      "side": "back",
+      "connector": "DIN-5"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "vco1_freq",
+      "label": "VCO 1 FREQ",
+      "min": 0,
+      "max": 127,
+      "default": 50
+    },
+    {
+      "name": "vco2_freq",
+      "label": "VCO 2 FREQ",
+      "min": 0,
+      "max": 127,
+      "default": 62
+    },
+    {
+      "name": "vco1_sub1_div",
+      "label": "SUB 1 DIV",
+      "min": 1,
+      "max": 16,
+      "default": 2
+    },
+    {
+      "name": "vco1_sub2_div",
+      "label": "SUB 2 DIV",
+      "min": 1,
+      "max": 16,
+      "default": 3
+    },
+    {
+      "name": "cutoff",
+      "label": "CUTOFF",
+      "min": 0,
+      "max": 127,
+      "default": 85
+    },
+    {
+      "name": "resonance",
+      "label": "RESONANCE",
+      "min": 0,
+      "max": 127,
+      "default": 40
+    },
+    {
+      "name": "tempo",
+      "label": "TEMPO",
+      "min": 0,
+      "max": 127,
+      "default": 60
+    },
+    {
+      "name": "rhythm1_div",
+      "label": "RHYTHM 1",
+      "min": 1,
+      "max": 16,
+      "default": 4
+    },
+    {
+      "name": "rhythm2_div",
+      "label": "RHYTHM 2",
+      "min": 1,
+      "max": 16,
+      "default": 3
+    }
+  ],
+  "layout": {
+    "aspect": 2.3,
+    "controls": {
+      "vco1_freq": {
+        "x": 0.07,
+        "y": 0.14,
+        "side": "front",
+        "size": 1.1
+      },
+      "vco2_freq": {
+        "x": 0.245,
+        "y": 0.14,
+        "side": "front",
+        "size": 1.1
+      },
+      "vco1_sub1_div": {
+        "x": 0.42,
+        "y": 0.14,
+        "side": "front",
+        "size": 1.1
+      },
+      "vco1_sub2_div": {
+        "x": 0.07,
+        "y": 0.29,
+        "side": "front",
+        "size": 1.1
+      },
+      "cutoff": {
+        "x": 0.245,
+        "y": 0.29,
+        "side": "front",
+        "size": 1.1
+      },
+      "resonance": {
+        "x": 0.42,
+        "y": 0.29,
+        "side": "front",
+        "size": 1.1
+      },
+      "tempo": {
+        "x": 0.07,
+        "y": 0.44,
+        "side": "front",
+        "size": 1.1
+      },
+      "rhythm1_div": {
+        "x": 0.245,
+        "y": 0.44,
+        "side": "front",
+        "size": 1.1
+      },
+      "rhythm2_div": {
+        "x": 0.42,
+        "y": 0.44,
+        "side": "front",
+        "size": 1.1
+      }
+    },
+    "jacks": {
+      "vco1_cv_in": {
+        "x": 0.56,
+        "y": 0.1,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco2_cv_in": {
+        "x": 0.6575,
+        "y": 0.1,
+        "side": "front",
+        "size": 1.0
+      },
+      "vcf_cutoff_in": {
+        "x": 0.755,
+        "y": 0.1,
+        "side": "front",
+        "size": 1.0
+      },
+      "vca_cv_in": {
+        "x": 0.8525,
+        "y": 0.1,
+        "side": "front",
+        "size": 1.0
+      },
+      "vca_audio_in": {
+        "x": 0.95,
+        "y": 0.1,
+        "side": "front",
+        "size": 1.0
+      },
+      "eg_vca_trig_in": {
+        "x": 0.56,
+        "y": 0.275,
+        "side": "front",
+        "size": 1.0
+      },
+      "eg_vcf_trig_in": {
+        "x": 0.6575,
+        "y": 0.275,
+        "side": "front",
+        "size": 1.0
+      },
+      "clock_in": {
+        "x": 0.755,
+        "y": 0.275,
+        "side": "front",
+        "size": 1.0
+      },
+      "run_in": {
+        "x": 0.8525,
+        "y": 0.275,
+        "side": "front",
+        "size": 1.0
+      },
+      "reset_in": {
+        "x": 0.95,
+        "y": 0.275,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco1_out": {
+        "x": 0.56,
+        "y": 0.45,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco2_out": {
+        "x": 0.6575,
+        "y": 0.45,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco1_sub1_out": {
+        "x": 0.755,
+        "y": 0.45,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco1_sub2_out": {
+        "x": 0.8525,
+        "y": 0.45,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco2_sub1_out": {
+        "x": 0.95,
+        "y": 0.45,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco2_sub2_out": {
+        "x": 0.56,
+        "y": 0.625,
+        "side": "front",
+        "size": 1.0
+      },
+      "vcf_out": {
+        "x": 0.6575,
+        "y": 0.625,
+        "side": "front",
+        "size": 1.0
+      },
+      "vca_out": {
+        "x": 0.755,
+        "y": 0.625,
+        "side": "front",
+        "size": 1.0
+      },
+      "vca_eg_out": {
+        "x": 0.8525,
+        "y": 0.625,
+        "side": "front",
+        "size": 1.0
+      },
+      "vcf_eg_out": {
+        "x": 0.95,
+        "y": 0.625,
+        "side": "front",
+        "size": 1.0
+      },
+      "seq1_out": {
+        "x": 0.56,
+        "y": 0.8,
+        "side": "front",
+        "size": 1.0
+      },
+      "seq2_out": {
+        "x": 0.6575,
+        "y": 0.8,
+        "side": "front",
+        "size": 1.0
+      },
+      "clock_out": {
+        "x": 0.755,
+        "y": 0.8,
+        "side": "front",
+        "size": 1.0
+      },
+      "audio_out": {
+        "x": 0.2,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "phones_out": {
+        "x": 0.5,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "midi_in": {
+        "x": 0.8,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      }
+    }
+  }
+}

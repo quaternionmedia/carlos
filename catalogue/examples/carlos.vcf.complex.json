@@ -1,0 +1,74 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "Two filters in series, second opened by the first",
+  "modules": [
+    {
+      "id": "vco",
+      "type": "carlos.vco",
+      "view": "front",
+      "parameters": {}
+    },
+    {
+      "id": "vcf_a",
+      "type": "carlos.vcf",
+      "view": "front",
+      "parameters": {
+        "cutoff": 30
+      }
+    },
+    {
+      "id": "vcf_b",
+      "type": "carlos.vcf",
+      "view": "back",
+      "parameters": {
+        "cutoff": 100,
+        "resonance": 20
+      }
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "vco",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "vcf_a",
+        "jack": "audio_in"
+      }
+    },
+    {
+      "source": {
+        "module": "vcf_a",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "vcf_b",
+        "jack": "audio_in"
+      }
+    },
+    {
+      "source": {
+        "module": "vcf_a",
+        "jack": "env_out"
+      },
+      "target": {
+        "module": "vcf_b",
+        "jack": "cutoff_cv_in"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "row-instruments",
+      "kind": "row",
+      "label": "Instruments",
+      "members": [
+        "vco",
+        "vcf_a",
+        "vcf_b"
+      ]
+    }
+  ]
+}

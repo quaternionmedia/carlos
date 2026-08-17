@@ -1,0 +1,75 @@
+{
+  "//": "Peer applications Carlos may call, and what each call does to the world.",
+  "//policy": [
+    "No addresses here. Each peer names an environment variable that holds its",
+    "base URL, so this file is identical on every machine and a peer nobody has",
+    "configured reports as unresolved rather than being guessed at.",
+    "side_effect is required per endpoint and is a reviewed fact, not a comment:",
+    "none = a read, persists = writes to existing state, creates = makes something.",
+    "These entries are stubs describing intended integrations. Nothing here sends",
+    "a request in this build - see src/interop.py."
+  ],
+  "peers": [
+    {
+      "id": "patch-archive",
+      "description": "A store that keeps named patches. The persistence Carlos deliberately does not implement itself while the datastore question is open.",
+      "base_url_env": "CARLOS_PEER_PATCH_ARCHIVE",
+      "endpoints": [
+        {
+          "name": "publish",
+          "method": "POST",
+          "path": "/patches",
+          "side_effect": "creates",
+          "transform": "identity",
+          "description": "Deposit a whole patch document as it stands."
+        },
+        {
+          "name": "index",
+          "method": "POST",
+          "path": "/patches/index",
+          "side_effect": "persists",
+          "transform": "summary",
+          "description": "Update a searchable index with counts only, no topology."
+        }
+      ]
+    },
+    {
+      "id": "stage-plot",
+      "description": "A tool that draws stage and rack diagrams. Wants the routing, not the sound.",
+      "base_url_env": "CARLOS_PEER_STAGE_PLOT",
+      "endpoints": [
+        {
+          "name": "render",
+          "method": "POST",
+          "path": "/plots",
+          "side_effect": "creates",
+          "transform": "patchbay",
+          "description": "One readable line per cable, which is what a plot is."
+        }
+      ]
+    },
+    {
+      "id": "gear-inventory",
+      "description": "An inventory that tracks which devices a rig calls for.",
+      "base_url_env": "CARLOS_PEER_GEAR_INVENTORY",
+      "endpoints": [
+        {
+          "name": "reconcile",
+          "method": "POST",
+          "path": "/rigs/reconcile",
+          "side_effect": "persists",
+          "transform": "inventory",
+          "description": "Distinct devices by catalogue id, so the other side can match on the same addressing scheme."
+        },
+        {
+          "name": "check",
+          "method": "POST",
+          "path": "/rigs/check",
+          "side_effect": "none",
+          "transform": "inventory",
+          "description": "Ask what is missing without changing anything."
+        }
+      ]
+    }
+  ]
+}

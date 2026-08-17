@@ -1,0 +1,446 @@
+{
+  "id": "moog.dfam",
+  "maker": "Moog",
+  "model": "DFAM",
+  "category": "semi-modular",
+  "summary": "Drummer From Another Mother: a semi-modular percussion synthesiser with two oscillators, a noise source, two 8-step sequencers for pitch and velocity, and a 24-point patch bay. Normalled, so it makes sound with nothing patched. This entry sketches the patch bay rather than reproducing all 24 points.",
+  "fidelity": "sketch",
+  "jacks": [
+    {
+      "name": "trigger_in",
+      "label": "TRIGGER",
+      "type": "input",
+      "signal": "gate",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vca_cv_in",
+      "label": "VCA CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "velocity_in",
+      "label": "VELOCITY",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vca_decay_in",
+      "label": "VCA DECAY",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vcf_decay_in",
+      "label": "VCF DECAY",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vcf_cutoff_in",
+      "label": "VCF CUTOFF",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco1_cv_in",
+      "label": "VCO 1 CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco2_cv_in",
+      "label": "VCO 2 CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "ext_audio_in",
+      "label": "EXT AUDIO",
+      "type": "input",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "tempo_in",
+      "label": "TEMPO",
+      "type": "input",
+      "signal": "clock",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "run_stop_in",
+      "label": "RUN/STOP",
+      "type": "input",
+      "signal": "gate",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "adv_clock_in",
+      "label": "ADV/CLOCK",
+      "type": "input",
+      "signal": "clock",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vca_out",
+      "label": "VCA",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vcf_out",
+      "label": "VCF",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco1_out",
+      "label": "VCO 1",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vco2_out",
+      "label": "VCO 2",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "noise_out",
+      "label": "NOISE",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vca_eg_out",
+      "label": "VCA EG",
+      "type": "output",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "vcf_eg_out",
+      "label": "VCF EG",
+      "type": "output",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "trigger_out",
+      "label": "TRIGGER OUT",
+      "type": "output",
+      "signal": "gate",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "velocity_out",
+      "label": "VELOCITY OUT",
+      "type": "output",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "pitch_out",
+      "label": "PITCH",
+      "type": "output",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "audio_out",
+      "label": "AUDIO OUT",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "1/4in",
+      "note": "Main output. DFAM carries no MIDI."
+    }
+  ],
+  "parameters": [
+    {
+      "name": "tempo",
+      "label": "TEMPO",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "vco1_freq",
+      "label": "VCO 1 FREQ",
+      "min": 0,
+      "max": 127,
+      "default": 40
+    },
+    {
+      "name": "vco2_freq",
+      "label": "VCO 2 FREQ",
+      "min": 0,
+      "max": 127,
+      "default": 70
+    },
+    {
+      "name": "noise_level",
+      "label": "NOISE",
+      "min": 0,
+      "max": 127,
+      "default": 20
+    },
+    {
+      "name": "vcf_cutoff",
+      "label": "CUTOFF",
+      "min": 0,
+      "max": 127,
+      "default": 80
+    },
+    {
+      "name": "vcf_resonance",
+      "label": "RESONANCE",
+      "min": 0,
+      "max": 127,
+      "default": 30
+    },
+    {
+      "name": "vca_decay",
+      "label": "VCA DECAY",
+      "min": 0,
+      "max": 127,
+      "default": 25
+    },
+    {
+      "name": "vcf_decay",
+      "label": "VCF DECAY",
+      "min": 0,
+      "max": 127,
+      "default": 35
+    }
+  ],
+  "layout": {
+    "aspect": 2.3,
+    "controls": {
+      "tempo": {
+        "x": 0.07,
+        "y": 0.16,
+        "side": "front",
+        "size": 1.1
+      },
+      "vco1_freq": {
+        "x": 0.1867,
+        "y": 0.16,
+        "side": "front",
+        "size": 1.1
+      },
+      "vco2_freq": {
+        "x": 0.3033,
+        "y": 0.16,
+        "side": "front",
+        "size": 1.1
+      },
+      "noise_level": {
+        "x": 0.42,
+        "y": 0.16,
+        "side": "front",
+        "size": 1.1
+      },
+      "vcf_cutoff": {
+        "x": 0.07,
+        "y": 0.4,
+        "side": "front",
+        "size": 1.1
+      },
+      "vcf_resonance": {
+        "x": 0.1867,
+        "y": 0.4,
+        "side": "front",
+        "size": 1.1
+      },
+      "vca_decay": {
+        "x": 0.3033,
+        "y": 0.4,
+        "side": "front",
+        "size": 1.1
+      },
+      "vcf_decay": {
+        "x": 0.42,
+        "y": 0.4,
+        "side": "front",
+        "size": 1.1
+      }
+    },
+    "jacks": {
+      "trigger_in": {
+        "x": 0.58,
+        "y": 0.1,
+        "side": "front",
+        "size": 1.0
+      },
+      "vca_cv_in": {
+        "x": 0.7,
+        "y": 0.1,
+        "side": "front",
+        "size": 1.0
+      },
+      "velocity_in": {
+        "x": 0.82,
+        "y": 0.1,
+        "side": "front",
+        "size": 1.0
+      },
+      "vca_decay_in": {
+        "x": 0.94,
+        "y": 0.1,
+        "side": "front",
+        "size": 1.0
+      },
+      "vcf_decay_in": {
+        "x": 0.58,
+        "y": 0.236,
+        "side": "front",
+        "size": 1.0
+      },
+      "vcf_cutoff_in": {
+        "x": 0.7,
+        "y": 0.236,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco1_cv_in": {
+        "x": 0.82,
+        "y": 0.236,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco2_cv_in": {
+        "x": 0.94,
+        "y": 0.236,
+        "side": "front",
+        "size": 1.0
+      },
+      "ext_audio_in": {
+        "x": 0.58,
+        "y": 0.372,
+        "side": "front",
+        "size": 1.0
+      },
+      "tempo_in": {
+        "x": 0.7,
+        "y": 0.372,
+        "side": "front",
+        "size": 1.0
+      },
+      "run_stop_in": {
+        "x": 0.82,
+        "y": 0.372,
+        "side": "front",
+        "size": 1.0
+      },
+      "adv_clock_in": {
+        "x": 0.94,
+        "y": 0.372,
+        "side": "front",
+        "size": 1.0
+      },
+      "vca_out": {
+        "x": 0.58,
+        "y": 0.508,
+        "side": "front",
+        "size": 1.0
+      },
+      "vcf_out": {
+        "x": 0.7,
+        "y": 0.508,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco1_out": {
+        "x": 0.82,
+        "y": 0.508,
+        "side": "front",
+        "size": 1.0
+      },
+      "vco2_out": {
+        "x": 0.94,
+        "y": 0.508,
+        "side": "front",
+        "size": 1.0
+      },
+      "noise_out": {
+        "x": 0.58,
+        "y": 0.644,
+        "side": "front",
+        "size": 1.0
+      },
+      "vca_eg_out": {
+        "x": 0.7,
+        "y": 0.644,
+        "side": "front",
+        "size": 1.0
+      },
+      "vcf_eg_out": {
+        "x": 0.82,
+        "y": 0.644,
+        "side": "front",
+        "size": 1.0
+      },
+      "trigger_out": {
+        "x": 0.94,
+        "y": 0.644,
+        "side": "front",
+        "size": 1.0
+      },
+      "velocity_out": {
+        "x": 0.58,
+        "y": 0.78,
+        "side": "front",
+        "size": 1.0
+      },
+      "pitch_out": {
+        "x": 0.7,
+        "y": 0.78,
+        "side": "front",
+        "size": 1.0
+      },
+      "audio_out": {
+        "x": 0.5,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      }
+    }
+  }
+}

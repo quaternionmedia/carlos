@@ -1,0 +1,22 @@
+{
+  "id": "teenage-engineering.ep-133",
+  "maker": "Teenage Engineering",
+  "model": "EP-133 K.O. II",
+  "category": "sampler",
+  "summary": "A pocket sampler and composer with a built-in microphone, twelve pads across nine groups, and a punch-in effects section. Every socket is along its top edge, so it has a face you play and a top you patch, and no back at all.",
+  "fidelity": "detailed",
+  "jacks": [
+    { "name": "line_in", "label": "LINE IN", "type": "input", "signal": "audio", "side": "top", "connector": "3.5mm", "note": "Stereo. Sampling source alongside the internal mic." },
+    { "name": "line_out", "label": "LINE OUT", "type": "output", "signal": "audio", "side": "top", "connector": "3.5mm", "note": "Doubles as the headphone output." },
+    { "name": "sync_in", "label": "SYNC IN", "type": "input", "signal": "clock", "side": "top", "connector": "3.5mm" },
+    { "name": "sync_out", "label": "SYNC OUT", "type": "output", "signal": "clock", "side": "top", "connector": "3.5mm" },
+    { "name": "usb_c", "label": "USB-C", "type": "output", "signal": "usb", "side": "top", "connector": "USB-C", "note": "Charging, MIDI and sample transfer." }
+  ],
+  "parameters": [
+    { "name": "tempo", "label": "BPM", "min": 40, "max": 200, "default": 120, "unit": "bpm" },
+    { "name": "main_level", "label": "MAIN", "min": 0, "max": 127, "default": 85 },
+    { "name": "swing", "label": "SWING", "min": 0, "max": 100, "default": 50, "unit": "%" },
+    { "name": "fx_amount", "label": "FX", "min": 0, "max": 127, "default": 0 },
+    { "name": "filter", "label": "FILTER", "min": 0, "max": 127, "default": 64 }
+  ]
+}

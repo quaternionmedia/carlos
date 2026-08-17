@@ -1,0 +1,356 @@
+{
+  "id": "allen-heath.qu24",
+  "maker": "Allen & Heath",
+  "model": "Qu-24",
+  "category": "mixer",
+  "summary": "A 24-channel digital mixing console with motorised faders, onboard processing, and a 32x32 USB audio interface. The full desk carries 24 mono mic/line inputs and three stereo inputs; this entry sketches the first four mic channels and models the routing and interface connections in full.",
+  "fidelity": "sketch",
+  "jacks": [
+    {
+      "name": "phones_out",
+      "label": "PHONES",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "1/4in"
+    },
+    {
+      "name": "talkback_in",
+      "label": "TALKBACK",
+      "type": "input",
+      "signal": "audio",
+      "side": "front",
+      "connector": "XLR"
+    },
+    {
+      "name": "mic_in_1",
+      "label": "MIC 1",
+      "type": "input",
+      "signal": "audio",
+      "side": "back",
+      "connector": "XLR/TRS combo",
+      "note": "One of 24 mono mic/line inputs."
+    },
+    {
+      "name": "mic_in_2",
+      "label": "MIC 2",
+      "type": "input",
+      "signal": "audio",
+      "side": "back",
+      "connector": "XLR/TRS combo"
+    },
+    {
+      "name": "mic_in_3",
+      "label": "MIC 3",
+      "type": "input",
+      "signal": "audio",
+      "side": "back",
+      "connector": "XLR/TRS combo"
+    },
+    {
+      "name": "mic_in_4",
+      "label": "MIC 4",
+      "type": "input",
+      "signal": "audio",
+      "side": "back",
+      "connector": "XLR/TRS combo"
+    },
+    {
+      "name": "stereo_in_1",
+      "label": "ST 1",
+      "type": "input",
+      "signal": "audio",
+      "side": "back",
+      "connector": "TRS",
+      "note": "One of three stereo line inputs."
+    },
+    {
+      "name": "mix_out_1",
+      "label": "MIX 1",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "XLR"
+    },
+    {
+      "name": "mix_out_2",
+      "label": "MIX 2",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "XLR"
+    },
+    {
+      "name": "mix_out_3",
+      "label": "MIX 3",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "XLR"
+    },
+    {
+      "name": "mix_out_4",
+      "label": "MIX 4",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "XLR"
+    },
+    {
+      "name": "lr_out_l",
+      "label": "LR OUT L",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "XLR"
+    },
+    {
+      "name": "lr_out_r",
+      "label": "LR OUT R",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "XLR"
+    },
+    {
+      "name": "aes_out",
+      "label": "AES OUT",
+      "type": "output",
+      "signal": "digital",
+      "side": "back",
+      "connector": "XLR"
+    },
+    {
+      "name": "dsnake",
+      "label": "dSNAKE",
+      "type": "input",
+      "signal": "network",
+      "side": "back",
+      "connector": "RJ45",
+      "note": "To an AR-series remote audio rack."
+    },
+    {
+      "name": "network",
+      "label": "NETWORK",
+      "type": "input",
+      "signal": "network",
+      "side": "back",
+      "connector": "RJ45",
+      "note": "Qu-Pad and Qu-Control over wifi."
+    },
+    {
+      "name": "usb_b",
+      "label": "USB B",
+      "type": "output",
+      "signal": "usb",
+      "side": "back",
+      "connector": "USB-B",
+      "note": "32x32 audio interface to a computer."
+    },
+    {
+      "name": "usb_a",
+      "label": "USB A",
+      "type": "output",
+      "signal": "usb",
+      "side": "back",
+      "connector": "USB-A",
+      "note": "Multitrack recording to a drive."
+    },
+    {
+      "name": "footswitch",
+      "label": "FOOTSWITCH",
+      "type": "input",
+      "signal": "gate",
+      "side": "back",
+      "connector": "1/4in"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "ch1_gain",
+      "label": "CH1 GAIN",
+      "min": 0,
+      "max": 127,
+      "default": 50
+    },
+    {
+      "name": "ch1_fader",
+      "label": "CH1 FADER",
+      "min": 0,
+      "max": 127,
+      "default": 90
+    },
+    {
+      "name": "ch2_fader",
+      "label": "CH2 FADER",
+      "min": 0,
+      "max": 127,
+      "default": 90
+    },
+    {
+      "name": "lr_fader",
+      "label": "LR FADER",
+      "min": 0,
+      "max": 127,
+      "default": 100
+    },
+    {
+      "name": "phones_level",
+      "label": "PHONES",
+      "min": 0,
+      "max": 127,
+      "default": 60
+    }
+  ],
+  "layout": {
+    "aspect": 1.35,
+    "controls": {
+      "ch1_gain": {
+        "x": 0.08,
+        "y": 0.18,
+        "side": "front",
+        "size": 0.9
+      },
+      "ch1_fader": {
+        "x": 0.17,
+        "y": 0.18,
+        "side": "front",
+        "size": 0.9
+      },
+      "ch2_fader": {
+        "x": 0.26,
+        "y": 0.18,
+        "side": "front",
+        "size": 0.9
+      },
+      "lr_fader": {
+        "x": 0.35,
+        "y": 0.18,
+        "side": "front",
+        "size": 0.9
+      },
+      "phones_level": {
+        "x": 0.44,
+        "y": 0.18,
+        "side": "front",
+        "size": 0.9
+      }
+    },
+    "jacks": {
+      "phones_out": {
+        "x": 0.15,
+        "y": 0.85,
+        "side": "front",
+        "size": 1.0
+      },
+      "talkback_in": {
+        "x": 0.35,
+        "y": 0.85,
+        "side": "front",
+        "size": 1.0
+      },
+      "mic_in_1": {
+        "x": 0.06,
+        "y": 0.15,
+        "side": "back",
+        "size": 1.0
+      },
+      "mic_in_2": {
+        "x": 0.236,
+        "y": 0.15,
+        "side": "back",
+        "size": 1.0
+      },
+      "mic_in_3": {
+        "x": 0.412,
+        "y": 0.15,
+        "side": "back",
+        "size": 1.0
+      },
+      "mic_in_4": {
+        "x": 0.588,
+        "y": 0.15,
+        "side": "back",
+        "size": 1.0
+      },
+      "stereo_in_1": {
+        "x": 0.764,
+        "y": 0.15,
+        "side": "back",
+        "size": 1.0
+      },
+      "mix_out_1": {
+        "x": 0.94,
+        "y": 0.15,
+        "side": "back",
+        "size": 1.0
+      },
+      "mix_out_2": {
+        "x": 0.06,
+        "y": 0.475,
+        "side": "back",
+        "size": 1.0
+      },
+      "mix_out_3": {
+        "x": 0.236,
+        "y": 0.475,
+        "side": "back",
+        "size": 1.0
+      },
+      "mix_out_4": {
+        "x": 0.412,
+        "y": 0.475,
+        "side": "back",
+        "size": 1.0
+      },
+      "lr_out_l": {
+        "x": 0.588,
+        "y": 0.475,
+        "side": "back",
+        "size": 1.0
+      },
+      "lr_out_r": {
+        "x": 0.764,
+        "y": 0.475,
+        "side": "back",
+        "size": 1.0
+      },
+      "aes_out": {
+        "x": 0.94,
+        "y": 0.475,
+        "side": "back",
+        "size": 1.0
+      },
+      "dsnake": {
+        "x": 0.06,
+        "y": 0.8,
+        "side": "back",
+        "size": 1.0
+      },
+      "network": {
+        "x": 0.236,
+        "y": 0.8,
+        "side": "back",
+        "size": 1.0
+      },
+      "usb_b": {
+        "x": 0.412,
+        "y": 0.8,
+        "side": "back",
+        "size": 1.0
+      },
+      "usb_a": {
+        "x": 0.588,
+        "y": 0.8,
+        "side": "back",
+        "size": 1.0
+      },
+      "footswitch": {
+        "x": 0.764,
+        "y": 0.8,
+        "side": "back",
+        "size": 1.0
+      }
+    }
+  }
+}
