@@ -25,11 +25,14 @@ before your first commit.
 
 ## Current State
 
-Branch: `adopt/qm-governance`, cut from `they`. **Six signed commits, none
-pushed.** The working tree also carries pre-existing local work that predates
-this session (README, `src/db.py`, community files) — do not discard it.
+Branch: `adopt/qm-governance`, cut from `they`. **Every commit is signed. Nothing is
+pushed.** Work inherited from the previous
+session (the README rewrite, the TinyDB cleanup, the community files) is
+committed here too rather than left loose.
 
 ```text
+Lock the declared dependency
+Land the inherited TinyDB cleanup
 Document the build, and state what is not done
 Declare pydantic, which five modules import directly
 Gate the behaviour that model-level tests cannot see
