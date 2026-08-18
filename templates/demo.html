@@ -21,7 +21,10 @@
     
     {% include 'partials/controls_panel.html' %}
     
-    <div class="status" id="status">System Ready</div>
+    <!-- The status line is how this app answers back: a refused cable, a
+         parameter under the cursor, what an import actually loaded. It is a
+         live region so that answer is not sighted-only. -->
+    <div class="status" id="status" role="status" aria-live="polite">System Ready</div>
     <script src="{{ asset('main.js') }}"></script>
 
     

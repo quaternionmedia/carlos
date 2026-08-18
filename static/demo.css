@@ -62,7 +62,31 @@ body {
     width: 40px;
     height: 40px;
     margin: 5px;
-    cursor: pointer;
+    /* A knob is turned by dragging up and down; `pointer` said it was a link. */
+    cursor: ns-resize;
+}
+
+/* Both arrangements draw the same control, so both need the same two things:
+   the browser must not claim the drag for scrolling, and a knob reached by
+   keyboard must be visible. */
+.knob,
+.irl-knob {
+    touch-action: none;
+}
+
+.knob:focus-visible,
+.irl-knob:focus-visible {
+    outline: none;
+}
+
+.knob:focus-visible .knob-base,
+.irl-knob:focus-visible .knob-base {
+    border-color: var(--rad-ink);
+    box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.45);
+}
+
+.irl-knob {
+    cursor: ns-resize;
 }
 
 .knob-base {
@@ -341,6 +365,25 @@ svg {
     margin-top: 15px;
 }
 
+/* === FOCUS === */
+/* Keyboard focus was invisible everywhere, which made every control this
+   release opened up to the keyboard reachable and unfindable. */
+.jack:focus-visible {
+    outline: 2px solid var(--rad-ink);
+    outline-offset: 2px;
+}
+
+.module:not([data-view="front"]) .jack:focus-visible {
+    outline-color: var(--rad-rear);
+}
+
+.module-flip:focus-visible,
+.rack-group-remove:focus-visible,
+#patch-name:focus-visible {
+    outline: 2px solid var(--rad-ink);
+    outline-offset: 1px;
+}
+
 /* A jack waiting for its other end. */
 .jack.arming {
     border-color: #ffe066;
@@ -348,13 +391,6 @@ svg {
 }
 
 /* === CONTROL PANEL EXTRAS === */
-.control-group {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
 .field-label,
 .view-label {
     font-size: 10px;
@@ -378,11 +414,6 @@ svg {
     border-color: #00ff88;
 }
 
-/* Reached through the Import button, never directly. */
-#patch-file {
-    display: none;
-}
-
 #view-indicator {
     font-size: 11px;
     font-weight: bold;
@@ -393,8 +424,10 @@ svg {
 }
 
 .key-hint {
+    margin-left: auto;
     font-size: 9px;
     color: #666;
+    text-align: right;
 }
 
 kbd {
@@ -433,6 +466,30 @@ kbd {
     --rad-hub: #0b0d09;
 }
 
+/* === STATUS LINE === */
+/* Fixed at the top, in the room `body` already reserves for it. This rule was
+   dropped when the inline stylesheet moved into this file, which left the
+   element in normal flow under the patch bar and its reserved space empty. */
+.status {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    padding: 8px 20px;
+    background: rgba(0, 0, 0, 0.94);
+    border-bottom: 1px solid var(--rad-surface-edge);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--rad-ink);
+    /* One line, whatever the message. A status that wraps changes the height
+       of the bar, moves the rack, and so moves every cable endpoint it was
+       describing. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* === PATCH BAR === */
 /* Not a menu. A name is a text field and a file input is a file input; neither
    is expressible as a ring. */
@@ -450,6 +507,7 @@ kbd {
     border-top: 1px solid var(--rad-surface-edge);
 }
 
+/* Reached through the menu's Import action, never directly. */
 #patch-file {
     display: none;
 }
@@ -519,6 +577,17 @@ kbd {
    anchored to its device's outline rather than dropped, so a lead can always be
    followed to both of the devices it joins. */
 .cable {
+    pointer-events: none;
+}
+
+/* The fat invisible copy of each cable that `cableAt` probes with
+   `isPointInStroke`. It is geometry, not a control: never painted, and never
+   interactive even if a later rule turns pointer events on for this layer. */
+.cable-hit {
+    fill: none;
+    /* Transparent rather than `none` - see `createCable`. A stroke of `none`
+       has no painting area, and `isPointInStroke` asks about exactly that. */
+    stroke: transparent;
     pointer-events: none;
 }
 

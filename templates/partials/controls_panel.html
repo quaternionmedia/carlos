@@ -15,9 +15,17 @@
          title="Patch file to import"
          onchange="importPatch(this.files[0]); this.value = '';">
 
+  <!-- Which way the rack is facing. `applyView` has always written this and
+       `demo.css` has always styled it; the element itself went with the drawer,
+       so the one persistent answer to "what am I looking at" became a status
+       message that the next status message overwrote. -->
+  <span class="view-label">Facing</span>
+  <span id="view-indicator">EMPTY</span>
+
   <span class="key-hint">
     <kbd>Right-click</kbd> or <kbd>m</kbd> for the menu &middot;
     long-press and release picks in one gesture &middot;
-    <kbd>Tab</kbd> turns &middot; <kbd>Esc</kbd> deselects
+    <kbd>Tab</kbd> turns &middot; <kbd>Esc</kbd> deselects &middot;
+    the menu on a cable unpatches it
   </span>
 </div>
