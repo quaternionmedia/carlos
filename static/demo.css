@@ -25,6 +25,12 @@ body {
 /* Width follows the device: a 2i2 is small, a DFAM's patch bay is not. */
 .module {
     display: inline-block;
+    /* Positioned so it can be stacked: a device sits above the cable layer that
+       runs behind it and below the one that runs in front. In flow it painted
+       under both, which is what put a lead going round the back on top of the
+       device it was going round. */
+    position: relative;
+    z-index: 2;
     background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
     border: 2px solid #444;
     border-radius: 6px;
@@ -195,16 +201,22 @@ svg {
 }
 
 /* The layer under the gear.
-   `z-index: -1` rather than a small positive number, and the difference is the
-   whole fix: a positioned element paints above in-flow content at any
-   non-negative z-index, so a cable layer at 1 is still on top of every device.
-   Only a negative one paints in the step before in-flow boxes — above the
-   rack's own background, below the gear standing on it.
-   A dashed lead used to be drawn over the panel it was meant to be running
-   behind, which said "this goes round the back" and then drew it not doing
-   that. */
+
+   Three numbers in one order: this layer at 1, devices at 2, the front cable
+   layer at 5. Nothing here is negative, and that is deliberate.
+
+   The obvious version of this rule was `z-index: -1` on the layer, letting it
+   paint in the step before in-flow content. It made every dashed lead vanish.
+   A negative child paints above its *stacking context's* background, and
+   `.rack-container` is `position: relative` with `z-index: auto`, which does
+   not create one — so the layer went below the rack's own opaque `#111` and the
+   cables were painted behind the floor they run across.
+
+   Lifting the gear is the version with no such trap: three positive numbers in
+   one stacking context, and the only thing that has to be true is that they are
+   in order. */
 #patch-cables-behind {
-    z-index: -1;
+    z-index: 1;
 }
 
 /* === DEVICE SIDES === */

@@ -170,21 +170,70 @@ class TestTheWorkspace:
         assert behind == 4
         assert front == 0
 
-    def test_the_layer_under_the_gear_really_is_under_it(self, page):
-        # The mechanism, not just the parentage. A positioned element paints
-        # above in-flow content at any non-negative z-index, so a cable layer at
-        # 1 is still on top of every device - only a negative one paints in the
-        # step before in-flow boxes.
+    def test_the_gear_is_stacked_between_the_two_cable_layers(self, page):
         z = page.evaluate(
             """() => ({
                 behind: getComputedStyle(
                     document.querySelector('#patch-cables-behind')).zIndex,
+                device: getComputedStyle(
+                    document.querySelector('.module')).zIndex,
                 front: getComputedStyle(
                     document.querySelector('#patch-cables')).zIndex,
             })"""
         )
-        assert int(z["behind"]) < 0
-        assert int(z["front"]) > 0
+        assert int(z["behind"]) < int(z["device"]) < int(z["front"])
+
+    def test_a_lead_behind_the_gear_is_still_in_front_of_the_rack(self, page):
+        """The one that matters: the lead is visible.
+
+        Every other check here passed while the cables were invisible. They were
+        on the right layer, at the right z-index, with the right classes — and
+        painted behind the rack's own opaque floor, because a negative z-index
+        paints above its *stacking context's* background and `.rack-container`
+        never created one.
+
+        `elementsFromPoint` returns what is under a point in paint order,
+        front to back, so it can answer "is this lead in front of the floor it
+        runs across" rather than "is it where I filed it". Hit testing ignores
+        `pointer-events: none`, so the layers are opened for the duration and
+        put back.
+        """
+        order = page.evaluate(
+            """() => {
+                const path = document.querySelector(
+                    '#patch-cables-behind path.cable');
+                const rack = document.querySelector('#rack');
+                // The layer *and* the path: `.cable` carries its own
+                // `pointer-events: none`, so opening only the layer leaves the
+                // stroke untestable and the probe reports it as absent.
+                const layers = [...document.querySelectorAll('svg')];
+                const saved = layers.map(l => l.style.pointerEvents);
+                layers.forEach(l => { l.style.pointerEvents = 'auto'; });
+                const savedPath = path.style.pointerEvents;
+                path.style.pointerEvents = 'stroke';
+
+                // A point actually on the curve, not in its bounding box: a
+                // sagging cable leaves most of that box empty.
+                const at = path.getPointAtLength(path.getTotalLength() / 2);
+                const ctm = path.getScreenCTM();
+                const x = at.x * ctm.a + at.y * ctm.c + ctm.e;
+                const y = at.x * ctm.b + at.y * ctm.d + ctm.f;
+
+                const stack = document.elementsFromPoint(x, y);
+                layers.forEach((l, i) => { l.style.pointerEvents = saved[i]; });
+                path.style.pointerEvents = savedPath;
+
+                return {
+                    cable: stack.indexOf(path),
+                    rack: stack.indexOf(rack),
+                };
+            }"""
+        )
+        assert order["cable"] >= 0, "the lead is not painted anywhere on screen"
+        assert order["rack"] >= 0
+        # Lower index is nearer the front.
+        assert order["cable"] < order["rack"], (
+            "the lead paints behind the rack floor, so nobody can see it")
 
     def test_the_mark_where_it_disappears_stays_on_top(self, page):
         # The cable goes under the device; the mark saying where it went under

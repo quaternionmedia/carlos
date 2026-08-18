@@ -98,6 +98,13 @@ front panel runs over the gear, and one going round the back does not. Which
 layer a lead lands on is read off its geometry every redraw, so turning a device
 away moves its lead under.
 
+Three positive numbers in one order — lower layer 1, devices 2, upper layer 5 —
+and the first attempt at this used `z-index: -1` on the layer instead, which
+made every dashed lead **vanish**. A negative child paints above its *stacking
+context's* background, and the rack is `position: relative` with `z-index: auto`,
+which does not create one; the cables went behind the rack's own opaque floor.
+Lifting the gear has no such trap.
+
 ```python
 >>> page.locator('#patch-cables-behind path.cable').count()
 4
