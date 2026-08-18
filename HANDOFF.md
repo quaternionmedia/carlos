@@ -31,6 +31,10 @@ session (the README rewrite, the TinyDB cleanup, the community files) is
 committed here too rather than left loose.
 
 ```text
+Put every durable round behind one entry point
+Add the pre-publication review packet
+Blind review: six findings, and CI that runs the tests
+Say how to tell two servers apart, now that they can be
 Wire up healthz, and say which instance answered
 Record the cadence work in the handoff
 Declare what asking this seam costs, and how often to ask
@@ -86,9 +90,12 @@ Git Bash but **not** under PowerShell, which needs the absolute path.
 ```bash
 uv sync
 uv run playwright install chromium   # once, for the runtime-bound page
-uv run pytest tests walkthrough --doctest-glob=*.md   # 244, incl. the pages
-uv run python src/main.py            # http://localhost:8000
+uv run carlos check                  # the suite and the pages
+uv run carlos serve                  # http://localhost:8000
+uv run carlos stop                   # which is its own round here
 ```
+
+`carlos --help` lists every durable round; `--dry-run` prints what each runs.
 
 **Both paths are named on purpose.** `testpaths` is ignored the moment pytest
 receives a path argument, so a walkthrough wired that way runs for nobody.
@@ -150,7 +157,7 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 
 | Check | Result |
 | --- | --- |
-| `uv run pytest tests walkthrough --doctest-glob=*.md` | 271 passed, 853 subtests |
+| `uv run carlos check` | 289 passed |
 | `node tests/palette.js` | 39/39 |
 | `node tests/view_toggle.js` | 83/83 |
 | `node tests/rack_behaviour.js` | 95/95 |
