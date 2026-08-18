@@ -162,7 +162,7 @@ Every device ships two worked examples:
 
 Both are ordinary [`carlos.patch`](patch-format.md) documents, so an example is
 a file a reader can import and take apart rather than a screenshot of one. They
-are loaded in the browser from the Examples row of the options drawer, and over
+are loaded in the browser from the menu's Examples ring, and over
 `GET /api/catalogue/devices/<id>/examples`.
 
 A device with no examples still loads — that is a gap to fill, not a reason to

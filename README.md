@@ -93,13 +93,23 @@ uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
 - **Turn devices individually.** `Tab` turns the whole rack, `Shift`+`Tab` goes
   back; click a device to select it and `Tab` turns just that one (`Esc`
   deselects). Each module carries its own turn button, disabled when it has only
-  one side. A cable with one end out of sight is drawn as a dashed stub, so it
-  is visibly there rather than merely missing.
+  one side. A cable with one end out of sight is still drawn end to end, dashed
+  and anchored to the device's outline, so a lead can always be followed to both
+  of the devices it joins.
 - **Gather devices into rows.** Make a row, move the selected device into it, or
   loosen it again. Deleting a row never deletes devices — a grouping is a way of
   reading a rack, not a container the gear lives in. Rows are the first kind of
   grouping; the format is shaped for more.
-- Hide the options drawer with `~`.
+- **Unpatch a single lead.** Open the menu on a cable and it offers to pull it
+  out; open it on a device and it offers to pull out every lead running to it.
+  An output feeding three inputs loses the one you picked, not all three.
+- **Every control answers to the keyboard.** Knobs are sliders: `Tab` to one and
+  the arrow keys turn it, `Shift` for fine, `PageUp`/`PageDown` for a tenth of
+  the range, `Home`/`End` for the ends, double-click to put it back where the
+  catalogue had it. Sockets are buttons — `Enter` or `Space` patches. `Esc` lets
+  go of both the selection and the focus.
+- Knobs also answer to the scroll wheel, and to a finger — they are pointer
+  events, so a touchscreen turns them.
 - Randomize all module parameters
 - Export and import the whole rack as a `carlos.patch` document
 - Persist a local TinyDB file for future patch storage work
@@ -114,7 +124,8 @@ Each carries its real sockets on whichever face they are actually on.
 **Adding a device is one JSON file and no code.** Entries live in
 `catalogue/devices/<id>.json` and become available in the palette, over the API,
 and to any application on the other side of the seam. Every device ships a
-simple and a complex worked example, loadable from the options drawer. See
+simple and a complex worked example, loadable from the menu's Examples ring —
+which replaces the rack, and is marked destructive because it does. See
 [docs/catalogue.md](docs/catalogue.md).
 
 Devices are addressed by a stable id — `moog.dfam`, `allen-heath.qu24` — which

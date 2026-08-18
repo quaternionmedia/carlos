@@ -50,8 +50,26 @@ Display — rather than shrinking eight wedges to fit a ninth.
 
 Carlos uses RAD's standard vocabulary where it exists (`add-node`, `delete`) and
 extends it where it does not (`turn`, `row:assign`, `example:complex`,
-`patch:export`, `display:irl`, `midi:learn`). The contract permits extension and forbids repurposing, so
+`patch:export`, `display:irl`, `midi:learn`, `cable:remove`). The contract permits extension and forbids repurposing, so
 nothing standard has been given a Carlos-specific meaning.
+
+### Contexts
+
+rad's `MenuContext.type` is `node | edge | canvas | selection`. Carlos resolves
+all four. `edge` is a patch cable, and resolving it is what made a single lead
+removable — before it, the only way out of a patch was `Clear Rack`.
+
+A cable is found by asking the geometry, not the event target. The cable layer
+is `pointer-events: none` so it cannot intercept a click meant for a knob
+underneath it, and turning that off to make cables clickable would have laid an
+invisible sheet over every control a lead runs across. Instead each cable draws
+a second, invisible copy of itself at a thickness worth aiming at, and
+`cableAt` asks that copy `isPointInStroke`. The probe is never painted and never
+interactive; it is geometry, not a control.
+
+An edge is addressed by the two sockets it joins rather than by a stored id —
+the same reasoning that keeps a jack's side out of the exported document. A
+stored id would be a second answer to "which cable is this".
 
 ### Geometry
 
