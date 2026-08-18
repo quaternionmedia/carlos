@@ -31,6 +31,9 @@ session (the README rewrite, the TinyDB cleanup, the community files) is
 committed here too rather than left loose.
 
 ```text
+Correct the docs the drawer deletion left behind, and record the edge context
+Make the rack operable: pull a lead out, reach a knob without a mouse
+Put the status line back on screen, and the facing indicator with it
 Lock the declared dependency
 Land the inherited TinyDB cleanup
 Document the build, and state what is not done
@@ -113,13 +116,18 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 
 | Check | Result |
 | --- | --- |
-| `uv run python -m unittest discover` | 207 tests, OK |
-| `node tests/view_toggle.js` | 35/35 |
-| `node tests/rack_behaviour.js` | 72/72 |
-| `node tests/cable_tracing.js` | 18/18 |
-| `node tests/click_layers.js` | 5/5 |
+| `uv run python -m unittest discover` | 210 tests, OK |
+| `node tests/view_toggle.js` | 48/48 |
+| `node tests/rack_behaviour.js` | 87/87 |
+| `node tests/cable_tracing.js` | 22/22 |
+| `node tests/click_layers.js` | 9/9 |
 | rad conformance | 66 passed, 0 failed, 16 skipped |
 | Live end-to-end, cold start | all green, 15 OpenAPI paths |
+
+Every new check above was watched go red against the code it names before being
+kept: the fan-out assertion against a `disconnect`-based unpatch, the `irl` knob
+assertion against the selector that only read `.knob`, and C5/C6 against a
+`contextAt` that never consults the probe and a Tab handler that never yields.
 
 The 16 skipped conformance cases are rad features Carlos does not implement —
 chorded input, tempo estimation, quantized commit, the speed axes. They sit
@@ -179,6 +187,15 @@ Ordered by what unblocks the most.
 6. **Settle the frontend conflict.** `static/` is now five modules with no build
    step; the house-stack set names mithril with parcel. Neither the blessed
    answer nor a recorded exception.
+7. **Finish the UI pass this session started.** Left undone, in order:
+   - **The radial menu has no ARIA at all.** It handles its own keys, so it is
+     operable; it is not announced. Everything else on the page now is, which
+     makes the menu the remaining gap rather than one of several.
+   - **Undo.** Double-click resets one knob and that is the whole of it. Unpatch
+     and Delete are both a single act with no way back.
+   - **No browser ran this session.** Every claim above is the served bytes, the
+     DOM harness, or the model. A JS error still never reaches the server log,
+     so "the page loads" has not been established by anyone looking at it.
 
 ## What Was Reported Upstream
 
