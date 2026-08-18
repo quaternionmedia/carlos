@@ -211,8 +211,8 @@ ids the example gave them:
 
 ```
 
-A device draws every side it has and lays out only the one it is showing, so
-the panel to measure is the active face. A Launchpad X is 241mm square and the
+A device draws the sides that carry something and lays out only the one it is
+showing, so the panel to measure is the active face. A Launchpad X is 241mm square and the
 face it opens on is its top — width by depth — so that panel is square too. That is the box doing its job: a
 single per-device aspect would have drawn this face at 241 by 17.4.
 

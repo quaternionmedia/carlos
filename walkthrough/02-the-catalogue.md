@@ -90,8 +90,10 @@ Not "if a socket is on it". A keybed, a screen and a pad grid are things.
 
 ```
 
-`front` is always present — every device has a face you look at, even when it
-is a blank lip.
+`front` is always present — every device *has* a face you look at, even when it
+is a blank lip. Having one and showing one are different: the browser draws only
+the sides that carry something, so this device shows its back and its top and
+never that lip.
 
 ## Panel furniture
 

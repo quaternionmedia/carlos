@@ -136,6 +136,10 @@ uv run carlos serve --port 8123
   DFAM has a front and a back; a K.O. II has a face and a top edge and no back
   at all. Cables may run between any two sides. Losing track of a lead is part
   of the instrument.
+- **Devices open on the face you look at.** A rack-mount opens on its front, a
+  stage piano or a grid controller on its top, and a side with nothing on it —
+  the blank lip under a Launchpad's pads — is not drawn and not turned to. What
+  the entry names as the face is where the controls go, in both display modes.
 - **Turn devices individually.** `t` turns the whole rack, `Shift`+`T` goes
   back; click a device to select it and `t` turns just that one (`Esc`
   deselects). Turning is on a letter rather than on `Tab` because `Tab` is how

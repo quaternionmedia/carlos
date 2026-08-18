@@ -166,6 +166,75 @@ class TestDrawnAsLaidOut:
         assert drum_rig.errors == []
 
 
+class TestOnlyTheFacesThatHaveSomething:
+    """A device shows the sides it draws, and opens on the one you look at.
+
+    Four devices in the catalogue have a front with nothing on it - the blank
+    lip under a stage piano's keys, under a Launchpad's pads. Turning one used
+    to walk you through that lip on the way to its sockets: a press that showed
+    a blank rectangle and then had to be pressed again.
+    """
+
+    @pytest.fixture
+    def drum_rig(self, page):
+        open_menu(page, *bare_rack(page))
+        pick(page, "Examples")
+        pick(page, "controller")
+        pick(page, "Launchpad X")
+        ready(page, "Imported")
+        return page
+
+    def test_a_device_played_from_above_draws_no_front(self, drum_rig):
+        grid = drum_rig.locator('[data-module-id="grid"]')
+        sides = grid.locator(".face").evaluate_all(
+            "faces => faces.map(f => f.dataset.side)")
+        assert "front" not in sides
+        assert set(sides) == {"back", "top"}
+
+    def test_and_opens_on_its_top(self, drum_rig):
+        grid = drum_rig.locator('[data-module-id="grid"]')
+        assert grid.locator(".face.active").get_attribute("data-side") == "top"
+
+    def test_turning_it_never_lands_on_a_blank_face(self, drum_rig):
+        # Every side it stops on, all the way round twice. The bug was not that
+        # the lip was reachable, it was that it was unavoidable.
+        grid = drum_rig.locator('[data-module-id="grid"]')
+        grid.click()
+        seen = []
+        for _ in range(4):
+            drum_rig.keyboard.press("t")
+            seen.append(
+                grid.locator(".face.active").get_attribute("data-side"))
+        assert "front" not in seen
+        assert set(seen) == {"back", "top"}
+
+    def test_every_device_shows_exactly_one_face(self, drum_rig):
+        counts = drum_rig.locator(".module").evaluate_all(
+            "modules => modules.map("
+            "m => m.querySelectorAll('.face.active').length)")
+        assert counts and set(counts) == {1}
+
+    def test_a_face_that_is_drawn_is_never_empty(self, drum_rig):
+        # The rule stated the other way round, over every face in the rack:
+        # anything drawn carries something. A face whose only child is its
+        # title is the blank rectangle this removed.
+        empty = drum_rig.locator(".module").evaluate_all(
+            """modules => modules.flatMap(m =>
+                [...m.querySelectorAll('.face')]
+                    .filter(f => f.children.length <= 1)
+                    .map(f => m.dataset.moduleId + ':' + f.dataset.side))"""
+        )
+        assert empty == []
+
+    def test_a_device_with_a_front_still_opens_on_it(self, page):
+        # The other half: nothing here refaces a device that has a front.
+        first = page.locator(".module").first
+        assert first.locator(".face.active").get_attribute("data-side") == "front"
+
+    def test_nothing_throws_through_any_of_it(self, drum_rig):
+        assert drum_rig.errors == []
+
+
 class TestThePalette:
     def test_dragging_it_moves_it_by_what_the_hand_moved(self, page):
         before = page.locator("#tool-palette").bounding_box()

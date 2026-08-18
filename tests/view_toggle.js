@@ -67,8 +67,18 @@ const ko2 = system.addModule('teenage-engineering.ep-133'); // front, back, top
 
 // --- the tree was built at all ---
 check('a module renders its faces', facesOf(vco).sort(), ['back', 'front']);
-check('a device with a top renders that too',
-    facesOf(ko2).sort(), ['back', 'front', 'top']);
+
+// A face with nothing on it is not drawn. A K.O. II is a slab played from
+// above: its surface is the top, its sockets are along the back edge, and its
+// front is the thin lip between them. Nothing is on that lip, so it is not a
+// side you can turn to - abstract or laid out, because a device has one face
+// and the mode it is drawn in is not an opinion about which side that is.
+check('a face with nothing on it is not drawn',
+    facesOf(ko2).sort(), ['back', 'top']);
+check('the model agrees about what it draws',
+    ko2.drawnSides(), ['back', 'top']);
+check('the side is still one the device has',
+    ko2.sides, ['front', 'back', 'top']);
 
 // --- one face laid out, and it is the right one ---
 check('exactly one face is active to start', shownSides(vco), ['front']);
@@ -80,26 +90,56 @@ check('the model turned', vco.view, 'back');
 check('THE TREE TURNED', shownSides(vco), ['back']);
 check('still exactly one face active', shownSides(vco).length, 1);
 check('data-view follows too', vco.element.getAttribute('data-view'), 'back');
-// It opens on its top, and turning the VCO must not move it off that.
+// Turning the VCO must not move anything else.
 check('the other device did not move', shownSides(ko2), ['top']);
 
 // --- turning everything ---
 system.turnModule(vco.id); // back to front
 system.flipAll();
 check('every device turned in the model',
-    [vco.view, ko2.view], ['back', 'front']);
+    [vco.view, ko2.view], ['back', 'back']);
 check('EVERY DEVICE TURNED ON SCREEN',
-    [shownSides(vco)[0], shownSides(ko2)[0]], ['back', 'front']);
+    [shownSides(vco)[0], shownSides(ko2)[0]], ['back', 'back']);
 
 // --- cycling wraps ---
 system.flipAll();
 check('cycling wraps in the tree',
-    [shownSides(vco)[0], shownSides(ko2)[0]], ['front', 'back']);
+    [shownSides(vco)[0], shownSides(ko2)[0]], ['front', 'top']);
 
 // --- backwards ---
 system.flipAll(-1);
 check('shift-tab walks back in the tree',
-    [shownSides(vco)[0], shownSides(ko2)[0]], ['back', 'front']);
+    [shownSides(vco)[0], shownSides(ko2)[0]], ['back', 'back']);
+
+// --- devices do not share a side list ---
+//
+// A VCO has a front and a back; a K.O. II has a back and a top and no front
+// at all. Two devices whose lists overlap in one side and disagree about the
+// rest, which is what makes "turn everything" mean each device advancing its
+// own list rather than the rack setting one value on all of them.
+system.setMode('irl');
+check('laid out, the blank lip is gone', facesOf(ko2).sort(), ['back', 'top']);
+// Arrival, not this device: it was left on its back two checks ago and a mode
+// switch keeps a side that is still drawn. So ask one that arrives here.
+const arriving = system.addModule('teenage-engineering.ep-133');
+check('and one arriving opens on the face it is played from',
+    shownSides(arriving), ['top']);
+check('the face it would open on is its top', ko2.preferredView(), 'top');
+system.removeModule(arriving.id);
+check('while the VCO still has its front', facesOf(vco).sort(), ['back', 'front']);
+
+vco.setView('front');
+ko2.setView('top');
+system.flipAll();
+check('each device advanced its own list',
+    [vco.view, ko2.view], ['back', 'back']);
+system.flipAll();
+check('and wrapped through lists of its own',
+    [vco.view, ko2.view], ['front', 'top']);
+check('NO DEVICE EVER SHOWS A BLANK FACE',
+    facesOf(ko2).includes('front'), false);
+
+system.setMode('minimal');
 
 // --- a device with one side does not move ---
 system.flipAll();  // reset to front

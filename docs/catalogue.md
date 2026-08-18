@@ -174,6 +174,20 @@ the difference survive; the absolute numbers do not, and the entry keeps them.
 stage piano is not: its controls and its keybed are on its top, and its front is
 the thin blank lip below the keys.
 
+Two things follow from it, and they are the whole of how a device presents
+itself. A device **opens on this face**, whatever the rack is doing and whichever
+mode it is drawn in. And its parameters are drawn **on this face** rather than on
+the front, so a device played from above is played from above in both modes.
+
+A side with nothing on it is not drawn at all. Those are the same statement seen
+twice: a Launchpad X names its top, so its top carries the pads and the knob, and
+its front — the thin lip under them — carries nothing and is not a side you can
+turn to. Turning walks the sides that exist to look at.
+
+So an entry naming a face with nothing on it would open on a blank rectangle.
+`tests/test_catalogue.py` checks every entry against that, because nothing in the
+loader prevents writing it.
+
 This exists because an empty face means one of two things and only the entry can
 tell them apart. A Stage 3's front is genuinely blank. A K.O. II's front is its
 pads and its screen and **nobody has measured them yet**. Naming the face is one

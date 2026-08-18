@@ -398,7 +398,46 @@ class EurorackModule {
         for (const jack of this.jacks.values()) {
             if (jack.side === side) return true;
         }
-        return sidesUsedByLayout(this.layout).includes(side);
+
+        // Asked of the mode, not of the device, because the two modes draw
+        // different things in different places. `irl` lays out a measured
+        // panel; `minimal` puts every parameter on the front and nothing on
+        // any other face. So a Stage 3's front is a blank lip when laid out
+        // and fifteen knobs when abstract, and both answers are right.
+        //
+        // A device with no measured layout falls back to the minimal
+        // arrangement even in `irl`, so it is asked the minimal question.
+        if (this.mode === 'irl' && this.layout) {
+            return sidesUsedByLayout(this.layout).includes(side);
+        }
+        return side === this.face && this.parameters.size > 0;
+    }
+
+    // The side this device is looked at from, whichever way it is drawn.
+    //
+    // The catalogue's `layout.face`, defaulting to `front`. It used to mean
+    // something only to `irl`, while `minimal` drew every parameter on the
+    // front regardless - so a Launchpad X was played from its top when laid
+    // out and from its front when abstract, and its blank lip was empty in one
+    // mode and covered in knobs in the other. A device has one face. Which
+    // mode you are drawing it in is not an opinion about which side that is.
+    get face() {
+        return this.layout?.face || 'front';
+    }
+
+    // The sides this device actually shows, which is not every side it has.
+    //
+    // Four devices in the catalogue have a front with nothing on it - the
+    // blank lip under a stage piano's keys, under a Launchpad's pads - and
+    // turning one used to walk you through that lip on the way to the back.
+    // A blank rectangle is not a view of anything, so it is not offered.
+    //
+    // The fallback matters more than it looks: a device nobody has laid out,
+    // with no parameters and no jacks yet, has nothing anywhere. Hiding every
+    // face would draw a device with no faces at all, so it keeps them.
+    drawnSides() {
+        const drawn = this.sides.filter(side => this.hasContentOn(side));
+        return drawn.length ? drawn : this.sides;
     }
 
     // The side to open this device on.
@@ -410,31 +449,37 @@ class EurorackModule {
     // II's front is its pads and its screen and nobody has measured them yet.
     // The layout's `face` is that statement, and it defaults to `front`, so
     // every device nobody has laid out behaves exactly as it did.
-    preferredView(asked) {
-        const face = this.layout?.face || 'front';
+    preferredView() {
+        const drawn = this.drawnSides();
 
-        // A device that names a face other than `front` is making a statement
-        // about itself, and it wins. A Qu-24 has two sockets on its front lip,
-        // so a rule that only skipped *empty* faces arrived showing the lip
-        // rather than the desk - which is not what anyone adding a mixer wants
-        // to look at. `front` is the default, so this fires only for an entry
-        // that said something.
-        if (face !== 'front' && this.sides.includes(face)) return face;
+        // The face the catalogue names, when this mode draws it. That entry is
+        // the device's own statement about which side you look at: a Qu-24
+        // says `top` and means the desk, not the two sockets on its front lip.
+        if (drawn.includes(this.face)) return this.face;
 
-        // Otherwise a device arrives facing the way the rack is facing, if it
-        // has that side and there is anything on it. Turning a rack round to
-        // patch rear panels and then adding a device should not hand you its
+        // Otherwise the front, then the top. A device arrives facing the way
+        // you would face it, which is not the way the rack happens to be
+        // turned - that followed the rack, so a rack turned round to patch its
+        // backs handed you the back of every device added after. Turning the
+        // rack is a thing you did to look at something; it is not a statement
+        // about how the next device should arrive.
+        //
+        // The declared face is `front` or `top` for every device here, so this
+        // is reached only when that face draws nothing in this mode: a Stage 3
+        // in `minimal` has no laid-out top, and its fifteen knobs are on the
         // front.
-        if (asked && this.sides.includes(asked)
-            && (asked === face || this.hasContentOn(asked))) {
-            return asked;
-        }
-        if (this.sides.includes(face)) return face;
-        return this.sides[0];
+        if (drawn.includes('front')) return 'front';
+        if (drawn.includes('top')) return 'top';
+        return drawn[0];
     }
 
     setView(view) {
-        this.view = this.sides.includes(view) ? view : this.sides[0];
+        // A side that is not drawn cannot be shown. Asking for one is not an
+        // error - a saved patch carries the side it was left on, and a device
+        // laid out since then may no longer draw it - so it lands on the face
+        // this device would have opened on.
+        const drawn = this.drawnSides();
+        this.view = drawn.includes(view) ? view : this.preferredView();
         if (this.element) {
             this.element.dataset.view = this.view;
             this.element.querySelectorAll('.face').forEach(face => {
@@ -447,13 +492,14 @@ class EurorackModule {
     // Advance to the next side this device has. A device with one side does not
     // move, which is the right answer rather than a case to guard.
     cycle(step = 1) {
-        const at = this.sides.indexOf(this.view);
-        const next = (at + step + this.sides.length) % this.sides.length;
-        return this.setView(this.sides[next]);
+        const drawn = this.drawnSides();
+        const at = drawn.indexOf(this.view);
+        const next = (at + step + drawn.length) % drawn.length;
+        return this.setView(drawn[next]);
     }
 
     get turns() {
-        return this.sides.length > 1;
+        return this.drawnSides().length > 1;
     }
 
     // Add a parameter to this module
@@ -472,6 +518,13 @@ class EurorackModule {
 
     // Render the module HTML: both faces, with only the visible one laid out.
     render() {
+        // Which sides are drawn depends on the mode, so a device showing its
+        // laid-out top may have no top to show once it is abstract. Settled
+        // here, before the markup is built, because every path that changes a
+        // mode renders afterwards - reconciling later would name a face active
+        // that this mode does not draw.
+        if (!this.drawnSides().includes(this.view)) this.view = this.preferredView();
+
         const moduleEl = document.createElement('div');
         moduleEl.className = 'module';
         moduleEl.dataset.moduleId = this.id;
@@ -486,7 +539,7 @@ class EurorackModule {
         if (width) moduleEl.style?.setProperty?.('--panel-width', `${width}px`);
 
         // One face per side the device has, only the active one laid out.
-        moduleEl.innerHTML = this.sides.map(side => `
+        moduleEl.innerHTML = this.drawnSides().map(side => `
             <div class="face ${side === this.view ? 'active' : ''}" data-side="${side}">
                 <div class="module-title">
                     ${this.maker ? `<span class="module-maker">${this.maker}</span>` : ''}
@@ -498,7 +551,7 @@ class EurorackModule {
         `).join('') + `
             <button type="button" class="module-flip"
                     title="${this.turns
-                        ? `Turn this device (${this.sides.join(' → ')})`
+                        ? `Turn this device (${this.drawnSides().join(' → ')})`
                         : 'This device has only one side'}"
                     ${this.turns ? '' : 'disabled'}>⇄</button>
         `;
@@ -515,7 +568,11 @@ class EurorackModule {
             const panel = this.renderIrlFace(side);
             if (panel) return panel;
         }
-        return (side === 'front'
+        // Parameters go on the face, not on the front. For most devices those
+        // are the same side; for the four played from above they are not, and
+        // drawing knobs on the blank lip under a stage piano's keys was the
+        // abstract mode contradicting the laid-out one about the same device.
+        return (side === this.face
                 ? `<div class="controls">${this.renderParameters()}</div>`
                 : '')
             + this.renderPatchBay(side);
@@ -1743,12 +1800,11 @@ class EurorackSystem {
         // A device arriving into an `irl` rack draws as `irl`. Without this it
         // renders minimal while everything around it is laid out.
         module.mode = this.mode;
-        // A device arrives facing the way the rack is facing, if it has that
-        // side and there is anything on it. A K.O. II in a rack showing its
-        // backs shows its face instead, because it has no back to show; a
-        // Stage 3 has a front and it is the blank lip under the keys, so it
-        // opens on the top the catalogue names as its face.
-        module.setView(module.preferredView(this.view));
+        // A device arrives on the face you look at - its front, or its top
+        // where the catalogue says so. Not the way the rack happens to be
+        // turned: that meant a rack turned round to patch its backs handed you
+        // the back of everything added afterwards.
+        module.setView(module.preferredView());
         this.modules.set(module.id, module);
 
         const moduleElement = module.render();

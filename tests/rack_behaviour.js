@@ -126,10 +126,16 @@ system.selectModule(vcf.id);
 system.deselect();
 check('deselect clears', system.selected, null);
 
-// a new device arrives facing the way the rack is facing
+// A new device arrives on its own face, whatever the rack is doing.
+//
+// It used to follow the rack, which read well until you turned a rack round to
+// patch its backs: everything added afterwards then arrived showing you its
+// back. Turning the rack is something you did to look at something. It is not
+// a statement about how the next device should arrive.
 system.flipAll();
+check('the rack is showing backs', system.view, 'back');
 const arrived = system.addModule('carlos.vcf');
-check('new device matches the rack default', arrived.view, 'back');
+check('a new device still arrives on its own face', arrived.view, 'front');
 system.clearRack();
 check('clearing resets selection', system.selected, null);
 
@@ -222,9 +228,13 @@ const ko2 = system.addModule('teenage-engineering.ep-133');
 // its face - not because anything counted what is on each side.
 check('K.O. II has a front, a back and a top', ko2.sides, ['front', 'back', 'top']);
 check('it opens on the face the catalogue names', ko2.view, 'top');
-check('cycling wraps to its front', ko2.cycle(), 'front');
-check('then reaches its back', ko2.cycle(), 'back');
-check('and backwards returns to the front', ko2.cycle(-1), 'front');
+// The lip is a side it has and not a side it shows, so turning steps over it.
+// Walking through a blank rectangle on the way to the sockets is a turn that
+// costs a press and shows nothing.
+check('but it does not draw the blank lip', ko2.drawnSides(), ['back', 'top']);
+check('cycling reaches its back', ko2.cycle(), 'back');
+check('and wraps to the top, never the lip', ko2.cycle(), 'top');
+check('backwards returns to the back', ko2.cycle(-1), 'back');
 check('K.O. II turns', ko2.turns, true);
 
 const dfam = system.addModule('moog.dfam');
@@ -233,15 +243,21 @@ check('devices do not share a side list',
     JSON.stringify(ko2.sides) !== JSON.stringify(dfam.sides), true);
 
 // turning everything advances each device along its own sides
-ko2.setView('top'); dfam.setView('front');
+//
+// Started so the two lists give different answers: a K.O. II on its back goes
+// to its top, a DFAM on its front goes to its back. Landing on the same word
+// would prove nothing, because a rack setting one shared value would produce
+// that too.
+ko2.setView('back'); dfam.setView('front');
 system.selected = null;
 system.flipAll();
-// The point of the assertion: two devices with different side lists each
-// step along their own, rather than along a shared rack-level one.
-check('each device advanced on its own list', [ko2.view, dfam.view], ['front', 'back']);
+check('each device advanced on its own list', [ko2.view, dfam.view], ['top', 'back']);
 
 // a view a device does not have is coerced, never stored
-check('unknown side coerces to the first', dfam.setView('inside'), 'front');
+check('unknown side coerces to the face it opens on',
+    dfam.setView('inside'), 'front');
+check('and for a device with no front, to the face it has',
+    ko2.setView('inside'), 'top');
 
 system.clearRack();
 

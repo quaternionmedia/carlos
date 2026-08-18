@@ -57,6 +57,43 @@ class CatalogueLoadTests(unittest.TestCase):
             with self.subTest(device.id):
                 self.assertTrue((directory / f"{device.id}.json").is_file())
 
+    def test_every_device_has_something_on_the_face_it_opens_on(self):
+        """The face a device opens on is never a blank rectangle.
+
+        The browser draws only the faces that carry something, and opens each
+        device on the face its entry names. Those two rules meet here: an entry
+        naming a face with nothing on it would arrive showing nothing, and
+        turning would step straight over the face it claims to be looked at
+        from. Nothing in the loader stops that being written, so it is checked
+        over every entry rather than guarded per field.
+
+        A face carries something if a socket is on it, if the layout places
+        anything there, or if the device has parameters - those are drawn on
+        the face, which is what makes an unmeasured device still show up.
+        """
+        for device in self.devices.values():
+            with self.subTest(device.id):
+                face = device.layout.face if device.layout else "front"
+                on_it = (
+                    any(jack.side == face for jack in device.jacks)
+                    or (device.layout and face in device.layout.sides_used())
+                    or bool(device.parameters)
+                )
+                self.assertTrue(
+                    on_it,
+                    f"{device.id} opens on its {face} and has nothing there",
+                )
+
+    def test_the_face_a_device_opens_on_is_one_it_has(self):
+        # The loader refuses `layout.face` naming a side the device has not,
+        # so this holds by construction. Kept because the browser trusts it:
+        # `preferredView()` returns that face without checking the device has
+        # it, on the strength of this.
+        for device in self.devices.values():
+            with self.subTest(device.id):
+                face = device.layout.face if device.layout else "front"
+                self.assertIn(face, device.sides())
+
     def test_semi_modulars_are_front_heavy(self):
         # A patch bay lives on the front. If a semi-modular has no front jacks,
         # something has been transcribed onto the wrong side.
