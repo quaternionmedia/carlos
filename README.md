@@ -141,8 +141,12 @@ uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
 
 Carlos ships a catalogue of real devices — an Allen & Heath Qu-24, a Focusrite
 Scarlett 2i2, a Squarp Hapax, a Nord Stage 3, a Teenage Engineering K.O. II, a
-Moog Subharmonicon and a Moog DFAM — alongside two generic Eurorack modules.
-Each carries its real sockets on whichever face they are actually on.
+Novation Launchpad X, a Moog Subharmonicon and a Moog DFAM — alongside three
+generic Eurorack modules, including a drum voice for the Launchpad to play.
+
+Each carries its real outside dimensions, its sockets on whichever face they
+are actually on, and the face you look at first: a stage piano and a mixing
+desk are played from their tops, and their fronts are the thin lips below.
 
 **Adding a device is one JSON file and no code.** Entries live in
 `catalogue/devices/<id>.json` and become available in the palette, over the API,
@@ -200,8 +204,8 @@ blocked on the datastore question in [GOVERNANCE.md](GOVERNANCE.md).
 
 - Save and load named patches
 - Delete patches
-- Panel layouts for the devices that still fall back to minimal
-- Add more module definitions
+- Add more module definitions — every entry in the catalogue is laid out today,
+  so a new one is the only way to exercise the `irl` fallback
 - Preserve device positions within a row (a version 4 change)
 - More grouping kinds: cases, channel strips, stage positions
 - Settle the motion library. `static/anime-shim.js` is a 25-line local stand-in

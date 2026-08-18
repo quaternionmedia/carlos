@@ -180,6 +180,7 @@ class RegistryTests(unittest.TestCase):
         self.assertNotRegex(settings, r"(?m)^\s*testpaths\s*=")
 
         for surface in (Path("README.md"), Path("AGENTS.md"),
+                        Path("CONTRIBUTING.md"),
                         WALKTHROUGH / "04-cookbook.md"):
             with self.subTest(surface.name):
                 body = surface.read_text(encoding="utf-8")
@@ -207,3 +208,56 @@ class CollectionTests(unittest.TestCase):
             if line.startswith("walkthrough/") or line.startswith("walkthrough\\")
         ]
         self.assertEqual(len(collected), len(pages()), result.stdout)
+
+
+class ContributingTests(unittest.TestCase):
+    """Onboarding lives in one place, and it is the page that runs.
+
+    Decision 9 of the one-executable-walkthrough record: onboarding and the
+    cookbook are separate documents and stay separate, and the contributing
+    guide refuses to duplicate the onboarding page. Setup instructions kept in
+    two places are setup instructions that disagree within a month - which is
+    the failure this whole record exists about, measured across six of the
+    org's repositories.
+    """
+
+    def setUp(self):
+        self.body = Path("CONTRIBUTING.md").read_text(encoding="utf-8")
+
+    def test_it_points_at_the_onboarding_page(self):
+        self.assertIn("walkthrough/01-onboarding.md", self.body)
+
+    def test_it_does_not_restate_the_setup(self):
+        # The commands that belong to onboarding and nowhere else. A guide that
+        # carries these has started a second copy, whatever it says about not
+        # duplicating one.
+        for owned in ("uv sync", "git clone", "submodule update --init"):
+            with self.subTest(owned):
+                self.assertNotIn(owned, self.body)
+
+    def test_it_says_to_commit_regenerated_media(self):
+        # The mechanism only works if the diff gets committed. A contributor
+        # who leaves it uncommitted has a green build and a stale picture,
+        # which is the state this whole arrangement is designed to prevent.
+        self.assertIn("walkthrough/media", self.body)
+        self.assertRegex(self.body, r"(?i)commit .{0,40}screenshot")
+
+    def test_the_gate_count_it_claims_is_the_gate_count_there_is(self):
+        # A number written out in prose is the kind of thing that is right when
+        # typed and wrong a year later, and nothing else would notice.
+        words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                 "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+        claimed = re.search(r"(\w+) seed workflows", self.body)
+        self.assertIsNotNone(claimed, "CONTRIBUTING.md no longer counts them")
+        spelled = claimed.group(1).lower()
+        self.assertEqual(
+            words.get(spelled, spelled),
+            len(list(Path(".github/workflows").glob("*.yml"))),
+        )
+
+    def test_the_expected_failures_it_names_are_the_ones_governance_records(self):
+        governance = Path("GOVERNANCE.md").read_text(encoding="utf-8")
+        for gate in ("reuse-lint", "submodule-check", "signature-check"):
+            with self.subTest(gate):
+                self.assertIn(gate, self.body)
+                self.assertIn(gate, governance)

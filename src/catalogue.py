@@ -65,7 +65,6 @@ CATEGORIES: dict[str, str] = {
     "semi-modular": "Fixed-architecture synths with a patch bay over the top",
     "eurorack": "Individual modules in a Eurorack case",
     "controller": "Surfaces that play and steer other gear, and make no sound",
-    "drum-machine": "Devices built around percussion voices and their sequencing",
 }
 
 

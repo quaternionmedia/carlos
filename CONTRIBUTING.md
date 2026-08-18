@@ -2,45 +2,54 @@
 
 Carlos is pre-release. Keep changes small, local, and easy to review.
 
-## Local Setup
+## Setting up, and the development loop
 
-The governance corpus is vendored as a submodule at `governance/qm`, and the CI
-gates run out of it. A clone without it looks fine until a gate fails.
+**This document does not explain either.** [`walkthrough/01-onboarding.md`](walkthrough/01-onboarding.md)
+does, and it is a page you *run* rather than read — if it passes, your checkout
+is built, because the assertions in it executed on your machine. Setup
+instructions kept in two places are setup instructions that disagree within a
+month, and this repository has the org's own measurement of that behind it:
+see `governance/qm/records/DRAFT-one-executable-walkthrough.md`.
 
-```bash
-git clone --recurse-submodules git@github.com:quaternionmedia/carlos.git
-cd carlos
-uv sync
-```
+Start there. Come back here when you have something to change.
 
-On a clone you already have:
-
-```bash
-git submodule update --init --recursive
-```
-
-## Development Loop
+## Before you open a pull request
 
 ```bash
-uv run python -m unittest discover   # check
-uv run python src/main.py            # run, on http://localhost:8000
+uv run pytest tests walkthrough --doctest-glob=*.md
 ```
 
-Use `uv run`. A bare `python -m unittest discover` fails with
-`ModuleNotFoundError: No module named 'fastapi'` unless you have activated the
-project environment yourself.
+One command. It runs the test suite **and** the walkthrough, and both paths are
+named deliberately — `testpaths` is ignored the moment pytest is handed a path
+argument, so a walkthrough wired that way would be collected by nobody and stay
+green forever.
 
-Changes under `templates/` and `static/` need only a browser refresh. **Python
-changes need you to restart the server**: auto-reload does not work in this
-environment. uvicorn logs `StatReload detected changes ... Reloading...` and
-then never starts the replacement process, so the log claims a reload that did
-not happen and the old code keeps serving. If an edit seems to have no effect,
-restart before you debug it.
+The frontend harnesses are separate, and run under Node:
 
-Run the checks again before opening a pull request, and say in the description
-which command you ran.
+```bash
+node tests/rack_behaviour.js    # and view_toggle, cable_tracing,
+                                # click_layers, palette
+```
 
-## Governance Gates
+Say in the pull request which commands you ran.
+
+### The walkthrough is documentation, a demo and a test at once
+
+That is not a slogan; it changes what a behaviour change costs you.
+
+- **A page fails when the behaviour it demonstrates changes.** The example a
+  reader reads is the example that ran, so there is no separate copy to update
+  and no authority question about which one is right.
+- **`walkthrough/05-in-the-browser.md` drives the real app in real Chromium**
+  and rewrites the screenshots under `walkthrough/media/` every run. If your
+  change alters what the app draws, those files turn up as an uncommitted diff
+  in `git status` — **commit them**. That is the whole mechanism: drift arrives
+  as a diff nobody can miss rather than as staleness nobody sees.
+- It needs a browser once per clone: `uv run playwright install chromium`.
+- **It does not skip when the browser is missing — it fails.** A skip is not a
+  pass, and a demonstration nobody can run is a claim.
+
+## Governance gates
 
 Six seed workflows run in CI, and they run locally too:
 
@@ -48,7 +57,10 @@ Six seed workflows run in CI, and they run locally too:
 python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they
 ```
 
-This executes the workflows' actual steps rather than an approximation of them.
+`--base-ref they` because this repository's default branch is `they` and the
+runner defaults to `main`. This executes the workflows' actual steps rather
+than an approximation of them.
+
 Three failures are expected today, all recorded in [GOVERNANCE.md](GOVERNANCE.md):
 
 - `reuse-lint` — the licensing pass has not been done.
@@ -68,27 +80,43 @@ pass is not a remote pass — say which you ran.
 
 ## Conventions
 
-- **No CDN references.** Frontend assets are vendored or local. A test asserts
-  this, because the rule is a governance requirement rather than a preference.
-- **The patch format is specified before it is implemented.**
-  `docs/patch-format.md` is the contract; `src/patch_format.py` and
-  `static/models.js` are two implementations of it. Change them together — the
-  frontend contract tests exist to catch them drifting apart.
-- **Derived state is not stored.** Knob rotation derives from the parameter
-  value; a jack's side derives from its module definition. Neither belongs in an
-  exported document.
+These are rules about changes. The conventions about *code* live in
+[AGENTS.md](AGENTS.md), which is one file rather than two so they cannot drift
+apart; read that before your first commit whether or not you are an agent.
 
-## Pull Requests
+- **Change the contract and both implementations together.**
+  `docs/patch-format.md` is the contract; `src/patch_format.py` and
+  `static/models.js` are two implementations of it. The frontend contract tests
+  exist to catch them drifting apart, and a failure there is real drift rather
+  than a flaky test.
+- **Adding a device is a JSON file and no Python.** If your change needs code to
+  add a device, the schema is missing something — extend that instead.
+  [docs/catalogue.md](docs/catalogue.md) has the six steps.
+- **Assert the tree, not the model.** Two of this project's real bugs were a
+  device that reported turning without turning, and a facing indicator that read
+  `EMPTY` on a rack with two devices in it. Every model-level test agreed with
+  the model both times. If you change rendering, assert what is on screen.
+- **A guard is not finished until someone has tried to route around it.** Break
+  a new check and watch it go red before you keep it. A check that has only ever
+  been seen green has not been tested.
+
+## Pull requests
 
 - Use a focused branch.
 - Describe the user-visible change.
-- Include the check command you ran.
+- Include the check commands you ran.
+- Commit any regenerated screenshots.
 - Keep unrelated formatting and refactors out of the same change.
-- One open pull request per contributor, per repository — the org-wide slot rule
-  in `governance/qm/handbook/async-contract.md`, enforced by `one-pr-check`.
+- **One open pull request per contributor, per repository** — the org-wide slot
+  rule in `governance/qm/handbook/async-contract.md`, enforced by
+  `one-pr-check`. It is a sequencing constraint rather than a bandwidth one: a
+  green pull request frees its own slot.
+- **Do not disable commit signing**, and do not add `--no-verify`.
+  `commit.gpgsign` is on and a gate checks it.
 
 ## Governance
 
 Carlos is not fully adopted into the Quaternion Media governance corpus yet.
 Until that adoption is complete, [GOVERNANCE.md](GOVERNANCE.md) is the local
-source of truth for publish readiness.
+source of truth for publish readiness, and it carries the conflicts with org
+records that are still open.

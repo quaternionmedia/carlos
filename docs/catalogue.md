@@ -17,11 +17,12 @@ the seam without a line of Python or JavaScript changing.
 | `sequencer` | Squarp Hapax |
 | `keyboard` | Nord Stage 3 |
 | `sampler` | Teenage Engineering EP-133 K.O. II |
+| `controller` | Novation Launchpad X |
 | `semi-modular` | Moog Subharmonicon, Moog DFAM |
-| `eurorack` | Carlos VCO, Carlos VCF (generic, not real products) |
+| `eurorack` | Carlos VCO, Carlos VCF, Carlos Drum (generic, not real products) |
 
-Nine entries is a seed, not a library. The point of the schema is that the
-tenth costs a file.
+Eleven entries is a seed, not a library. The point of the schema is that the
+twelfth costs a file.
 
 ## Addressing
 
@@ -299,7 +300,7 @@ free text for display. `max` must be above `min`.
 ### Categories
 
 `mixer`, `audio-interface`, `sequencer`, `keyboard`, `sampler`,
-`semi-modular`, `eurorack`.
+`controller`, `semi-modular`, `eurorack`.
 
 Adding a category means editing `CATEGORIES` in `src/catalogue.py` — one line,
 with a sentence saying what belongs in it. Categories are deliberately coarse:
@@ -362,7 +363,8 @@ in step was a losing game the frontend contract tests were invented to chase.
 
 1. Write `catalogue/devices/<maker>.<model>.json`.
 2. Write its two examples under `catalogue/examples/`.
-3. `uv run python -m unittest discover` — the suite validates every entry,
+3. `uv run pytest tests walkthrough --doctest-glob=*.md` — the suite
+   validates every entry,
    every example, and every jack an example refers to.
 4. Restart the server and check the palette.
 
