@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 try:
     from .db import DatabaseManager
@@ -39,12 +39,32 @@ class Settings(BaseModel):
 
     app_name: str = "Carlos"
     version: str = "0.1.0"
-    db_path: str = os.environ.get("CARLOS_DB", "data/db.json")
+    # Read per instance, not once when this class is defined. A bare
+    # `os.environ.get(...)` as a default is evaluated at import, so the
+    # environment only ever reached these if it was set before the first
+    # import — which made "overridable per process" thinner than it sounded,
+    # and was invisible until a test set one and watched nothing happen.
+    db_path: str = Field(
+        default_factory=lambda: os.environ.get("CARLOS_DB", "data/db.json"))
     template_dir: str = "templates"
     static_dir: str = "static"
-    host: str = os.environ.get("CARLOS_HOST", "0.0.0.0")
-    port: int = int(os.environ.get("CARLOS_PORT", "8000"))
-    reload: bool = True
+    host: str = Field(
+        default_factory=lambda: os.environ.get("CARLOS_HOST", "0.0.0.0"))
+    port: int = Field(
+        default_factory=lambda: int(os.environ.get("CARLOS_PORT", "8000")))
+    # Off, and opt in with `CARLOS_RELOAD=1`.
+    #
+    # It does not reload here, and it is not free. Measured: uvicorn logs
+    # "StatReload detected changes in 'src\main.py'. Reloading..." and goes on
+    # serving the old code — an edit to this very line did not reach `/healthz`.
+    # What it does deliver is a second process that owns the socket and hands it
+    # to a child, so killing the server that answers leaves the parent to spawn
+    # a replacement, and killing the parent leaves a listening socket with no
+    # process behind it. That is the whole of this environment's
+    # phantom-listener trap: three processes and an orphaned port, bought for a
+    # feature that logs a lie.
+    reload: bool = Field(
+        default_factory=lambda: os.environ.get("CARLOS_RELOAD", "") == "1")
 
     def resolved_db_path(self) -> str:
         """Where the database actually is, not where it was asked for.

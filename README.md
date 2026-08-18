@@ -96,15 +96,19 @@ uv run carlos stop
 | `templates/**` | Refresh the browser — Jinja re-reads the template per request |
 | `static/**` | Refresh the browser — files are served from disk each request |
 
-**Auto-reload is broken in this environment, and it fails misleadingly.**
+**Auto-reload is off, because it does not work here and is not free.**
 uvicorn logs `StatReload detected changes in 'src\main.py'. Reloading...` and
-then never starts the replacement process; the original keeps serving. So the
-log says it reloaded, the code did not change, and no further reload is ever
-detected. It behaves the same whether started via `src/main.py` or
-`python -m uvicorn ... --reload`.
+goes on serving the old code — measured by editing a value and watching
+`/healthz` keep the old one.
 
-The failure is worth knowing about because the log line is not evidence. If you
-change a route and it 404s, restart before debugging the route.
+What it *did* deliver was a second process that owns the socket and hands it to
+a child. Kill the server that answers and the parent spawns a replacement; kill
+the parent and the socket is left listening with nothing behind it. That is
+this environment's phantom-listener trap in full, bought for a feature that
+logs a lie. With reload off, one `carlos stop` leaves no processes and no
+orphaned port.
+
+`CARLOS_RELOAD=1` turns it back on if you want to watch it not work.
 
 Front-end changes genuinely are a refresh away — that part was verified by
 fetching the changed bytes, not by reading a log line.

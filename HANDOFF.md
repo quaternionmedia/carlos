@@ -105,12 +105,23 @@ it does not run the walkthrough, which is why it is not the command.
 A bare `python -m unittest discover` fails — `ModuleNotFoundError: No module
 named 'fastapi'`. Use `uv run`.
 
-**Auto-reload does not work here, and its log lies.** uvicorn prints
-`StatReload detected changes ... Reloading...` and never starts the replacement
-process; the original child keeps serving. **Restart manually after any
-`src/*.py` change.** `templates/**` and `static/**` are picked up on the next
-request — those were checked by fetching the changed bytes, not by reading a log
-line.
+**Reload is off, and it is the answer to the stale-server problem.** It does
+not reload here — uvicorn prints `StatReload detected changes ... Reloading...`
+and goes on serving the old code, measured by editing a value and watching
+`/healthz` keep the old one. What it did deliver was a reloader parent that owns
+the socket: kill the child that answers and the parent spawns another, kill the
+parent and the socket is left listening with nothing behind it. Measured both
+ways, one server, one `carlos stop`:
+
+| | processes started | left after stop | orphaned listeners |
+|---|---|---|---|
+| reload on | 3 | 2 | 1 |
+| reload off | 2 | 0 | 0 |
+
+Every stale-server hunt in this repo's history is the right-hand column of the
+first row. **Restart manually after any `src/*.py` change.** `templates/**` and
+`static/**` are picked up on the next request — those were checked by fetching
+the changed bytes, not by reading a log line. `CARLOS_RELOAD=1` puts it back.
 
 Gates:
 
@@ -229,13 +240,14 @@ them would be a false report.**
 - **`pkill -f` does not stop the server here, and the port does not tell you.**
   Windows left three uvicorn processes bound to `:8000` at once. `/healthz`
   answered from an hour-old one, so a restarted server looked healthy while
-  serving code from before the change - the reload lie with a second face on
-  it. `netstat -ano | grep :8000` shows how many are really listening; kill by
-  PID with `taskkill //F //PID`, and expect the reloader parent to respawn its
-  child if you kill only one of the pair. **Count the listeners before trusting
-  a response** - and `/healthz` now reports `instance` and `started_at`, so if
-  the id is not the one you just started you are reading somebody else's
-  process. That is the fastest way to catch this.
+  serving code from before the change. `netstat -ano | grep :8000` shows how
+  many are really listening; kill by PID with `taskkill //F //PID`.
+  **Count the listeners before trusting a response** - and `/healthz` reports
+  `instance` and `started_at`, so if the id is not the one you just started you
+  are reading somebody else's process. That is the fastest way to catch it.
+  The *cause* was `reload=True`, now off by default: it bought a third process
+  that respawned whatever you killed, in exchange for a reload it never
+  performed. Turning it off did not paper over this - it ended it.
 
 ## Next Useful Work
 

@@ -60,6 +60,27 @@ class AppSmokeTests(unittest.TestCase):
         self.assertEqual(answered["port"], odd)
         self.assertNotEqual(answered["port"], settings.port)
 
+    def test_reload_is_off_by_default(self):
+        # It does not reload here, and the reloader process it adds owns the
+        # socket and hands it to a child — so killing the server that answers
+        # leaves a parent to spawn another, and killing the parent leaves a
+        # listening socket with nothing behind it. Measured: reload on leaves
+        # two processes and an orphaned port after a stop; reload off leaves
+        # neither. A default that costs that much for nothing is not a default.
+        from src.main import Settings
+
+        self.assertFalse(Settings().reload)
+
+    def test_reload_can_still_be_asked_for(self):
+        import os
+        from src.main import Settings
+
+        os.environ["CARLOS_RELOAD"] = "1"
+        try:
+            self.assertTrue(Settings().reload)
+        finally:
+            del os.environ["CARLOS_RELOAD"]
+
     def test_the_database_path_is_resolved(self):
         # `data/db.json` means two different files from two working
         # directories, which is the confusion this reports its way out of.

@@ -267,14 +267,15 @@ def signatures(ctx: click.Context) -> None:
 def serve(ctx: click.Context, port: int | None) -> None:
     """Run the app.
 
-    Auto-reload does not work in this environment and its log says otherwise:
-    uvicorn reports a reload it never performed. Restart by hand after changing
+    Reload is off. It never worked in this environment — uvicorn reports a
+    reload it did not perform — and the reloader process it added is what left
+    listening sockets with nothing behind them. Restart by hand after changing
     anything under `src/`; templates and static files are a browser refresh.
     """
     env = {"CARLOS_PORT": str(port)} if port else None
     click.secho(
-        "reload is broken here and the log claims otherwise — restart by hand "
-        "after any src/ change",
+        "reload is off (it never worked here) — restart by hand after any "
+        "src/ change",
         fg="yellow",
     )
     ctx.exit(run(
@@ -291,10 +292,12 @@ def stop(ctx: click.Context, port: int) -> None:
     """Stop every server holding the port, and prove the port is free.
 
     A round in its own right because it is not one command and the obvious one
-    is wrong. Windows leaves several uvicorn processes bound at once; killing a
-    reloader's child makes it respawn; and `/healthz` answers from whichever
-    stale process is still listening, so a restarted server looks healthy while
-    serving code from an hour ago.
+    is wrong. Windows leaves several uvicorn processes bound at once, and
+    `/healthz` answers from whichever stale process is still listening, so a
+    restarted server looks healthy while serving code from an hour ago. This
+    used to be unwinnable rather than merely awkward: with reload on, killing
+    the child that answered made the parent spawn another. Reload is off now,
+    and this command's own measurement is what turned it off.
     """
     root, dry_run = ctx.obj["root"], ctx.obj["dry_run"]
     if dry_run:

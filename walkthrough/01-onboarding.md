@@ -75,10 +75,12 @@ uv run python src/main.py
 `/splash`; the workspace is at `/rack`. Two things to know before you
 debug anything:
 
-**Auto-reload does not work here, and its log lies.** uvicorn prints
-`StatReload detected changes ... Reloading...` and never starts the replacement
-process. Restart by hand after any change under `src/`. `templates/` and
-`static/` are re-read per request, so those are a browser refresh away.
+**Reload is off, and that is deliberate.** It does not reload here — uvicorn
+prints `StatReload detected changes ... Reloading...` and keeps serving the old
+code — and the reloader process it adds is what leaves listening sockets with
+nothing behind them. Restart by hand after any change under `src/`.
+`templates/` and `static/` are re-read per request, so those are a browser
+refresh away.
 
 **Stopping it is not what you think.** `pkill -f` leaves the process bound on
 Windows, and `/healthz` will answer from a server started an hour ago while you

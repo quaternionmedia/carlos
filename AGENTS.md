@@ -220,11 +220,13 @@ command appears wherever it is documented.
 | `templates/**` | browser refresh — Jinja re-reads per request |
 | `static/**` | browser refresh — served from disk per request |
 
-**Do not trust the reload line.** uvicorn prints `StatReload detected changes
-... Reloading...` and then never starts the replacement process; the original
-child keeps the socket, so the code does not change and no further reload is
-detected. Both `python src/main.py` and `python -m uvicorn ... --reload` behave
-this way here.
+**Reload is off by default**, because it does not reload here and it is the
+cause of the phantom listeners. uvicorn prints `StatReload detected changes ...
+Reloading...` and goes on serving the old code, while the reloader parent that
+owns the socket respawns a child every time you kill the one that answers.
+Measured both ways: with reload on, one server leaves two processes and a
+listening socket behind after `carlos stop` reports the port free; with it off,
+it leaves nothing. `CARLOS_RELOAD=1` restores the old behaviour.
 
 This is worth internalising beyond the symptom: an earlier session recorded
 reload as working because it saw that log line. Verifying the artifact — does

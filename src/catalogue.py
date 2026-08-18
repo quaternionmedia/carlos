@@ -454,8 +454,8 @@ def load_all(root: Path | None = None) -> dict[str, Device]:
     """Every device in the catalogue, keyed by id.
 
     Cached: the catalogue is read once per process. Call `load_all.cache_clear()`
-    after editing a file in a running server, which is what the reload does for
-    free in development.
+    after editing a file in a running server — or restart it, which is the
+    honest move now that reload is off.
     """
     directory = (root or CATALOGUE_ROOT) / "devices"
     if not directory.is_dir():

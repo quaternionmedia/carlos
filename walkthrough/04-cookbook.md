@@ -59,16 +59,17 @@ runs for nobody.
 
 ## Two things about running it here
 
-**Reload does not work, and the log says otherwise.** uvicorn reports a reload
-it never performed, so restart by hand after any change under `src/`. Templates
-and static files are a browser refresh.
+**Reload is off, and that is why stopping works.** It never reloaded here —
+uvicorn reports a reload it did not perform — and the reloader process it added
+was the whole of the stale-server problem: it owned the socket, so killing the
+server that answered left a parent to spawn another. Restart by hand after any
+change under `src/`. Templates and static files are a browser refresh.
 
-**Stopping the server is its own round.** `netstat` attributes the listening
-socket to the parent that bound it, and that parent has exited by the time you
-look — so it names a process `taskkill` says does not exist while the
-reloader's spawned child answers happily. `carlos stop` asks the server which
-process it is, via `/healthz`, kills that, and then verifies by probing the
-port rather than by counting rows in a process table.
+**Stopping the server is still its own round.** `netstat` attributes the
+listening socket to the parent that bound it, and that parent has exited by the
+time you look, so it names a process `taskkill` says does not exist. `carlos
+stop` asks the server which process it is, via `/healthz`, kills that, and then
+verifies by probing the port rather than by counting rows in a process table.
 
 ## Adding a device
 
