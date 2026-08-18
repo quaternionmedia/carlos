@@ -372,6 +372,19 @@ class EurorackModule {
     // every device nobody has laid out behaves exactly as it did.
     preferredView(asked) {
         const face = this.layout?.face || 'front';
+
+        // A device that names a face other than `front` is making a statement
+        // about itself, and it wins. A Qu-24 has two sockets on its front lip,
+        // so a rule that only skipped *empty* faces arrived showing the lip
+        // rather than the desk - which is not what anyone adding a mixer wants
+        // to look at. `front` is the default, so this fires only for an entry
+        // that said something.
+        if (face !== 'front' && this.sides.includes(face)) return face;
+
+        // Otherwise a device arrives facing the way the rack is facing, if it
+        // has that side and there is anything on it. Turning a rack round to
+        // patch rear panels and then adding a device should not hand you its
+        // front.
         if (asked && this.sides.includes(asked)
             && (asked === face || this.hasContentOn(asked))) {
             return asked;

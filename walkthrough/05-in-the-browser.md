@@ -206,6 +206,76 @@ True
 
 ![The drum rig, drawn as laid out](media/05-in-the-browser-irl-drum-rig.png)
 
+## The two panels with the most on them
+
+A keybed and a fader bank are the two things the vocabulary was extended for,
+and neither is in the rig above. Add them the way anyone would:
+
+```python
+>>> open_menu(page, *spot)
+>>> pick(page, 'Add Device')
+>>> pick(page, 'keyboard')
+>>> pick(page, 'Stage 3')
+>>> open_menu(page, *spot)
+>>> pick(page, 'Add Device')
+>>> pick(page, 'mixer')
+>>> pick(page, 'Qu-24')
+>>> page.wait_for_timeout(600)
+
+```
+
+An 88 is 52 naturals and 36 sharps, drawn from A. Any other split is a keybed
+drawn from the wrong note, which puts the wrong key under every hand position:
+
+```python
+>>> keys = page.locator('.irl-key')
+>>> (keys.count(), page.locator('.irl-key.is-sharp').count())
+(88, 36)
+
+```
+
+A desk is its fader bank. Twenty-one drawn as the shape of the device, plus the
+three the entry describes as controls you can actually move:
+
+```python
+>>> page.locator('.irl-bank-fader').count()
+21
+>>> page.locator('.irl-fader:not(.irl-drawbar)').count()
+3
+
+```
+
+The organ's nine drawbars are faders too, and they are real controls — a
+drawbar is a fader with a grip you can see, which is what tells an organ
+section from a mixer strip at a glance:
+
+```python
+>>> page.locator('.irl-drawbar').count()
+9
+>>> page.locator('.irl-drawbar[role="slider"]').count()
+9
+
+```
+
+Both devices are played from their tops, so that is the face each opens on:
+
+```python
+>>> for model in ('Stage 3', 'Qu-24'):
+...     card = page.locator('.module').filter(has_text=model).first
+...     print(model, '->', card.locator('.face.active').get_attribute('data-side'))
+Stage 3 -> top
+Qu-24 -> top
+
+```
+
+```python
+>>> shots.take(page, 'keybed-and-desk')
+'05-in-the-browser-keybed-and-desk.png'
+
+```
+
+![A stage piano and a desk, drawn as laid out](media/05-in-the-browser-keybed-and-desk.png)
+
 ## Turning a device
 
 `Tab` turns the whole rack; the indicator follows what is actually showing.
@@ -278,7 +348,8 @@ True
 ```python
 >>> shots.recorded()
 ['05-in-the-browser-boot.png', '05-in-the-browser-menu.png',
- '05-in-the-browser-irl-drum-rig.png', '05-in-the-browser-turned.png']
+ '05-in-the-browser-irl-drum-rig.png', '05-in-the-browser-keybed-and-desk.png',
+ '05-in-the-browser-turned.png']
 
 ```
 
