@@ -6,12 +6,66 @@ from src.main import app, healthz, patch_format_info, validate_patch
 from src import patch_format
 
 
+class _arrived_on:
+    """The half of a request `healthz` reads: which socket it came in on.
+
+    A stand-in rather than a real request, because the handler's whole job here
+    is to describe the connection rather than to parse anything from it.
+    """
+
+    def __init__(self, server):
+        self.scope = {"server": server}
+
+
 class AppSmokeTests(unittest.TestCase):
     def test_healthz(self):
-        self.assertEqual(
-            asyncio.run(healthz()),
-            {"ok": True, "app": "Carlos", "version": "0.1.0"},
-        )
+        # `healthz` reads the connection it arrived on, so a caller has to
+        # supply one. That is the point of it: the port is observed rather
+        # than read back off the settings that asked for it.
+        answered = asyncio.run(healthz(_arrived_on(("127.0.0.1", 8123))))
+
+        self.assertTrue(answered["ok"])
+        self.assertEqual(answered["app"], "Carlos")
+        self.assertEqual(answered["version"], "0.1.0")
+
+    def test_healthz_names_the_instance_that_answered(self):
+        # A package constant is identical across every clone and every
+        # process, so two checkouts answered the same and a collector could
+        # not tell which one it had reached. These are what tell them apart.
+        answered = asyncio.run(healthz(_arrived_on(("127.0.0.1", 8123))))
+
+        for named in ("instance", "started_at", "port", "host", "database"):
+            with self.subTest(named):
+                self.assertIsNotNone(answered.get(named))
+
+    def test_the_port_is_the_one_that_answered_not_the_one_configured(self):
+        # The case worth catching is a process serving somewhere other than
+        # where it was configured - a handler reading its own settings would
+        # report the configured port and hide exactly that.
+        from src.main import settings
+
+        odd = settings.port + 4321
+        answered = asyncio.run(healthz(_arrived_on(("127.0.0.1", odd))))
+
+        self.assertEqual(answered["port"], odd)
+        self.assertNotEqual(answered["port"], settings.port)
+
+    def test_the_database_path_is_resolved(self):
+        # `data/db.json` means two different files from two working
+        # directories, which is the confusion this reports its way out of.
+        from pathlib import Path
+
+        answered = asyncio.run(healthz(_arrived_on(("127.0.0.1", 8123))))
+        self.assertTrue(Path(answered["database"]).is_absolute())
+
+    def test_two_answers_from_one_process_name_the_same_instance(self):
+        # The id is per process. Two reads of one server are one instance;
+        # anything else would make a collector see churn that is not there.
+        first = asyncio.run(healthz(_arrived_on(("127.0.0.1", 8123))))
+        second = asyncio.run(healthz(_arrived_on(("127.0.0.1", 8123))))
+
+        self.assertEqual(first["instance"], second["instance"])
+        self.assertEqual(first["started_at"], second["started_at"])
 
     def test_app_metadata_and_routes(self):
         routes = {route.path for route in app.routes}

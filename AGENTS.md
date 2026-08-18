@@ -229,7 +229,13 @@ Confirm it is up:
 curl -s http://127.0.0.1:8000/healthz
 ```
 
-Expected: `{"ok":true,"app":"Carlos","version":"0.1.0"}`.
+It answers with `ok`, the app and version, and **which instance answered** —
+`instance`, `started_at`, the `port` actually bound, and the resolved
+`database` path. That last group is what tells two clones apart, and it is the
+fastest way to catch the failure mode this environment produces constantly: a
+server from an earlier session still holding the port and answering for the one
+you meant. If `instance` is not the one you just started, you are reading
+somebody else's process.
 
 **Run from the repository root.** `Settings` resolves `data/db.json`,
 `templates/` and `static/` against the working directory, so starting from

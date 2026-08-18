@@ -31,6 +31,8 @@ session (the README rewrite, the TinyDB cleanup, the community files) is
 committed here too rather than left loose.
 
 ```text
+Wire up healthz, and say which instance answered
+Record the cadence work in the handoff
 Declare what asking this seam costs, and how often to ask
 Record the stability pass in the handoff
 Chase stability: stop leaking servers, stop sleeping, stop drifting
@@ -148,7 +150,7 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 
 | Check | Result |
 | --- | --- |
-| `uv run pytest tests walkthrough --doctest-glob=*.md` | 267 passed, 848 subtests |
+| `uv run pytest tests walkthrough --doctest-glob=*.md` | 271 passed, 853 subtests |
 | `node tests/palette.js` | 39/39 |
 | `node tests/view_toggle.js` | 83/83 |
 | `node tests/rack_behaviour.js` | 95/95 |
@@ -224,7 +226,9 @@ them would be a false report.**
   it. `netstat -ano | grep :8000` shows how many are really listening; kill by
   PID with `taskkill //F //PID`, and expect the reloader parent to respawn its
   child if you kill only one of the pair. **Count the listeners before trusting
-  a response.**
+  a response** - and `/healthz` now reports `instance` and `started_at`, so if
+  the id is not the one you just started you are reading somebody else's
+  process. That is the fastest way to catch this.
 
 ## Next Useful Work
 
@@ -241,12 +245,13 @@ Ordered by what unblocks the most.
    SPDX headers, and `reuse-lint` green. 95 files.
 4. **Add `walkthrough/`**, which every QM repository owes and this one lacks.
    Note it implies pytest, which is a second open conflict.
-5. **Give `/healthz` a real identity** — resolved database path, bound port,
-   start time — so a collector can attribute a measurement. Still open, and now
-   stated rather than implied: `/api/cadence` says this build cannot say which
-   instance answered, and `GOVERNANCE.md` carries the row. The record's own
-   mechanism (bind port 0, write a run-file) is declined there with its reason,
-   which is not the same as declining the requirement.
+5. **Instance discovery.** `/healthz` now names the instance, its start time,
+   the port actually bound and the resolved database path, so a measurement can
+   be attributed — the identity half is done. What is not done is *discovery*:
+   a collector has to be told where to look, because the record's mechanism
+   (bind port 0, write a run-file) is declined in `GOVERNANCE.md` for costing
+   the predictable address. If the family's harness ever needs to enumerate
+   Carlos instances, that is the conversation.
 6. **Settle the frontend conflict.** `static/` is now five modules with no build
    step; the house-stack set names mithril with parcel. Neither the blessed
    answer nor a recorded exception.

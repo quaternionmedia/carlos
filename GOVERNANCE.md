@@ -73,8 +73,8 @@ Enumerating a conflict is not waiving it.
 | No dependency-manifest licence gate | open-license §4 | Required per package ecosystem shipped |
 | No service inventory | open-license §6 | No scanner can produce it, which is why it is written down |
 | No control-plane record | build-the-seam §4 | Names what the seam owns and what it refuses to own |
-| `/healthz` cannot say which instance answered | monitoring-seam §5 | A package constant, identical across every clone and process, so a collector cannot attribute a measurement. The cadence declaration says so at `/api/cadence` rather than implying otherwise |
-| Port-0 discovery and a run-file are declined | monitoring-seam §4 | That clause governs services a monitor watches in the internal control plane. Carlos is a browser application whose whole point is a predictable address, and binding port 0 would stop it being a thing you open at `localhost:8000`. **Declining the mechanism is not declining §5**: the identity defect above stays open |
+| ~~`/healthz` cannot say which instance answered~~ | monitoring-seam §5 | **Closed.** It reports instance, start time, the port actually bound and the resolved database path. The port is read off the connection rather than off settings, because a process serving somewhere other than where it was configured is the case worth catching |
+| Port-0 discovery and a run-file are declined | monitoring-seam §4 | That clause governs services a monitor watches in the internal control plane. Carlos is a browser application whose whole point is a predictable address, and binding port 0 would stop it being a thing you open at `localhost:8000`. §5 is met the other way, by the endpoint saying which instance answered; `CARLOS_HOST`, `CARLOS_PORT` and `CARLOS_DB` move a process without editing anything committed. What is not met is discovery: a collector has to be told where to look |
 
 ## What Grew Since Adoption Started
 
@@ -94,17 +94,25 @@ and two rows are worth stating plainly rather than leaving to be rediscovered:
 ## Seam Obligations
 
 The monitoring-seam record governs how a QM service is observed by the family's
-harness. Carlos contradicts three of its clauses as it stands:
+harness. Two of its three clauses are met; the third is declined with a reason.
 
-- **§3 — a committed policy carries no machine literal.** `src/main.py`'s
-  `Settings` commits `host="0.0.0.0"`, `port=8000` and `db_path="data/db.json"`.
-- **§4 — instances are discovered, never enumerated.** A monitored service binds
-  port 0 and writes a run-file carrying its port, resolved database path and
-  start time. Carlos binds a fixed 8000.
-- **§5/§6 — identity before attribution.** `/healthz` returns a package
-  constant, byte-identical across every clone and every concurrent instance. Two
-  Carlos servers running at once answer it identically with nothing to tell them
-  apart, which is the exact defect that record documents for `qmcp`.
+- **§3 — a committed policy carries no machine literal.** *Met.* The address and
+  the database path are defaults that `CARLOS_HOST`, `CARLOS_PORT` and
+  `CARLOS_DB` override per process, and no address is committed anywhere in the
+  peer policy — `tests/test_cadence.py` refuses an IP, a hostname, a URL, a port
+  or a Windows path in that file. The per-call timeout is committed, as the
+  clause requires.
+- **§4 — instances are discovered, never enumerated.** *Declined, deliberately.*
+  A monitored service binds port 0 and writes a run-file. Carlos binds a
+  predictable port because it is a thing you open in a browser, and a tool whose
+  address changes every run is a tool nobody opens. A collector must therefore
+  be told where to look rather than enumerating a directory.
+- **§5/§6 — identity before attribution.** *Met.* `/healthz` reports the
+  instance, its start time, the port actually bound and the resolved database
+  path, so two servers running at once are told apart and a measurement can be
+  attributed. The port is observed off the connection rather than read back off
+  settings, because a process serving somewhere other than where it was
+  configured is precisely the case worth catching.
 
 ## Local Rule
 

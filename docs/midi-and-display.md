@@ -142,19 +142,33 @@ A catalogue entry may carry a `layout`:
 ```
 
 Coordinates are fractions of the panel, origin top-left. Fractions rather than
-millimetres because the drawing is abstract: what has to be right is the
-arrangement — which knob is above which socket, what is in a row together — not
-the absolute size of anything.
+millimetres because the placement is abstract: what has to be right is the
+arrangement — which knob is above which socket, what is in a row together.
+
+The *size* is not abstract. Each entry declares its real outside dimensions and
+every face's proportion is derived from them, so a device's top is drawn as a
+top rather than at its front's shape.
 
 The loader refuses a layout that places a jack or control the device does not
-have, or that puts a jack on a different side than the entry declares. A layout
-describing a different device is worse than no layout.
+have, that puts a jack on a different side than the entry declares, that faces a
+side the device has not, or whose feature runs off the edge of its panel. A
+layout describing a different device is worse than no layout.
+
+A panel is more than its knobs and sockets: keybeds, pad grids, screens, wheels
+and section plates are declared too, and a grid may say what pressing it sends.
+[catalogue.md](catalogue.md) has the whole vocabulary and the six steps for
+measuring a device.
 
 **Layouts are optional, and a device without one still draws in `irl`** — it
 falls back to the minimal arrangement. The catalogue accepts a device the moment
 someone describes it, and holding one back for want of a measured panel would
-collect fewer devices. Six of the nine carry layouts today; the Hapax, Stage 3
-and K.O. II fall back, which is what keeps that path exercised.
+collect fewer devices.
+
+Every entry carries one today, so **adding a device is the only way to exercise
+that fallback** — which is why `tests/test_midi_and_modes.py` builds a device
+without a layout rather than relying on some shipped entry staying unfinished.
+Covering a path with an incomplete catalogue means finishing the catalogue
+breaks the test.
 
 ## Format version 3
 

@@ -71,15 +71,41 @@ be a plan of a different call. No address is ever committed: each peer names an
 environment variable, and the tests refuse an IP, a hostname, a URL, a port or
 a Windows path anywhere in that file.
 
-### What this build still cannot tell you
+### Which instance answered
 
-**Which instance answered.** `/healthz` returns a package constant, byte
-identical across every clone and every process. A collector cannot attribute a
-measurement to a run, which the monitoring-seam record names as the defect it
-was written about. Recorded in [../GOVERNANCE.md](../GOVERNANCE.md) rather than
-fixed here: the record's mechanism is a service that binds port 0 and writes a
-run-file, and that would stop Carlos being a thing you open at
-`localhost:8000`.
+`/healthz` says. Liveness alone was a package constant — byte identical across
+every clone and every process — so two checkouts answered the same and nothing
+over HTTP told them apart.
+
+```json
+{
+  "ok": true, "app": "Carlos", "version": "0.1.0",
+  "instance": "f537130c30f0",
+  "started_at": "2026-08-18T16:09:33+00:00",
+  "host": "127.0.0.1", "port": 63372,
+  "database": "/abs/path/to/data/db.json",
+  "generated_at": "2026-08-18T16:09:33+00:00"
+}
+```
+
+**The port is observed, not declared.** It comes off the connection the request
+arrived on rather than off the settings that asked for it, because the case
+worth catching is a process serving somewhere other than where it was
+configured — and a handler reading its own settings would report the configured
+port and hide exactly that. The database path is resolved rather than relative,
+because `data/db.json` means two different files from two working directories.
+
+A collector matches those against the port it dialed. On a mismatch the honest
+answer is that the instance is unknown, which is better than attributing a
+measurement to the wrong session.
+
+**The port is predictable on purpose.** The record's own mechanism for identity
+is a service that binds port 0 and writes a run-file to a machine-scoped
+directory. That is declined in [../GOVERNANCE.md](../GOVERNANCE.md): it governs
+services a monitor watches in the internal control plane, and Carlos is a
+browser application whose whole point is that `localhost:8000` means it every
+time. `CARLOS_HOST`, `CARLOS_PORT` and `CARLOS_DB` move it per process without
+editing anything committed.
 
 ## Inbound: Carlos is callable
 
@@ -223,7 +249,12 @@ already covered.
 - No live outbound calls, per the above.
 - No streaming or subscription — a peer wanting change notifications has
   nothing to subscribe to.
-- No identity endpoint. `/healthz` returns a package constant, so two Carlos
+- No run-file discovery. A collector has to be told where to look rather than
+  enumerating a directory of live instances; `/healthz` then tells it whether
+  what answered is what it expected. Declined deliberately, in
+  [../GOVERNANCE.md](../GOVERNANCE.md), because the mechanism costs the
+  predictable address that makes this a thing you open in a browser. Formerly
+  worse: no identity at all, so two Carlos
   instances on one machine are indistinguishable over HTTP. The org's
   monitoring-seam record calls this out as a defect worth fixing before
   anything monitors this service; see `GOVERNANCE.md`.

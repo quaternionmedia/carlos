@@ -24,6 +24,13 @@ from pathlib import Path
 from src import cadence, catalogue, interop, main, patch_format
 
 
+class _ArrivedOn:
+    """The half of a request `healthz` reads: which socket it came in on."""
+
+    def __init__(self, server):
+        self.scope = {"server": server}
+
+
 def routes() -> dict[tuple[str, str], object]:
     """Every API route this build serves, keyed by (method, path)."""
     found = {}
@@ -117,7 +124,10 @@ class NoneMeansNoneTests(unittest.TestCase):
         device = "carlos.vco"
         document = self.patch.model_dump()
         by_path = {
-            ("GET", "/healthz"): lambda: main.healthz(),
+            # `healthz` describes the connection it arrived on, so it needs
+            # one. A stand-in carrying just the socket is enough.
+            ("GET", "/healthz"):
+                lambda: main.healthz(_ArrivedOn(("127.0.0.1", 8123))),
             ("GET", "/api/catalogue"): lambda: main.catalogue_index(),
             ("GET", "/api/catalogue/categories"): lambda: main.catalogue_categories(),
             ("GET", "/api/catalogue/devices/{device_id}"):

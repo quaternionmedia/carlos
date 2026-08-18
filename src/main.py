@@ -1,4 +1,7 @@
+import os
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -20,20 +23,52 @@ except ImportError:
 
 
 class Settings(BaseModel):
-    """Application settings."""
+    """Application settings.
+
+    The address is deliberately predictable: this is a thing you open in a
+    browser, so `localhost:8000` has to mean it every time. The
+    monitoring-seam record's answer to instance identity - bind port 0 and
+    write a run-file - is declined for that reason in `GOVERNANCE.md`, and
+    declining the mechanism is not declining the requirement. `/healthz`
+    answers it the other way, by reporting which instance answered.
+
+    Both are overridable per process without editing anything: `CARLOS_HOST`,
+    `CARLOS_PORT`, `CARLOS_DB`. An environment variable rather than a committed
+    value, because a committed address publishes one workstation as a fact.
+    """
 
     app_name: str = "Carlos"
     version: str = "0.1.0"
-    db_path: str = "data/db.json"
+    db_path: str = os.environ.get("CARLOS_DB", "data/db.json")
     template_dir: str = "templates"
     static_dir: str = "static"
-    host: str = "0.0.0.0"
-    port: int = 8000
+    host: str = os.environ.get("CARLOS_HOST", "0.0.0.0")
+    port: int = int(os.environ.get("CARLOS_PORT", "8000"))
     reload: bool = True
+
+    def resolved_db_path(self) -> str:
+        """Where the database actually is, not where it was asked for.
+
+        `data/db.json` resolves against the working directory, so two clones -
+        or one clone started from `src/` - have two different databases behind
+        identical settings. That is the exact confusion the monitoring-seam
+        record was written about, so what is reported is the resolved path.
+        """
+        return str(Path(self.db_path).resolve())
 
 
 settings = Settings()
 db_manager: DatabaseManager | None = None
+
+# When this process started, and which process it is.
+#
+# Two clones answer `/healthz` identically without these, and a collector then
+# attributes a measurement to whichever it happened to dial. The id is per
+# process rather than per machine: two runs of the same clone, one after the
+# other, are two instances and a stale answer from the first should not read as
+# the second.
+STARTED_AT = datetime.now(timezone.utc).isoformat(timespec="seconds")
+INSTANCE = uuid.uuid4().hex[:12]
 
 
 @asynccontextmanager
@@ -107,8 +142,43 @@ async def home(request: Request):
 
 
 @app.get("/healthz")
-async def healthz():
-    return {"ok": True, "app": settings.app_name, "version": settings.version}
+async def healthz(request: Request):
+    """Liveness, and which instance is alive.
+
+    The version alone was a package constant - byte identical across every
+    clone and every process on the machine - so two checkouts answered
+    identically and nothing obtainable over HTTP told them apart. A collector
+    then attributes a measurement to whichever it happened to dial, and the one
+    case that matters is a stale process from an earlier session still holding
+    the port and answering for the one you meant.
+
+    `governance/qm/records/DRAFT-monitoring-seam-and-instance-identity.md` §5:
+    identity is asserted before a measurement is attributed. What a caller
+    needs to do that is the three things below, and it can match them against
+    the port it dialed.
+
+    **The port is observed, not declared.** It comes off the connection this
+    request arrived on rather than off `settings`, because the whole point is
+    to describe the socket that answered. A process serving on a port other
+    than the one it was configured with is exactly the case worth catching, and
+    a handler reading its own settings would report the configured one and hide
+    it.
+    """
+    bound = request.scope.get("server") or (None, None)
+
+    return {
+        "ok": True,
+        "app": settings.app_name,
+        "version": settings.version,
+        # Which instance answered.
+        "instance": INSTANCE,
+        "started_at": STARTED_AT,
+        "port": bound[1],
+        "host": bound[0],
+        "database": settings.resolved_db_path(),
+        # A live read that cannot be aged cannot be quoted. See src/cadence.py.
+        "generated_at": cadence.stamp(),
+    }
 
 
 @app.get("/api/cadence")

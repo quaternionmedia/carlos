@@ -79,8 +79,9 @@ CADENCE: tuple[EndpointCadence, ...] = (
         min_interval_seconds=15,
         why=(
             "Liveness, and it is only ever true right now - a cached liveness "
-            "answer is the thing liveness exists to avoid. This build cannot "
-            "yet say which instance answered; see GOVERNANCE.md."
+            "answer is the thing liveness exists to avoid. It also names which "
+            "instance answered: id, start time, the port actually bound and "
+            "the resolved database path, so a measurement can be attributed."
         ),
     ),
     EndpointCadence(
