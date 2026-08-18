@@ -15,7 +15,7 @@ sitting beside it. The regression protection is the assertions.
 
 ```python
 >>> from walkthrough.support import LiveApp, Shots, chromium, open_rack, release
->>> from walkthrough.support import open_menu, pick, until
+>>> from walkthrough.support import bare_rack, open_menu, pick, until
 >>> app = LiveApp().start()
 >>> shots = Shots('05-in-the-browser')
 >>> browser = chromium()
@@ -130,12 +130,13 @@ And the facing indicator reports the rack it is actually looking at:
 
 ## The menu is a ring
 
-Right-click anywhere on the rack. The ring holds at most eight, which the
-resolver enforces rather than a reviewer:
+Right-click on bare rack — a point found by asking the page what is under it,
+because the palette floats and a computed corner is only empty until it is not.
+The ring holds at most eight, which the resolver enforces rather than a
+reviewer:
 
 ```python
->>> rack = page.locator('#rack').bounding_box()
->>> spot = (int(rack['x'] + rack['width'] - 120), int(rack['y'] + rack['height'] - 40))
+>>> spot = bare_rack(page)
 >>> open_menu(page, *spot)
 >>> page.locator('.rad-wedge').count()
 8
@@ -400,10 +401,10 @@ Qu-24 -> top
 
 ## Turning a device
 
-`Tab` turns the whole rack; the indicator follows what is actually showing.
+`t` turns the whole rack; the indicator follows what is actually showing.
 
 ```python
->>> page.keyboard.press('Tab')
+>>> page.keyboard.press('t')
 >>> until(page, "document.querySelector('#view-indicator').textContent !== 'ALL FRONT'")
 >>> page.locator('#view-indicator').inner_text() != 'ALL FRONT'
 True

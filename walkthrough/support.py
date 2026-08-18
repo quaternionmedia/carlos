@@ -229,9 +229,20 @@ def open_rack(app: LiveApp, browser, width: int = 1280, height: int = 860):
 
     # The workspace, not the bare port: that redirects to the splash now.
     page.goto(f"{app.base}/rack", wait_until="networkidle")
-    # The palette is the last thing the page builds, so its presence is the
-    # signal that every script ran.
-    page.wait_for_selector("#tool-palette", timeout=10_000)
+
+    # Wait for the app to have *booted*, not for its markup to have parsed.
+    #
+    # `#rack` and `#tool-palette` are both in the template, so they exist
+    # before a single script has run — waiting on either says nothing. The
+    # catalogue arrives over `fetch` and the starting devices are added when it
+    # lands, so the honest signal is the status line saying so. Under load this
+    # is the difference between a rack with two devices in it and an empty one,
+    # which is what a test racing the boot actually sees.
+    page.wait_for_function(
+        "() => (document.querySelector('#status')?.textContent || '')"
+        ".startsWith('Carlos ready')",
+        timeout=15_000,
+    )
     return page
 
 
@@ -258,6 +269,36 @@ def pick(page, label: str) -> None:
     page.mouse.move(x, y)
     page.mouse.down()
     page.mouse.up()
+
+
+def bare_rack(page) -> tuple[int, int]:
+    """A point whose topmost element is the rack itself.
+
+    Asked of the page rather than computed from the rack's box. A computed
+    corner looked empty and sat underneath the floating palette, so the
+    right-click reached the palette — which is not in the rack, so no menu
+    opened. It broke when the palette grew a line taller, which is exactly the
+    kind of coupling a coordinate hides and `elementFromPoint` does not.
+    """
+    found = page.evaluate(
+        """() => {
+            const rack = document.querySelector('#rack');
+            const box = rack.getBoundingClientRect();
+            for (let y = box.bottom - 8; y > box.top; y -= 12) {
+                for (let x = box.right - 8; x > box.left; x -= 24) {
+                    const top = document.elementFromPoint(x, y);
+                    if (!top) continue;
+                    if (top.closest('.module') || top.closest('#tool-palette')) continue;
+                    if (!top.closest('#rack')) continue;
+                    return { x, y };
+                }
+            }
+            return null;
+        }"""
+    )
+    if not found:
+        raise AssertionError("no bare rack to click: every point is covered")
+    return int(found["x"]), int(found["y"])
 
 
 def open_menu(page, x: int, y: int) -> None:

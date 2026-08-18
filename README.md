@@ -132,9 +132,11 @@ uv run carlos serve --port 8123
   DFAM has a front and a back; a K.O. II has a face and a top edge and no back
   at all. Cables may run between any two sides. Losing track of a lead is part
   of the instrument.
-- **Turn devices individually.** `Tab` turns the whole rack, `Shift`+`Tab` goes
-  back; click a device to select it and `Tab` turns just that one (`Esc`
-  deselects). Each module carries its own turn button, disabled when it has only
+- **Turn devices individually.** `t` turns the whole rack, `Shift`+`T` goes
+  back; click a device to select it and `t` turns just that one (`Esc`
+  deselects). Turning is on a letter rather than on `Tab` because `Tab` is how
+  a keyboard reaches the controls, and a gesture that costs the keyboard the
+  whole interface is not worth the key it is on. Each module carries its own turn button, disabled when it has only
   one side. A cable with one end out of sight is still drawn end to end, dashed
   and anchored to the device's outline, so a lead can always be followed to both
   of the devices it joins.
@@ -154,7 +156,8 @@ uv run carlos serve --port 8123
   the arrow keys turn it, `Shift` for fine, `PageUp`/`PageDown` for a tenth of
   the range, `Home`/`End` for the ends, double-click to put it back where the
   catalogue had it. Sockets are buttons — `Enter` or `Space` patches. `Esc` lets
-  go of both the selection and the focus.
+  go of both the selection and the focus. Seventeen controls are reachable this
+  way, and a browser test counts them rather than trusting the markup.
 - Knobs also answer to the scroll wheel, and to a finger — they are pointer
   events, so a touchscreen turns them.
 - **The patch name and the import live in a floating tool palette**, not a bar

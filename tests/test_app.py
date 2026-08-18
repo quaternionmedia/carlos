@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+import re
 import unittest
 
 from src.main import app, healthz, patch_format_info, validate_patch
@@ -285,13 +286,24 @@ class FrontendContractTests(unittest.TestCase):
         ]
         self.assertTrue(both, "no device has jacks on both sides")
 
-    def test_tab_flips_the_view(self):
+    def test_a_letter_turns_the_rack_and_tab_is_left_alone(self):
+        # Turning was on `Tab`, guarded by "unless something focusable already
+        # has it". At load nothing is focused, so the first Tab turned the rack
+        # and so did every one after it: seventeen focusable controls, none of
+        # them reachable. Measured in a real browser, which is the only place
+        # it was visible — the stub pre-focused a knob and so only ever tested
+        # the half of the rule that worked.
+        #
+        # A string assertion cannot see that, which is why
+        # `tests/browser/test_without_a_pointer.py` is where the property now
+        # lives. This one holds the line the source can state: Tab is not a key
+        # this file has an opinion about.
         main = Path("static/main.js").read_text()
+        source = re.sub(r"//.*$", "", main, flags=re.M)
 
-        self.assertIn("'Tab'", main)
-        self.assertIn("flipView", main)
-        # Tab must not also move focus, or the two meanings collide.
-        self.assertIn("preventDefault", main)
+        self.assertIn("flipView", source)
+        self.assertNotIn("'Tab'", source)
+        self.assertNotIn('"Tab"', source)
 
     def test_escape_deselects(self):
         main = Path("static/main.js").read_text()

@@ -45,7 +45,7 @@ jobs:
       # collected by nobody and stays green forever.
       - name: Suite, and the hermetic walkthrough pages
         run: >-
-          uv run pytest tests
+          uv run pytest tests --ignore=tests/browser
           walkthrough/01-onboarding.md
           walkthrough/02-the-catalogue.md
           walkthrough/03-a-modular-drum-rig.md
@@ -92,6 +92,9 @@ jobs:
           b = p.chromium.launch();
           print('chromium', b.version);
           b.close(); p.stop()"
+
+      - name: The browser suite
+        run: uv run pytest tests/browser -q
 
       - name: The runtime-bound page
         run: uv run pytest walkthrough/05-in-the-browser.md --doctest-glob=*.md -q

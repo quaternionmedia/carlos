@@ -22,6 +22,7 @@ uv run pytest tests walkthrough --doctest-glob=*.md
 | --- | --- |
 | `carlos check` | The suite **and** the walkthrough. Run this before a pull request |
 | `carlos harness` | The five frontend harnesses, under Node. Name one to run just it |
+| `carlos browser` | The browser suite, in real Chromium |
 | `carlos serve` | Run the app, on a predictable port |
 | `carlos stop` | Free the port, and prove it is free |
 | `carlos shots` | Regenerate the walkthrough screenshots |
@@ -34,7 +35,8 @@ other, so a round the CLI grows and this page does not name is a failing test:
 
 ```python
 >>> sorted(cli.main.commands)
-['check', 'gates', 'harness', 'serve', 'shots', 'signatures', 'status', 'stop']
+['browser', 'check', 'gates', 'harness', 'serve', 'shots', 'signatures',
+ 'status', 'stop']
 
 ```
 

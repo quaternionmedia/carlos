@@ -227,9 +227,9 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     // ---- COLLISION 3: Tab and m still act while the menu is open ----
     radMenu.openAt({ type: 'canvas', targetIds: [], position: { x: 400, y: 300 } }, 400, 300, 'tap');
     const viewsBefore = [...system.modules.values()].map(m => m.view).join(',');
-    fire('keydown', document.body, { key: 'Tab' });
+    fire('keydown', document.body, { key: 't' });
     const viewsAfter = [...system.modules.values()].map(m => m.view).join(',');
-    check('C3: Tab does not turn the rack while a menu is open',
+    check('C3: t does not turn the rack while a menu is open',
         viewsBefore === viewsAfter,
         `views changed under an open menu: ${viewsBefore} -> ${viewsAfter}`);
     if (radMenu.open) radMenu.close();
@@ -273,19 +273,33 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         `context was ${JSON.stringify(radMenu.context?.type)}`);
     if (radMenu.open) radMenu.close();
 
-    // ---- COLLISION 6: Tab belongs to whatever has focus ----
-    // Knobs and sockets take focus now. A global Tab handler that always turns
-    // the rack would make every one of them visible and unreachable.
-    const viewsBeforeTab = [...system.modules.values()].map(m => m.view).join(',');
-    fire('keydown', knobEl, { key: 'Tab' });
-    check('C6: Tab over a focusable control does not turn the rack',
-        [...system.modules.values()].map(m => m.view).join(',') === viewsBeforeTab,
-        'Tab turned the rack while focus was on a knob');
+    // ---- COLLISION 6: Tab is focus, and the turn key is not Tab ----
+    // Turning used to be on Tab, guarded by "unless something focusable has
+    // it". At load nothing is focused, so the first Tab turned the rack and so
+    // did every Tab after it: seventeen focusable controls, none reachable,
+    // measured in a real browser. The stub agreed with the code because it
+    // pre-focused a knob and only ever tested the second half of the rule.
+    const turnBaseline = [...system.modules.values()].map(m => m.view).join(',');
+    const tabbed = fire('keydown', document.body, { key: 'Tab' });
+    check('C6: Tab is left alone, so focus can move',
+        tabbed.defaultPrevented === false
+        && [...system.modules.values()].map(m => m.view).join(',') === turnBaseline,
+        'Tab was intercepted, which is what made every control unreachable');
 
-    fire('keydown', document.body, { key: 'Tab' });
-    check('C6: Tab with nothing focused still turns the rack',
-        [...system.modules.values()].map(m => m.view).join(',') !== viewsBeforeTab,
-        'Tab stopped turning the rack from the body');
+    fire('keydown', document.body, { key: 't' });
+    check('C6: the turn key turns the rack',
+        [...system.modules.values()].map(m => m.view).join(',') !== turnBaseline,
+        't did not turn the rack');
+
+    // And a letter key must not fire while somebody is naming a patch.
+    const typed = [...system.modules.values()].map(m => m.view).join(',');
+    const field = makeEl({ tag: 'input', id: 'patch-name' });
+    global.HTMLInputElement = class {};
+    Object.setPrototypeOf(field, global.HTMLInputElement.prototype);
+    fire('keydown', field, { key: 't' });
+    check('C6: typing the turn key into a text field does not turn the rack',
+        [...system.modules.values()].map(m => m.view).join(',') === typed,
+        'naming a patch turned the rack');
 
     // ---- COLLISION 7: a pad press is not also a selection ----
     // Grids are buttons on top of a module, and the module selects itself on

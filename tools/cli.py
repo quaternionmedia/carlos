@@ -220,6 +220,22 @@ def shots(ctx: click.Context) -> None:
 
 @main.command()
 @click.pass_context
+def browser(ctx: click.Context) -> None:
+    """The browser suite, in real Chromium.
+
+    Separate from `check` only so it can be run alone while working on the
+    front end; `check` runs it too, because it is tests. It needs a browser
+    once per clone: `uv run playwright install chromium`.
+    """
+    ctx.exit(run(
+        here(["pytest", "tests/browser", "-q"]),
+        canonical=uv(["pytest", "tests/browser", "-q"]),
+        **_opts(ctx),
+    ))
+
+
+@main.command()
+@click.pass_context
 def gates(ctx: click.Context) -> None:
     """The governance gates, as CI runs them.
 

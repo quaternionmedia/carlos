@@ -73,10 +73,8 @@ async function loadExample(kind, deviceId) {
 //
 // Tab must not also move focus to the next control, or the two meanings
 // collide; preventDefault is what keeps them apart.
-// Anything that takes focus in its own right. Tab belongs to whatever the user
-// is already inside; it only means "turn the rack" when they are not inside
-// anything. Without this the rack swallowed every Tab on the page, so the turn
-// buttons, the row controls and now the knobs could be seen and never reached.
+// Anything that takes focus in its own right. Escape means "let go", which is
+// only meaningful for something that had hold of the focus in the first place.
 function isFocusable(node) {
     return Boolean(node?.closest?.(
         'input, select, textarea, button, a[href], [tabindex]:not([tabindex="-1"])'
@@ -118,13 +116,19 @@ document.addEventListener('keydown', (event) => {
         return;
     }
 
-    if (event.key !== 'Tab' || event.ctrlKey || event.altKey || event.metaKey) return;
+    // `t` turns the whole rack, `Shift`+`T` walks the sides backwards — which
+    // matters once a device has more than two of them and cycling forward is a
+    // long way round.
+    //
+    // This used to be `Tab`, and `Tab` is focus. The rule that was supposed to
+    // reconcile the two — take Tab unless something focusable already has it —
+    // could not: at load nothing is focused, so the first Tab turned the rack,
+    // and so did every Tab after it. Seventeen focusable controls, none of them
+    // reachable, measured in a real browser. A gesture that costs the keyboard
+    // the entire interface is not a gesture worth the key it is on.
+    if (event.key !== 't' && event.key !== 'T') return;
+    if (event.ctrlKey || event.altKey || event.metaKey) return;
 
-    // Focus is somewhere that wants Tab. Let it move; Escape gets back out.
-    if (isFocusable(event.target)) return;
-
-    // Shift+Tab walks the sides backwards, which matters once a device has
-    // more than two of them and cycling forward is a long way round.
     event.preventDefault();
     system.flipView(event.shiftKey ? -1 : 1);
 });
