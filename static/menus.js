@@ -119,6 +119,7 @@ function carlosResolve(context, state) {
                         item('mode:minimal', 'Minimal', 'display:minimal'),
                         item('mode:irl', 'As laid out', 'display:irl'),
                         item('turn-all', 'Turn All', 'turn-all'),
+                        item('palette:reset', 'Reset palette', 'palette:reset'),
                     ],
                 }),
                 item('midi', 'MIDI', null, {

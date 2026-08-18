@@ -76,10 +76,18 @@ const knobEl = makeEl({
 });
 const status = makeEl({ id: 'status' });
 
+// The tool palette is a real node here: it sits over the rack and takes its own
+// pointer events, which is exactly the kind of thing this harness is for.
+const toolPalette = makeEl({ id: 'tool-palette', className: 'rad-palette' });
+const paletteGrip = makeEl({
+    id: 'tool-palette-grip', className: 'rad-palette-grip', parent: toolPalette,
+});
+
 const nodes = {
     rack, status, 'patch-cables': null, 'view-indicator': makeEl(),
-    'patch-name': null, 'patch-file': null, 'row-target': null, 'palette': null,
+    'patch-name': null, 'patch-file': null, 'row-target': null,
     'example-device': null, 'options-drawer': null,
+    'tool-palette': toolPalette, 'tool-palette-grip': paletteGrip,
 };
 
 global.window = {
@@ -113,6 +121,7 @@ function load(file) {
     load('static/menus.js') +
     load('static/rad-menu.js') +
     load('static/models.js') +
+    load('static/palette.js') +
     '\nglobalThis.EurorackSystem = EurorackSystem;' +
     '\nglobalThis.ModuleFactory = ModuleFactory;' +
     '\nglobalThis.RadMenu = RadMenu;' +
@@ -122,7 +131,8 @@ function load(file) {
     // Class declarations inside an indirect eval do not outlive it, so every
     // name the next eval needs is handed over explicitly.
     '\nglobalThis.MidiInput = MidiInput;' +
-    '\nglobalThis.PatchBayManager = PatchBayManager;'
+    '\nglobalThis.PatchBayManager = PatchBayManager;' +
+    '\nglobalThis.Palette = Palette;'
 );
 const devDir = path.join(REPO, 'catalogue/devices');
 ModuleFactory.load({

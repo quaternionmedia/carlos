@@ -1,31 +1,49 @@
-{# The options drawer, the palette, the example picker and the row controls all
-   lived here. They are gone: menus are the radial menu, per rad's interaction
-   contract, and a second menu system would be a second answer to a question the
-   contract already settles. See docs/rad-integration.md.
+{# The options drawer, its device palette, the example picker and the row
+   controls all lived here. They are gone: menus are the radial menu, per rad's
+   interaction contract, and a second menu system would be a second answer to a
+   question the contract already settles. See docs/rad-integration.md.
 
-   What is left is not a menu. A patch name is a text field and a file input is
-   a file input; neither is expressible as a ring, and pretending otherwise
-   would be the deprecation eating something it was not meant to. #}
-<div class="patch-bar">
-  <label class="field-label" for="patch-name">Patch</label>
-  <input id="patch-name" type="text" value="Untitled Patch" spellcheck="false">
+   This is not that. A tool palette holds the things a ring cannot express — a
+   patch name is a text field, a file input is a file input — and it resolves no
+   context and emits no intent, which is what a menu is. It floats over the rack
+   rather than pinning a strip to the bottom of the window, because a rack is
+   the width of the window and a fixed bar takes a slice of it away from every
+   rack whether or not anyone is naming a patch.
 
-  <label class="visually-hidden" for="patch-file">Patch file to import</label>
-  <input id="patch-file" type="file" accept=".json,application/json"
-         title="Patch file to import"
-         onchange="importPatch(this.files[0]); this.value = '';">
+   `palette` here is rad's word for a set of colour tokens, and that is what
+   this is built from: no colour below is a literal. #}
+<div class="rad-palette" id="tool-palette" data-default-corner="top-right">
+  {# The grip is the whole drag target, and it is focusable so the palette can
+     be moved without a pointer. #}
+  <div class="rad-palette-grip" id="tool-palette-grip" tabindex="0" role="application"
+       aria-label="Palette. Drag, or use the arrow keys, to move it.">
+    <span class="rad-palette-dots" aria-hidden="true"></span>
+    <span class="rad-palette-title">Carlos</span>
+  </div>
 
-  <!-- Which way the rack is facing. `applyView` has always written this and
-       `demo.css` has always styled it; the element itself went with the drawer,
-       so the one persistent answer to "what am I looking at" became a status
-       message that the next status message overwrote. -->
-  <span class="view-label">Facing</span>
-  <span id="view-indicator">EMPTY</span>
+  <div class="rad-palette-body">
+    <div class="rad-palette-row">
+      <label class="field-label" for="patch-name">Patch</label>
+      <input id="patch-name" type="text" value="Untitled Patch" spellcheck="false">
+    </div>
 
-  <span class="key-hint">
-    <kbd>Right-click</kbd> or <kbd>m</kbd> for the menu &middot;
-    long-press and release picks in one gesture &middot;
-    <kbd>Tab</kbd> turns &middot; <kbd>Esc</kbd> deselects &middot;
-    the menu on a cable unpatches it
-  </span>
+    {# Which way the rack is facing: the one answer that has to persist, as
+       against the status line, where the next message overwrites it. #}
+    <div class="rad-palette-row">
+      <span class="view-label">Facing</span>
+      <span id="view-indicator">EMPTY</span>
+    </div>
+
+    <label class="visually-hidden" for="patch-file">Patch file to import</label>
+    <input id="patch-file" type="file" accept=".json,application/json"
+           title="Patch file to import"
+           onchange="importPatch(this.files[0]); this.value = '';">
+
+    <ul class="key-hint">
+      <li><kbd>Right-click</kbd> or <kbd>m</kbd> &mdash; menu</li>
+      <li>long-press and release picks in one gesture</li>
+      <li><kbd>Tab</kbd> turns &middot; <kbd>Esc</kbd> deselects</li>
+      <li>the menu on a cable unpatches it</li>
+    </ul>
+  </div>
 </div>

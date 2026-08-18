@@ -110,6 +110,11 @@ uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
   go of both the selection and the focus.
 - Knobs also answer to the scroll wheel, and to a finger — they are pointer
   events, so a touchscreen turns them.
+- **The patch name and the import live in a floating tool palette**, not a bar
+  pinned across the bottom — a rack is the width of the window. It opens at a
+  default corner, drags by its grip or moves with the arrow keys, and comes back
+  where you left it. `Home` on the grip, or Display → Reset palette, puts it
+  back to the default.
 - Randomize all module parameters
 - Export and import the whole rack as a `carlos.patch` document
 - Persist a local TinyDB file for future patch storage work

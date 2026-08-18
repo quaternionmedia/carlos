@@ -1,8 +1,9 @@
 /* === BASE STYLES === */
 body {
     margin: 0;
-    /* Room for the status line above and the patch bar below. */
-    padding: 56px 20px 90px;
+    /* Room for the status line above. Nothing is reserved below: the palette
+       floats over the rack rather than pinning a strip across the bottom. */
+    padding: 56px 20px 24px;
     background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
     font-family: 'Courier New', monospace;
     color: #00ff88;
@@ -399,35 +400,39 @@ svg {
 }
 
 #patch-name {
-    background: #111;
-    border: 1px solid #555;
-    color: #00ff88;
+    background: var(--rad-hub);
+    border: 1px solid var(--rad-surface-edge);
+    color: var(--rad-ink);
     font-family: inherit;
     font-size: 11px;
-    padding: 6px 8px;
-    border-radius: 4px;
-    width: 130px;
+    padding: 5px 7px;
+    border-radius: 3px;
+    min-width: 0;
 }
 
 #patch-name:focus {
     outline: none;
-    border-color: #00ff88;
+    border-color: var(--rad-ink);
 }
 
 #view-indicator {
     font-size: 11px;
     font-weight: bold;
-    color: #00ff88;
-    border: 1px solid #333;
+    color: var(--rad-ink);
+    border: 1px solid var(--rad-surface-edge);
     border-radius: 3px;
-    padding: 3px 6px;
+    padding: 2px 6px;
 }
 
 .key-hint {
-    margin-left: auto;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
     font-size: 9px;
-    color: #666;
-    text-align: right;
+    line-height: 1.6;
+    color: var(--rad-ink-dim);
+    border-top: 1px solid var(--rad-surface-edge);
+    padding-top: 6px;
 }
 
 kbd {
@@ -464,6 +469,9 @@ kbd {
     --rad-rear: #ff9f43;
     --rad-danger: #ff6b6b;
     --rad-hub: #0b0d09;
+    /* What a panel lifted off the rack casts. A token like any other colour:
+       a theme that lightens the surface has to lighten this with it. */
+    --rad-shadow: rgba(0, 0, 0, 0.55);
 }
 
 /* === STATUS LINE === */
@@ -490,29 +498,104 @@ kbd {
     text-overflow: ellipsis;
 }
 
-/* === PATCH BAR === */
-/* Not a menu. A name is a text field and a file input is a file input; neither
-   is expressible as a ring. */
-.patch-bar {
+/* === TOOL PALETTE === */
+/* Not a menu: it resolves no context and emits no intent. It holds the things a
+   ring cannot express - a patch name is a text field - and floats rather than
+   pinning a strip across the bottom, because a rack is the width of the window
+   and a fixed bar took a slice out of every one of them.
+
+   `palette` is rad's own word for a set of colour tokens, and every colour here
+   is one. A literal cannot survive a theme change. */
+.rad-palette {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 20;
+    /* `left` and `top` are written by static/palette.js. These are the fallback
+       for the moment before it runs, and they agree with its default corner -
+       so the palette does not appear in one place and jump to another. */
+    top: 68px;
+    right: 20px;
+    z-index: 30;
+    width: 232px;
+    background: var(--rad-surface);
+    border: 1px solid var(--rad-surface-edge);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px var(--rad-shadow);
+    font-size: 11px;
+}
+
+/* Once palette.js has placed it, position is `left`/`top` only - `right` would
+   fight the drag on every move. */
+.rad-palette.is-placed {
+    right: auto;
+}
+
+.rad-palette-grip {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 20px;
-    background: rgba(0, 0, 0, 0.94);
-    border-top: 1px solid var(--rad-surface-edge);
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--rad-wedge);
+    border-bottom: 1px solid var(--rad-surface-edge);
+    border-radius: 5px 5px 0 0;
+    cursor: grab;
+    /* The browser must not claim the drag for scrolling or for selecting the
+       title text. */
+    touch-action: none;
+    user-select: none;
 }
 
-/* Reached through the menu's Import action, never directly. */
-#patch-file {
-    display: none;
+.rad-palette.is-moving .rad-palette-grip {
+    cursor: grabbing;
+    background: var(--rad-wedge-hover);
 }
 
-/* === RADIAL MENU === */
+.rad-palette-grip:focus-visible {
+    outline: 2px solid var(--rad-ink);
+    outline-offset: -2px;
+}
+
+/* The handle, as the thing every draggable panel has had since panels did. */
+.rad-palette-dots {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    background-image: radial-gradient(var(--rad-ink-dim) 40%, transparent 42%);
+    background-size: 4px 4px;
+    opacity: 0.8;
+}
+
+.rad-palette-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--rad-ink-dim);
+}
+
+.rad-palette-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+}
+
+.rad-palette-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rad-palette-row .field-label,
+.rad-palette-row .view-label {
+    flex-shrink: 0;
+    width: 46px;
+}
+
+.rad-palette-row #patch-name {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+}
+
+/* === RADIAL MENU === *//* === RADIAL MENU === */
 .rad-layer {
     position: fixed;
     inset: 0;

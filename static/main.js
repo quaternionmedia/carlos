@@ -295,6 +295,11 @@ function routeIntent(intent) {
             system.setMode(action.endsWith('irl') ? 'irl' : 'minimal');
             break;
 
+        case 'palette:reset':
+            palette.reset();
+            system.status.update('Palette back to where it starts');
+            break;
+
         case 'midi:connect':
             midiInput.setBindings(system.midi);
             midiInput.connect();
@@ -398,6 +403,22 @@ document.getElementById('rack')?.addEventListener('click', (event) => {
 // Cable endpoints are measured from laid-out elements, so a resize invalidates
 // every path already drawn.
 window.addEventListener('resize', () => system.patchBay.redrawAll());
+
+// ===================================
+// TOOL PALETTE
+// ===================================
+// The panel holding what a ring cannot express. It is constructed here rather
+// than constructing itself, so the storage it uses is something this file
+// chose and the tests can hand it another.
+const palette = new Palette({
+    element: document.getElementById('tool-palette'),
+    grip: document.getElementById('tool-palette-grip'),
+    // Reached through a guard: a browser can refuse `localStorage` outright,
+    // and reading the property is itself what throws.
+    storage: (() => {
+        try { return window.localStorage; } catch { return null; }
+    })(),
+});
 
 // ===================================
 // INTERCHANGE

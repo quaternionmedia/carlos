@@ -186,3 +186,35 @@ not expressible as a ring, and two direct affordances — the per-device turn
 button and the row remove button. A single-purpose button is not a menu, and
 routing one-click actions through a ring would be the deprecation eating
 something it was not meant to.
+
+## The tool palette
+
+Those survivors live in a floating panel, `static/palette.js`. **It is not the
+device palette that was deleted**, which is worth stating plainly because it
+carries the same word.
+
+The test is what a thing does, not what it is called. A menu resolves a context
+into a `MenuSpec` and commits an `Intent`. The panel does neither: it holds a
+text field and a file input, it names no device, and `tests/test_rad.py` asserts
+it contains no button, no `select`, no `onclick`, and no device id from the
+catalogue. That guard used to forbid the string `palette` outright; it cannot
+now, and asserting the shape is the stronger version anyway — a rename routes
+around a forbidden string and cannot route around this.
+
+`static/palette.js` is also held away from the rack: it may not name `system`,
+`ModuleFactory`, `radMenu`, `carlosResolve` or `patchBay`. A panel that starts
+reaching into the rack is on its way to being the second menu system.
+
+`palette` is rad's own word for a set of colour tokens, and that is what the
+panel is drawn from — no colour in its stylesheet is a literal.
+
+It floats because a rack is the width of the window, and the strip it replaces
+was pinned across the bottom taking a slice out of every rack whether or not
+anyone was naming a patch. It opens at a default corner, is dragged by its grip
+or moved with the arrow keys, and is clamped so a grip's width always stays on
+screen — a panel dragged past the corner is gone, and gone is indistinguishable
+from broken. `Home` on the grip, or **Display → Reset palette**, puts it back.
+
+Where someone left it is remembered in `localStorage`, and deliberately not in
+the patch document: a window position is not part of a rig, and a rack exported
+on one screen would carry a position meaningless on another.
