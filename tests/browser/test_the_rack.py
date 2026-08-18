@@ -166,6 +166,91 @@ class TestDrawnAsLaidOut:
         assert drum_rig.errors == []
 
 
+class TestTheFourThingsYouCanPointAt:
+    """Device, cable, row, canvas — each resolves to its own menu.
+
+    A row used to fall through to the rack menu, so the only way to act on one
+    was the small x in its header: one click target, one action, and no way to
+    turn a row or empty it.
+    """
+
+    @pytest.fixture
+    def rowed(self, bench):
+        """Two devices, both in a row of their own."""
+        bench.evaluate(
+            """() => {
+                const row = system.createRow();
+                [...system.modules.keys()].forEach(
+                    id => system.assignToGroup(id, row.id));
+                return row.id;
+            }"""
+        )
+        return bench
+
+    def right_click(self, page, locator, dx=40, dy=8):
+        box = locator.bounding_box()
+        page.mouse.click(box["x"] + dx, box["y"] + dy, button="right")
+        page.wait_for_selector(".rad-wedge", timeout=5_000)
+        return page.locator(".rad-label").all_text_contents()
+
+    def test_a_row_opens_the_row_menu(self, rowed):
+        labels = self.right_click(rowed, rowed.locator(".rack-group-header"))
+        assert any("Delete Row" in text for text in labels)
+        assert any("Empty Row" in text for text in labels)
+        assert any("Turn Row" in text for text in labels)
+
+    def test_the_menu_names_the_row_and_counts_it(self, rowed):
+        self.right_click(rowed, rowed.locator(".rack-group-header"))
+        # `text_content`: the ring's title is an SVG text node, not an
+        # HTMLElement, so there is no rendered text to read.
+        title = rowed.locator(".rad-title").text_content()
+        assert "Row" in title
+        assert "(2)" in title
+
+    def test_a_device_inside_a_row_still_opens_its_own_menu(self, rowed):
+        # The device wins over the row it sits in, because that is what you are
+        # pointing at. Ordering, not a special case.
+        labels = self.right_click(rowed, rowed.locator(".module").first)
+        assert any("Delete" == text for text in labels)
+        assert not any("Delete Row" in text for text in labels)
+
+    def test_turning_a_row_turns_what_is_in_it(self, rowed):
+        before = rowed.locator(".module .face.active").evaluate_all(
+            "faces => faces.map(f => f.dataset.side)")
+        self.right_click(rowed, rowed.locator(".rack-group-header"))
+        pick(rowed, "Turn Row")
+        ready(rowed, "Turned")
+        after = rowed.locator(".module .face.active").evaluate_all(
+            "faces => faces.map(f => f.dataset.side)")
+        assert after != before
+
+    def test_emptying_a_row_keeps_the_devices(self, rowed):
+        self.right_click(rowed, rowed.locator(".rack-group-header"))
+        pick(rowed, "Empty Row")
+        ready(rowed, "loose in the rack")
+        assert rowed.locator(".module").count() == 2
+        assert rowed.locator(".rack-group").count() == 1
+
+    def test_deleting_a_row_keeps_the_devices(self, rowed):
+        # A grouping is a way of looking at a rack, not a container the gear
+        # lives inside, so losing it can never cost you gear.
+        self.right_click(rowed, rowed.locator(".rack-group-header"))
+        pick(rowed, "Delete Row")
+        ready(rowed, "devices are loose")
+        assert rowed.locator(".rack-group").count() == 0
+        assert rowed.locator(".module").count() == 2
+
+    def test_the_rack_itself_still_answers(self, bench):
+        open_menu(bench, *bare_rack(bench))
+        labels = bench.locator(".rad-label").all_text_contents()
+        assert any("Add Device" in text for text in labels)
+
+    def test_nothing_throws_through_any_of_it(self, rowed):
+        self.right_click(rowed, rowed.locator(".rack-group-header"))
+        rowed.keyboard.press("Escape")
+        assert rowed.errors == []
+
+
 class TestOnlyTheFacesThatHaveSomething:
     """A device shows the sides it draws, and opens on the one you look at.
 

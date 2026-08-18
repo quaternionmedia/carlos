@@ -138,8 +138,19 @@ function carlosResolve(context, state) {
     if (context.type === 'node') {
         const moduleId = context.targetIds[0];
         const module = state.modules?.get?.(moduleId);
-        const turns = module ? module.sides.length > 1 : false;
-        const next = turns ? module.sides[(module.sides.indexOf(module.view) + 1) % module.sides.length] : null;
+        // The sides it *draws*, not the sides it has. A device with a blank
+        // face has that side and never shows it, so asking `sides` would offer
+        // to turn a device that cannot turn and name a next face it will never
+        // reach. `drawnSides` is the same list `cycle` walks, which is the
+        // point: the menu should promise what the gesture does.
+        //
+        // Tolerant of a plain object, because this resolver is pure and gets
+        // exercised without a rack behind it.
+        const drawn = module?.drawnSides?.() || module?.sides || [];
+        const turns = drawn.length > 1;
+        const next = turns
+            ? drawn[(drawn.indexOf(module.view) + 1) % drawn.length]
+            : null;
         const cables = state.cableCounts?.get?.(moduleId) || 0;
 
         return {
@@ -188,6 +199,35 @@ function carlosResolve(context, state) {
             items: [
                 item('cable:follow', 'Follow', 'cable:follow'),
                 item('cable:remove', 'Unpatch', 'cable:remove', { destructive: true }),
+            ],
+        };
+    }
+
+    // A row is a context of its own, and the fourth thing you can point at.
+    //
+    // rad names four types and this is a fifth, which the contract allows:
+    // extension is permitted, repurposing is not. A row is not a node - it has
+    // no jacks, no panel and no sides - and calling it one to stay inside the
+    // list would have been exactly the repurposing the rule forbids.
+    //
+    // Right-clicking a row used to fall through to the rack menu, so the only
+    // way to act on one was the small x in its header: a single click target,
+    // one action, and no way to turn a row or empty it.
+    if (context.type === 'row') {
+        const group = groups.find(g => g.id === context.targetIds[0]);
+        const members = group?.members.length || 0;
+        return {
+            title: group ? `${group.label} (${members})` : 'Row',
+            items: [
+                item('add', 'Add Device', null, {
+                    children: deviceTree(definitions, 'add-node'),
+                }),
+                item('row:turn', 'Turn Row', 'row:turn', { enabled: members > 0 }),
+                item('row:loosen-all', 'Empty Row', 'row:loosen-all',
+                     { enabled: members > 0 }),
+                // The row goes; its devices stay in the rack. Destructive
+                // because it removes something, not because it loses anything.
+                item('row:delete', 'Delete Row', 'row:delete', { destructive: true }),
             ],
         };
     }

@@ -490,6 +490,16 @@ kbd {
        everything obeys. Off the scale on purpose: it is not "further along"
        than channel 9, it is the one you are looking for. */
     --rad-lane-drums: #ffd23f;
+
+    /* How heavy a cable is drawn. Slight by default: a rack is mostly gear,
+       and a lead is the thing running between two bits of it rather than the
+       subject. Two pixels made a rig of eight cables read as a cable diagram
+       with some devices in the background. The weights that matter - the drum
+       lane, the one you are following - are heavier *relative* to this, so
+       thinning the default is what gives them somewhere to stand out from. */
+    --cable-weight: 1.1;
+    --cable-weight-drums: 2;
+    --cable-weight-traced: 2.4;
     --rad-danger: #ff6b6b;
     --rad-hub: #0b0d09;
     /* What a panel lifted off the rack casts. A token like any other colour:
@@ -686,8 +696,10 @@ kbd {
     pointer-events: none;
     /* Tokens, not values. Every colour on this layer used to be written into
        the SVG attribute by hand, which put two hex literals outside the
-       palette and outside any theme that follows it. */
+       palette and outside any theme that follows it - and the weight went the
+       same way for the same reason. */
     stroke: var(--rad-signal);
+    stroke-width: var(--cable-weight);
 }
 
 /* Wiring that leaves round the back reads as rear wiring wherever the device
@@ -723,7 +735,7 @@ kbd {
 .cable.is-drums,
 .cable.is-rear.is-drums {
     stroke: var(--rad-lane-drums);
-    stroke-width: 3;
+    stroke-width: var(--cable-weight-drums);
 }
 
 /* The fat invisible copy of each cable that `cableAt` probes with
@@ -758,7 +770,7 @@ svg.is-tracing .cable {
 
 svg.is-tracing .cable.is-traced {
     opacity: 1;
-    stroke-width: 3;
+    stroke-width: var(--cable-weight-traced);
 }
 
 svg.is-tracing .cable-anchor {

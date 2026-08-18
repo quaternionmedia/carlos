@@ -1593,7 +1593,6 @@ class PatchBayManager {
                 + `Q ${midX + normalX * step} ${midY + normalY * step} `
                 + `${to.x} ${to.y}`;
             path.setAttribute('d', curve);
-            path.setAttribute('stroke-width', '2');
             path.setAttribute('fill', 'none');
 
             // Colour is a class and a position, never a value. The stroke
@@ -1883,6 +1882,50 @@ class EurorackSystem {
             group.members = group.members.filter(id => id !== moduleId);
         });
         if (rerender) this.renderRack();
+    }
+
+    // Turn every device in one row, each along its own sides.
+    //
+    // Not "set the row to X": devices do not share a side list, so a row of a
+    // grid and two rack units turns into three different sides and that is the
+    // correct answer. The same rule as turning the whole rack, applied to the
+    // devices one row happens to hold.
+    turnRow(groupId, step = 1) {
+        const group = this.groups.find(g => g.id === groupId);
+        if (!group) return null;
+
+        const turned = group.members
+            .map(id => this.modules.get(id))
+            .filter(Boolean);
+        if (!turned.length) {
+            this.status.update(`${group.label} is empty`);
+            return group;
+        }
+
+        turned.forEach(module => module.cycle(step));
+        this.applyView();
+        this.status.update(
+            `Turned ${turned.length} device(s) in ${group.label} - ${this.viewSummary()}`);
+        return group;
+    }
+
+    // Empty a row without deleting it or anything in it.
+    //
+    // The devices come loose in the rack, which is the same thing that happens
+    // when the row itself is deleted - a grouping is a way of looking at a rack,
+    // so taking it away can never cost you gear.
+    emptyRow(groupId) {
+        const group = this.groups.find(g => g.id === groupId);
+        if (!group) return null;
+
+        const freed = group.members.length;
+        group.members = [];
+        this.renderRack();
+        this.status.update(
+            freed
+                ? `${group.label} is empty; ${freed} device(s) loose in the rack`
+                : `${group.label} was already empty`);
+        return group;
     }
 
     // Deleting a row never deletes devices. They come loose instead, because a

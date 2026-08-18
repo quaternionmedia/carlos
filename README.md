@@ -140,6 +140,10 @@ uv run carlos serve --port 8123
   down one USB lead, with four groups bound to four channels — so the first
   thing on screen has a question in it rather than two boxes of knobs with
   nothing running between them.
+- **Four things you can point at.** Right-click a device, a cable, a row, or the
+  rack itself, and each gives you its own ring. A row can be turned, emptied or
+  deleted — and deleting one never deletes gear, because a grouping is a way of
+  looking at a rack rather than a container the gear lives inside.
 - **A lead carrying channels is drawn as the channels.** One USB cable, four
   strands, one per channel bound to the device at the far end. The split is
   derived from the MIDI bindings rather than stored on the cable, so rebinding a

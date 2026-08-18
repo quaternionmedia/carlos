@@ -61,6 +61,7 @@ function radHitTest(r, thetaDeg, n, geometry = RAD_GEOMETRY) {
 // ===================================================================
 // MenuItem   { id, label, icon?, enabled, destructive, children? }
 // MenuContext{ type: node|edge|canvas|selection, targetIds[], position{x,y} }
+//              hosts may extend this list; they may not repurpose a name.
 // MenuSpec   { items: MenuItem[] (1..8), title? }
 // Intent     { action, context, itemId }
 

@@ -325,7 +325,12 @@ function routeIntent(intent) {
 
     switch (action) {
         case 'add-node':
-            system.addModule(payload.deviceId);
+            // Into the row that was pointed at, when one was. `addModule`
+            // already falls back to the selected device's row, so this is the
+            // only place that has to know a row can be the target.
+            system.addModule(
+                payload.deviceId,
+                context.type === 'row' ? targetId : null);
             break;
 
         case 'example:simple':
@@ -339,6 +344,18 @@ function routeIntent(intent) {
 
         case 'row:assign':
             if (targetId) system.assignToGroup(targetId, payload.groupId);
+            break;
+
+        case 'row:turn':
+            if (targetId) system.turnRow(targetId);
+            break;
+
+        case 'row:loosen-all':
+            if (targetId) system.emptyRow(targetId);
+            break;
+
+        case 'row:delete':
+            if (targetId) system.deleteGroup(targetId);
             break;
 
         case 'row:loosen':
@@ -473,6 +490,12 @@ function contextAt(event) {
 
     const cable = system.patchBay.cableAt(event.clientX, event.clientY);
     if (cable) return { type: 'edge', targetIds: [cable.key], position };
+
+    // A row, if the click landed inside one. After the cable, because a lead
+    // crossing a row is still a lead; before the rack, because the rack is
+    // what is left when you have pointed at nothing in particular.
+    const rowEl = event.target.closest?.('.rack-group');
+    if (rowEl) return { type: 'row', targetIds: [rowEl.dataset.groupId], position };
 
     return { type: 'canvas', targetIds: [], position };
 }

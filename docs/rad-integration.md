@@ -56,8 +56,22 @@ nothing standard has been given a Carlos-specific meaning.
 ### Contexts
 
 rad's `MenuContext.type` is `node | edge | canvas | selection`. Carlos resolves
-all four. `edge` is a patch cable, and resolving it is what made a single lead
-removable — before it, the only way out of a patch was `Clear Rack`.
+all four and adds a fifth, `row`. The contract permits extension and forbids
+repurposing, which is the whole reason it is a fifth name rather than a reuse of
+`node`: a row has no jacks, no panel and no sides, and calling it a node to stay
+inside the list would have been exactly the repurposing the rule forbids.
+
+So there are four things you can point at — **a device, a cable, a row, the rack
+itself** — and each resolves to its own ring. A row previously fell through to
+the rack menu, which meant the only way to act on one was the small × in its
+header: one click target, one action, and no way to turn a row or empty it.
+
+The order is device, cable, row, rack. A device wins over the row it sits in
+because that is what you are pointing at; the rack is what is left when you have
+pointed at nothing in particular.
+
+`edge` is a patch cable, and resolving it is what made a single lead removable —
+before it, the only way out of a patch was `Clear Rack`.
 
 A cable is found by asking the geometry, not the event target. The cable layer
 is `pointer-events: none` so it cannot intercept a click meant for a knob

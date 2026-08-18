@@ -218,6 +218,91 @@ class ResolverTests(unittest.TestCase):
         """)
         self.assertTrue(outcome["threw"])
 
+    def test_a_row_resolves_as_its_own_context(self):
+        # rad names four context types and this is a fifth. The contract permits
+        # extension and forbids repurposing, and a row is not a node: it has no
+        # jacks, no panel and no sides. Calling it one to stay inside the list
+        # would have been the repurposing the rule forbids.
+        spec = self.resolve(self.fake_state(groups=2) + """
+        state.groups[0].members = ['m1', 'm2'];
+        const spec = m.carlosResolve(
+            {type:'row', targetIds:['row-0'], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+        self.assertIn("Row 0", spec["title"])
+        self.assertIn("(2)", spec["title"])
+        actions = [i.get("action") for i in spec["items"]]
+        self.assertIn("row:turn", actions)
+        self.assertIn("row:loosen-all", actions)
+        self.assertIn("row:delete", actions)
+
+    def test_a_row_menu_fits_the_ring(self):
+        spec = self.resolve(self.fake_state(devices=40, groups=3) + """
+        const spec = m.carlosResolve(
+            {type:'row', targetIds:['row-1'], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+        self.assertLessEqual(len(spec["items"]), 8)
+        self.assertGreaterEqual(len(spec["items"]), 1)
+
+    def test_an_empty_row_cannot_be_turned_or_emptied(self):
+        # Both are offered and disabled rather than absent: a menu whose items
+        # move depending on state is a menu you cannot learn.
+        spec = self.resolve(self.fake_state(groups=1) + """
+        const spec = m.carlosResolve(
+            {type:'row', targetIds:['row-0'], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+        by_action = {i.get("action"): i for i in spec["items"]}
+        self.assertFalse(by_action["row:turn"]["enabled"])
+        self.assertFalse(by_action["row:loosen-all"]["enabled"])
+        # Deleting an empty row is perfectly reasonable.
+        self.assertTrue(by_action["row:delete"]["enabled"])
+
+    def test_deleting_a_row_is_marked_destructive(self):
+        spec = self.resolve(self.fake_state(groups=1) + """
+        const spec = m.carlosResolve(
+            {type:'row', targetIds:['row-0'], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+        by_action = {i.get("action"): i for i in spec["items"]}
+        self.assertTrue(by_action["row:delete"]["destructive"])
+
+    def test_a_row_menu_survives_a_row_it_cannot_name(self):
+        # The same tolerance the edge menu has: a context can outlive the thing
+        # it points at, and a menu is a poor place to throw.
+        spec = self.resolve(self.fake_state(groups=1) + """
+        const spec = m.carlosResolve(
+            {type:'row', targetIds:['gone'], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+        self.assertEqual(spec["title"], "Row")
+        self.assertTrue(spec["items"])
+
+    def test_every_context_type_resolves(self):
+        # Device, cable, row, canvas - and the selection. Naming them in one
+        # place is what stops a fifth being added and never reached.
+        for kind, targets in (
+            ("canvas", []),
+            ("node", ["m1"]),
+            ("edge", ["a:out->b:in"]),
+            ("row", ["row-0"]),
+            ("selection", ["m1", "m2"]),
+        ):
+            with self.subTest(kind):
+                spec = self.resolve(self.fake_state(groups=1) + """
+                state.modules.set('m1', {
+                    id: 'm1', name: 'One', jacks: new Map(),
+                    view: 'front', sides: ['front', 'back'],
+                    drawnSides: () => ['front', 'back'],
+                });
+                const spec = m.carlosResolve(
+                    {type:'%s', targetIds:%s, position:{x:0,y:0}}, state);
+                console.log(JSON.stringify(spec));
+                """ % (kind, str(targets).replace("'", '"')))
+                self.assertTrue(spec["items"], f"{kind} resolved no items")
+                self.assertLessEqual(len(spec["items"]), 8)
+
     def test_a_cable_resolves_as_an_edge(self):
         # `edge` is in rad's MenuContext vocabulary and Carlos never resolved
         # it, which is why a lead could be run and not pulled out again.
