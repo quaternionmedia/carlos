@@ -67,7 +67,8 @@ const load = (f) => fs.readFileSync(path.join(REPO, f), 'utf8');
 (0, eval)(
     load('static/rad-core.js') + load('static/models.js')
     + '\nglobalThis.EurorackSystem = EurorackSystem;'
-    + '\nglobalThis.ModuleFactory = ModuleFactory;'
+    + '\nglobalThis.ModuleFactory = ModuleFactory;' +
+    '\nglobalThis.SIDE_ORDER = SIDE_ORDER;'
 );
 const devDir = path.join(REPO, 'catalogue/devices');
 ModuleFactory.load({
@@ -192,6 +193,126 @@ check('the probe is wider than the line, or it could not be hit',
     probes().every(probe => Number(probe.getAttribute('stroke-width')) > 2), true);
 check('the probe strokes transparent, not none - `none` has no area to hit',
     probes().every(probe => probe.getAttribute('stroke') === 'transparent'), true);
+
+// ---- a pair turned away is still a pair ----
+// Every hidden socket used to anchor to the midpoint of its device's edge, so
+// two cables between the same two devices arrived at the same point and left
+// from the same point: one visible run standing for two leads, with no way to
+// tell which end was which.
+system.clearRack();
+SVG_CHILDREN.length = 0;
+
+const send = place(system.addModule('nord.stage-3'));
+const recv = place(system.addModule('focusrite.scarlett-2i2'));
+
+// The Stage 3's outputs are a pair on its back, adjacent in its layout.
+system.patchBay.createConnection(send.jacks.get('out_l'), recv.jacks.get('input_1'));
+system.patchBay.createConnection(send.jacks.get('out_r'), recv.jacks.get('input_2'));
+check('two cables between the same two devices',
+    system.patchBay.connections.length, 2);
+
+// Turn the sending device away from its sockets, so both ends go to silhouette.
+send.setView('top');
+system.patchBay.redrawAll();
+
+const anchorsOf = (name) => {
+    const jack = send.jacks.get(name);
+    return system.patchBay.silhouetteAnchor(jack, system.patchBay.rackOrigin());
+};
+const anchorL = anchorsOf('out_l');
+const anchorR = anchorsOf('out_r');
+
+check('a hidden pair anchors at two distinct points',
+    Boolean(anchorL && anchorR && anchorL.x !== anchorR.x), true);
+check('and in the order they sit on the panel, L before R',
+    Boolean(anchorL && anchorR && anchorL.x < anchorR.x), true);
+// Measured from the device's own box: `place` steps each device along, so a
+// literal here would be asserting where the harness happened to put it.
+const sendBox = send.element.getBoundingClientRect();
+const rackLeft = system.patchBay.rackOrigin().left;
+const boxLeft = sendBox.left - rackLeft;
+check('both anchors stay off the corners of the device',
+    [anchorL, anchorR].every(
+        a => a && a.x > boxLeft && a.x < boxLeft + sendBox.width), true);
+
+// And the two runs are two curves, not one drawn twice.
+const drawn = paths().map(p => p.getAttribute('d'));
+check('two cables produced two curves', drawn.length, 2);
+check('and they are not the same curve', drawn[0] !== drawn[1], true);
+
+// A device with no layout falls back to socket order, which is still an order.
+system.clearRack();
+SVG_CHILDREN.length = 0;
+const bare = place(system.addModule('squarp.hapax'));
+const backJacks = [...bare.jacks.values()].filter(j => j.side === 'back');
+const fractions = backJacks.map(j => system.patchBay.edgeFraction(j));
+check('an unlaid-out device still spreads its sockets along the edge',
+    new Set(fractions).size, fractions.length);
+check('and spreads them in the order the entry lists them',
+    fractions.every((f, i) => i === 0 || f > fractions[i - 1]), true);
+check('with nothing landing on a corner',
+    fractions.every(f => f > 0 && f < 1), true);
+
+// ---- all six sides anchor on their own edge ----
+// `SIDE_ORDER` has had six entries since devices became n-sided, and no real
+// device in the catalogue uses left, right or bottom - so three of the six
+// anchor cases had never been executed. A synthetic definition covers them
+// here rather than a fictional device being added to a catalogue of real gear.
+ModuleFactory.definitions['test.six-sided'] = {
+    id: 'test.six-sided', maker: 'Test', model: 'Six Sided',
+    category: 'eurorack',
+    jacks: SIDE_ORDER.flatMap(side => ([
+        { name: `${side}_a`, label: `${side} A`, type: 'output', signal: 'audio', side },
+        { name: `${side}_b`, label: `${side} B`, type: 'input', signal: 'audio', side },
+    ])),
+    parameters: [],
+    layout: null,
+};
+
+system.clearRack();
+SVG_CHILDREN.length = 0;
+const six = place(system.addModule('test.six-sided'));
+check('a device declares every side it has sockets on', six.sides, [...SIDE_ORDER]);
+
+const sixBox = six.element.getBoundingClientRect();
+const origin = system.patchBay.rackOrigin();
+const edge = {
+    left: sixBox.left - origin.left,
+    top: sixBox.top - origin.top,
+};
+edge.right = edge.left + sixBox.width;
+edge.bottom = edge.top + sixBox.height;
+
+// Which edge each side leaves by, and which way its sockets spread along it.
+const EDGES = {
+    front:  { fixed: 'y', at: edge.top,    along: 'x' },
+    top:    { fixed: 'y', at: edge.top,    along: 'x' },
+    back:   { fixed: 'y', at: edge.bottom, along: 'x' },
+    bottom: { fixed: 'y', at: edge.bottom, along: 'x' },
+    left:   { fixed: 'x', at: edge.left,   along: 'y' },
+    right:  { fixed: 'x', at: edge.right,  along: 'y' },
+};
+
+SIDE_ORDER.forEach(side => {
+    const spec = EDGES[side];
+    const anchors = ['a', 'b'].map(
+        suffix => system.patchBay.silhouetteAnchor(six.jacks.get(`${side}_${suffix}`), origin)
+    );
+    check(`${side}: both sockets anchor on the ${side} edge`,
+        anchors.every(a => a && Math.abs(a[spec.fixed] - spec.at) < 0.001), true);
+    check(`${side}: the two sockets do not land on the same point`,
+        anchors[0][spec.along] !== anchors[1][spec.along], true);
+    check(`${side}: they spread in socket order`,
+        anchors[0][spec.along] < anchors[1][spec.along], true);
+});
+
+// And every side turns, in order, all the way round.
+const walked = [six.view];
+for (let i = 1; i < SIDE_ORDER.length; i++) walked.push(six.cycle(1));
+check('turning walks every side in order', walked, [...SIDE_ORDER]);
+check('and wraps back to the first', six.cycle(1), SIDE_ORDER[0]);
+
+delete ModuleFactory.definitions['test.six-sided'];
 
 let failed = 0;
 for (const r of results) {

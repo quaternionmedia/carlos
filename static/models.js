@@ -19,6 +19,20 @@ const SIDE_ORDER = ['front', 'back', 'top', 'bottom', 'left', 'right'];
 // mouse.
 const CABLE_HIT_WIDTH = 16;
 
+// How far a hidden socket's anchor is kept from the corners of its device, as a
+// fraction of the edge. Without it the first and last socket on a face anchor
+// exactly at the corners, and a lead there reads as leaving the device
+// diagonally rather than through its edge.
+const SILHOUETTE_INSET = 0.12;
+
+// How far a cable hangs. A longer run hangs further, which is what a cable
+// does; the small per-cable term is what keeps a stereo pair between the same
+// two devices two followable lines instead of one thick one.
+const CABLE_SAG_MIN = 26;
+const CABLE_SAG_RATIO = 0.12;
+const CABLE_SAG_MAX = 90;
+const CABLE_SAG_SPREAD = 14;
+
 // Device text comes from `catalogue/devices/*.json` and is interpolated into
 // attributes. A label holding a quote would otherwise end the attribute early
 // and swallow the rest of the tag - a rendering bug that would look like a
@@ -44,6 +58,12 @@ class Parameter {
         // only ever disagree with the definition it was built from.
         this.defaultValue = this.value;
         this.rotation = this.valueToRotation(this.value);
+    }
+
+    // Where this stands in its own range, 0..1. A knob turns and a fader
+    // slides; both are this one number, drawn differently.
+    get fraction() {
+        return (this.value - this.minValue) / (this.maxValue - this.minValue);
     }
 
     valueToRotation(value) {
@@ -83,6 +103,140 @@ class Parameter {
 function jackAria(jack, side) {
     const label = `${jack.label || jack.name} (${jack.signal} ${jack.type}, ${side})`;
     return `tabindex="0" role="button" title="${attr(label)}" aria-label="${attr(label)}"`;
+}
+
+// Every side a layout puts something on. Mirrors `Layout.sides_used()`.
+function sidesUsedByLayout(layout) {
+    if (!layout) return [];
+    const placed = [
+        ...Object.values(layout.controls || {}),
+        ...Object.values(layout.jacks || {}),
+        ...(layout.features || []),
+    ];
+    return placed.map(p => p.side || 'front');
+}
+
+// The proportion of one face. Mirrors `Layout.aspect_of()` and `Box.aspect()`
+// in src/catalogue.py; `tests/test_catalogue.py` checks the two agree over
+// every device in the catalogue rather than trusting that they do.
+//
+// One box, six faces: front and back are width by height, top and bottom are
+// width by depth, left and right are depth by height. A single per-device
+// aspect only ever described the front, and was applied to every side because
+// nothing else was there to apply.
+function aspectOf(layout, side) {
+    if (!layout) return 1;
+    const box = layout.box;
+    if (!box) return layout.aspect || 1;
+    if (side === 'front' || side === 'back') return box.width / box.height;
+    if (side === 'top' || side === 'bottom') return box.width / box.depth;
+    return box.depth / box.height;
+}
+
+// How flat a face may be drawn before its proportion is compressed.
+//
+// A Stage 3's front is 1284mm by 120mm - an aspect of 10.7. Drawn true at any
+// usable width it is about fifty pixels tall, which is not enough to draw the
+// keybed, three screens and the drawbars that are the reason to draw it at all.
+// So extremes are pulled toward square by a fixed exponent: the ordering and
+// the sense of "very wide and shallow" survive, the detail becomes legible, and
+// the compression is one documented function rather than a per-device fudge.
+//
+// The measured aspect is kept on the element as `--true-aspect`, so what was
+// measured is still readable off the panel that was drawn.
+const ASPECT_COMPRESSION = 0.6;
+
+function drawnAspect(aspect) {
+    if (!(aspect > 0)) return 1;
+    return aspect >= 1
+        ? Math.pow(aspect, ASPECT_COMPRESSION)
+        : 1 / Math.pow(1 / aspect, ASPECT_COMPRESSION);
+}
+
+// A device's drawn width, from its real one. Sub-linear for the same reason the
+// aspect is: a Eurorack module beside an 88-key stage piano is a twentieth of
+// its width, and drawn to scale either the piano does not fit or the module is
+// a sliver. The square root keeps the ordering and the obviousness of the
+// difference while leaving the small device usable.
+const PANEL_REFERENCE_MM = 300;   // about a DFAM: the middle of the catalogue
+const PANEL_REFERENCE_PX = 300;
+const PANEL_MIN_PX = 150;
+const PANEL_MAX_PX = 680;
+
+function drawnWidth(layout) {
+    const mm = layout?.box?.width;
+    if (!mm) return null;
+    const scaled = PANEL_REFERENCE_PX * Math.sqrt(mm / PANEL_REFERENCE_MM);
+    return Math.round(Math.min(PANEL_MAX_PX, Math.max(PANEL_MIN_PX, scaled)));
+}
+
+// A number in 0..1 that belongs to one cable and does not change.
+//
+// Derived from the sockets it joins, which is the same thing that identifies
+// it, so a cable keeps its own hang however many others are added or removed
+// around it. An index into the connection list would have made every cable
+// move whenever any cable was unpatched.
+function cableSpread(source, target) {
+    const key = PatchBayManager.keyOf(source, target);
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+        hash = (hash * 31 + key.charCodeAt(i)) | 0;
+    }
+    return ((hash >>> 0) % 1000) / 1000;
+}
+
+// A keyboard, as a run of white keys with the blacks sitting between them.
+//
+// Drawn from the note it starts on rather than always from C, because an 88 is
+// an A-to-C instrument and one drawn from C has the wrong key under every hand
+// position. The pattern is the octave's semitone map; a black key follows a
+// white one wherever the map says the next semitone is black.
+const WHITE_STEPS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const BLACK_AFTER = new Set([0, 2, 5, 7, 9]);   // C D F G A carry a sharp
+
+function keybed(keys, from = 'C') {
+    const total = Math.max(1, Math.min(128, Number(keys) || 1));
+    const start = WHITE_STEPS[from] ?? 0;
+
+    // Which of the `total` semitones are white, so the whites can be laid out
+    // evenly and the blacks hung off them.
+    const naturals = [];
+    for (let i = 0; i < total; i++) {
+        const semitone = (start + i) % 12;
+        if (SEMITONE_IS_WHITE[semitone]) naturals.push({ index: i, semitone });
+    }
+    if (!naturals.length) return '';
+
+    const width = 100 / naturals.length;
+    const whites = naturals.map((n, at) =>
+        `<span class="irl-key" style="left:${at * width}%; width:${width}%"></span>`
+    ).join('');
+
+    // A black key sits on the boundary between its white and the next one, and
+    // only if that next semitone is actually in range.
+    const blacks = naturals.map((n, at) => {
+        if (!BLACK_AFTER.has(n.semitone)) return '';
+        if (n.index + 1 >= total) return '';
+        return `<span class="irl-key is-sharp"
+                      style="left:${(at + 1) * width - width * 0.3}%;
+                             width:${width * 0.6}%"></span>`;
+    }).join('');
+
+    return whites + blacks;
+}
+
+const SEMITONE_IS_WHITE = {
+    0: true, 1: false, 2: true, 3: false, 4: true, 5: true,
+    6: false, 7: true, 8: false, 9: true, 10: false, 11: true,
+};
+
+// A grid of pads or buttons, as a plain CSS grid.
+function grid(rows, cols) {
+    const r = Math.max(1, Math.min(32, Number(rows) || 1));
+    const c = Math.max(1, Math.min(32, Number(cols) || 1));
+    return `<div class="irl-grid" style="--rows:${r}; --cols:${c}">`
+        + '<span class="irl-cell"></span>'.repeat(r * c)
+        + '</div>';
 }
 
 // A knob is a slider that happens to be round. Saying so is what makes it
@@ -184,6 +338,36 @@ class EurorackModule {
         return this.sides;
     }
 
+    // Is there anything on this side? A device can have a side that carries
+    // nothing - a stage piano's front is the blank lip under its keys - and
+    // turning a device to a face with nothing on it is a thing you might do
+    // deliberately but never a thing it should arrive doing.
+    hasContentOn(side) {
+        for (const jack of this.jacks.values()) {
+            if (jack.side === side) return true;
+        }
+        return sidesUsedByLayout(this.layout).includes(side);
+    }
+
+    // The side to open this device on.
+    //
+    // A device arrives facing the way the rack is facing - unless that would be
+    // a face with nothing on it that the device does not call its own. An empty
+    // face means one of two things and only the catalogue can tell them apart:
+    // a Stage 3's front really is the blank lip under its keys, while a K.O.
+    // II's front is its pads and its screen and nobody has measured them yet.
+    // The layout's `face` is that statement, and it defaults to `front`, so
+    // every device nobody has laid out behaves exactly as it did.
+    preferredView(asked) {
+        const face = this.layout?.face || 'front';
+        if (asked && this.sides.includes(asked)
+            && (asked === face || this.hasContentOn(asked))) {
+            return asked;
+        }
+        if (this.sides.includes(face)) return face;
+        return this.sides[0];
+    }
+
     setView(view) {
         this.view = this.sides.includes(view) ? view : this.sides[0];
         if (this.element) {
@@ -227,6 +411,14 @@ class EurorackModule {
         moduleEl.className = 'module';
         moduleEl.dataset.moduleId = this.id;
         moduleEl.dataset.view = this.view;
+
+        // A device drawn as laid out is drawn at something like its real size
+        // relative to its neighbours - that comparison is most of what `irl`
+        // is for. `minimal` gets no width: it is the abstract box every device
+        // shares and fills to fit, and a proportion there would be a claim it
+        // does not make.
+        const width = this.mode === 'irl' ? drawnWidth(this.layout) : null;
+        if (width) moduleEl.style?.setProperty?.('--panel-width', `${width}px`);
 
         // One face per side the device has, only the active one laid out.
         moduleEl.innerHTML = this.sides.map(side => `
@@ -291,28 +483,31 @@ class EurorackModule {
         const layout = this.layout;
         if (!layout) return null;
 
-        const controls = Object.entries(layout.controls || {})
-            .filter(([, place]) => (place.side || 'front') === side);
-        const jacks = Object.entries(layout.jacks || {})
-            .filter(([, place]) => (place.side || 'front') === side);
+        const on = (place) => (place.side || 'front') === side;
+        const controls = Object.entries(layout.controls || {}).filter(([, p]) => on(p));
+        const jacks = Object.entries(layout.jacks || {}).filter(([, p]) => on(p));
+        const features = (layout.features || []).filter(on);
 
-        if (!controls.length && !jacks.length) {
-            return `<div class="irl-panel is-bare" style="--aspect:${layout.aspect}">
+        const aspect = aspectOf(layout, side);
+        // The true proportion is kept on the element even when the drawn one is
+        // compressed, so a reader can see what was measured rather than only
+        // what was drawn. See `drawnAspect`.
+        const style = `--aspect:${drawnAspect(aspect)}; --true-aspect:${aspect}`;
+
+        if (!controls.length && !jacks.length && !features.length) {
+            return `<div class="irl-panel is-bare" style="${style}">
                         <span class="irl-empty">Nothing on the ${side}</span>
                     </div>`;
         }
 
+        // Features first: they are the panel a device's controls sit on, and a
+        // keybed drawn over its own screen is the wrong way round.
+        const panel = features.map(f => this.renderFeature(f)).join('');
+
         const knobs = controls.map(([name, place]) => {
             const parameter = this.parameters.get(name);
             if (!parameter) return '';
-            return `
-                <div class="irl-knob" data-param="${attr(name)}"
-                     style="left:${place.x * 100}%; top:${place.y * 100}%;
-                            --size:${place.size || 1}"
-                     ${knobAria(parameter)}>
-                    <div class="knob-base"><div class="knob-indicator"></div></div>
-                    <span class="irl-knob-label">${parameter.label}</span>
-                </div>`;
+            return this.renderControl(name, place, parameter);
         }).join('');
 
         const sockets = jacks.map(([name, place]) => {
@@ -328,7 +523,81 @@ class EurorackModule {
                 </div>`;
         }).join('');
 
-        return `<div class="irl-panel" style="--aspect:${layout.aspect}">${knobs}${sockets}</div>`;
+        return `<div class="irl-panel" style="${style}">${panel}${knobs}${sockets}</div>`;
+    }
+
+    // One parameter-backed control, drawn as whatever it actually is. A fader
+    // is not a knob turned sideways: a mixer drawn as a field of circles is
+    // recognisable as nothing, and the arrangement is the whole point of this
+    // mode.
+    renderControl(name, place, parameter) {
+        const kind = place.kind || 'knob';
+        const seat = `left:${place.x * 100}%; top:${place.y * 100}%;`
+            + ` --size:${place.size || 1}`;
+
+        if (kind === 'fader' || kind === 'drawbar') {
+            const travel = place.length || 0.2;
+            const across = (place.orient || 'vertical') === 'vertical';
+            return `
+                <div class="irl-fader irl-${attr(kind)}" data-param="${attr(name)}"
+                     data-orient="${attr(place.orient || 'vertical')}"
+                     style="${seat};
+                            --travel:${travel * 100}%;
+                            ${across ? 'height' : 'width'}:${travel * 100}%"
+                     ${knobAria(parameter)}>
+                    <div class="irl-fader-slot"></div>
+                    <div class="irl-fader-cap"></div>
+                </div>`;
+        }
+
+        if (kind === 'switch') {
+            return `
+                <div class="irl-switch" data-param="${attr(name)}" style="${seat}"
+                     ${knobAria(parameter)}>
+                    <div class="irl-switch-body"><div class="knob-indicator"></div></div>
+                </div>`;
+        }
+
+        // knob and encoder differ by their ring, which is CSS, not markup.
+        return `
+            <div class="irl-knob irl-${attr(kind)}" data-param="${attr(name)}"
+                 style="${seat}" ${knobAria(parameter)}>
+                <div class="knob-base"><div class="knob-indicator"></div></div>
+                <span class="irl-knob-label">${parameter.label}</span>
+            </div>`;
+    }
+
+    // One thing on the panel that carries no value. These are what make a
+    // device recognisable: a Stage 3 with its knobs and sockets and no keybed
+    // is not a Stage 3, and this mode exists to be recognisable at a glance.
+    //
+    // Everything here is `aria-hidden`. A keybed this app cannot play and a
+    // screen it cannot read are decoration to a screen reader, and announcing
+    // 88 keys before the controls would bury the controls.
+    renderFeature(feature) {
+        const seat = `left:${feature.x * 100}%; top:${feature.y * 100}%;`
+            + ` width:${feature.w * 100}%; height:${feature.h * 100}%`;
+        const open = `<div class="irl-feature irl-${attr(feature.kind)}"`
+            + ` style="${seat}" aria-hidden="true"`
+            + (feature.label ? ` title="${attr(feature.label)}"` : '')
+            + '>';
+
+        switch (feature.kind) {
+            case 'keybed':
+                return `${open}${keybed(feature.keys, feature.from_note || 'C')}</div>`;
+            case 'pads':
+            case 'buttons':
+                return `${open}${grid(feature.rows, feature.cols)}</div>`;
+            case 'screen':
+                return `${open}<span class="irl-screen-text">${feature.text || ''}</span></div>`;
+            case 'logo':
+            case 'label':
+                return `${open}<span class="irl-legend">${feature.text || feature.label || ''}</span></div>`;
+            default:
+                // wheel, grille, vent, plate: shape and shading only, which is
+                // CSS keyed on the kind class.
+                return `${open}</div>`;
+        }
     }
 
     renderPatchBay(side) {
@@ -370,7 +639,9 @@ class EurorackModule {
         // Setup parameter knobs. Both classes: `irl` draws a knob as
         // `.irl-knob` at its measured position, and a selector naming only
         // `.knob` left every knob in that mode rendered and dead.
-        this.element.querySelectorAll('.knob, .irl-knob').forEach(knobEl => {
+        this.element
+            .querySelectorAll('.knob, .irl-knob, .irl-fader, .irl-switch')
+            .forEach(knobEl => {
             const paramName = knobEl.dataset.param;
             const parameter = this.parameters.get(paramName);
             if (parameter) {
@@ -414,9 +685,15 @@ class EurorackModule {
     // and nothing else, which left it unusable by touch and unreachable without
     // a pointer - on a control that is most of what this app is for.
     setupKnob(knobEl, parameter) {
+        // A fader has no indicator to turn - it is positioned from `--value`
+        // instead. Requiring one here is what would leave every fader on a
+        // mixer drawn and dead, which is the same defect `irl` knobs had.
         const indicator = knobEl.querySelector('.knob-indicator');
-        if (!indicator) return;
-        indicator.style.transform = `translateX(-50%) rotate(${parameter.rotation}deg)`;
+        if (indicator) {
+            indicator.style.transform =
+                `translateX(-50%) rotate(${parameter.rotation}deg)`;
+        }
+        knobEl.style?.setProperty?.('--value', String(parameter.fraction));
 
         // A step is a fraction of the range, not a constant: a 0..1 parameter
         // and a 0..127 one are the same gesture at different scales.
@@ -424,12 +701,15 @@ class EurorackModule {
         const step = (fine) => span / (fine ? 1000 : 100);
 
         const paint = (announce = true) => {
-            anime({
-                targets: indicator,
-                rotate: parameter.rotation,
-                duration: 50,
-                easing: 'linear',
-            });
+            if (indicator) {
+                anime({
+                    targets: indicator,
+                    rotate: parameter.rotation,
+                    duration: 50,
+                    easing: 'linear',
+                });
+            }
+            knobEl.style?.setProperty?.('--value', String(parameter.fraction));
             // The value a screen reader reads has to be the value on screen.
             knobEl.setAttribute('aria-valuenow', String(Math.round(parameter.value)));
             if (announce) {
@@ -547,6 +827,11 @@ class EurorackModule {
         if (!knobEl) return null;
 
         knobEl.setAttribute?.('aria-valuenow', String(Math.round(param.value)));
+        // Where it stands, for the controls CSS positions rather than turns. A
+        // fader has no indicator to rotate, so this is the only thing that
+        // moves it; a knob has both and only uses the rotation.
+        knobEl.style?.setProperty?.('--value', String(param.fraction));
+
         const indicator = knobEl.querySelector('.knob-indicator');
         if (indicator) {
             anime({ targets: indicator, rotate: param.rotation, duration, easing, delay });
@@ -634,10 +919,15 @@ class ModuleFactory {
             module.addJack(j.name, j.type, j.signal, j.side, j.label);
         });
 
-        // Sides come from where the jacks actually are, so a device cannot
-        // claim a face with nothing on it.
-        module.setSides((def.jacks || []).map(j => j.side));
+        // Sides come from what is on them, so a device cannot claim a face
+        // with nothing on it - and cannot be denied one that carries a keybed
+        // and a screen just because nothing is socketed there. Mirrors
+        // `Device.sides()` in src/catalogue.py.
         module.layout = def.layout || null;
+        module.setSides([
+            ...(def.jacks || []).map(j => j.side),
+            ...sidesUsedByLayout(module.layout),
+        ]);
 
         return module;
     }
@@ -835,23 +1125,58 @@ class PatchBayManager {
 
         const left = rect.left - rackRect.left;
         const top = rect.top - rackRect.top;
-        const midX = left + rect.width / 2;
-        const midY = top + rect.height / 2;
+
+        // Where along the edge. Every hidden socket used to anchor to the
+        // midpoint of its device's edge, so a stereo pair turned away became
+        // one line: two cables, one visible run, and no way to tell which end
+        // was which. Each socket keeps its own place instead, inset from the
+        // corners so a lead never appears to leave the device diagonally.
+        const t = SILHOUETTE_INSET
+            + this.edgeFraction(jack) * (1 - 2 * SILHOUETTE_INSET);
+        const alongX = left + t * rect.width;
+        const alongY = top + t * rect.height;
 
         switch (jack.side) {
             case 'top':
             case 'front':
-                return { x: midX, y: top };
+                return { x: alongX, y: top };
             case 'bottom':
             case 'back':
-                return { x: midX, y: top + rect.height };
+                return { x: alongX, y: top + rect.height };
             case 'left':
-                return { x: left, y: midY };
+                return { x: left, y: alongY };
             case 'right':
-                return { x: left + rect.width, y: midY };
+                return { x: left + rect.width, y: alongY };
             default:
-                return { x: midX, y: midY };
+                return { x: left + rect.width / 2, y: top + rect.height / 2 };
         }
+    }
+
+    // Where along its own face a socket sits, 0..1.
+    //
+    // The measured layout if the device has one, so a turned-away face keeps
+    // the real arrangement - an output pair stays a pair, in the order it is on
+    // the panel. Otherwise the order the sockets are drawn in, which is the
+    // order the entry lists them and the order they appear in minimal mode. The
+    // point either way is that two sockets next to each other stay next to each
+    // other when you cannot see them.
+    edgeFraction(jack) {
+        const module = jack.module;
+        if (!module) return 0.5;
+
+        const runsAcross = ['front', 'back', 'top', 'bottom'].includes(jack.side);
+        const place = module.layout?.jacks?.[jack.name];
+        if (place && (place.side || 'front') === jack.side) {
+            const along = runsAcross ? place.x : place.y;
+            if (typeof along === 'number') return along;
+        }
+
+        const peers = [...module.jacks.values()].filter(j => j.side === jack.side);
+        const at = peers.indexOf(jack);
+        if (at < 0 || peers.length < 2) return 0.5;
+        // Spread inside the edge rather than onto its ends: `n` sockets get
+        // `n` interior positions, so the first and last are not at the corners.
+        return (at + 1) / (peers.length + 1);
     }
 
     // A small ring where a cable meets a device it enters out of sight, so the
@@ -876,7 +1201,15 @@ class PatchBayManager {
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         const midX = (from.x + to.x) / 2;
-        const midY = Math.max(from.y, to.y) + 40; // cables hang below, under gravity
+        // Cables hang below, under gravity: further for a longer run, and each
+        // by its own small amount so two cables between the same two devices
+        // can be told apart. Keyed on the cable rather than on its position in
+        // the list, so unpatching one does not move the others.
+        const reach = Math.abs(to.x - from.x);
+        const sag = CABLE_SAG_MIN
+            + Math.min(CABLE_SAG_MAX, reach * CABLE_SAG_RATIO)
+            + cableSpread(source, target) * CABLE_SAG_SPREAD;
+        const midY = Math.max(from.y, to.y) + sag;
 
         const curve = `M ${from.x} ${from.y} Q ${midX} ${midY} ${to.x} ${to.y}`;
         path.setAttribute('d', curve);
@@ -1232,9 +1565,11 @@ class EurorackSystem {
         // renders minimal while everything around it is laid out.
         module.mode = this.mode;
         // A device arrives facing the way the rack is facing, if it has that
-        // side. A K.O. II in a rack showing its backs shows its face instead,
-        // because it has no back to show.
-        module.setView(this.view);
+        // side and there is anything on it. A K.O. II in a rack showing its
+        // backs shows its face instead, because it has no back to show; a
+        // Stage 3 has a front and it is the blank lip under the keys, so it
+        // opens on the top the catalogue names as its face.
+        module.setView(module.preferredView(this.view));
         this.modules.set(module.id, module);
 
         const moduleElement = module.render();

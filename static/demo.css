@@ -676,10 +676,243 @@ svg.is-tracing .cable-anchor {
     height: calc(11px * var(--size, 1));
 }
 
-/* A device drawn as laid out needs room for its own proportions. */
+/* === THE TWO MODES ARE TWO JOBS === */
+/* `irl` draws a device close to its real shape: the width comes from the box in
+   the catalogue and the height from the face's own proportion. `minimal` is the
+   abstract box every device shares and fills to fit its content - it is not a
+   drawing of anything, so a proportion would be a claim it does not make. */
 body[data-display-mode="irl"] .module {
-    min-width: 240px;
-    max-width: 420px;
+    /* `--panel-width` is set per device from its measured width. The bounds are
+       the fallback for a device with no box, which draws at the old size. */
+    width: var(--panel-width, 300px);
+    min-width: auto;
+    max-width: none;
+}
+
+/* === PANEL FEATURES === */
+/* Everything on a panel that carries no value. These are what make a device
+   recognisable at a glance, which is the whole job of this mode: a Stage 3 with
+   its knobs and sockets and no keybed is not a Stage 3. */
+.irl-feature {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+}
+
+/* --- keybed --- */
+.irl-keybed {
+    background: #0e0f10;
+    border: 1px solid #3a3f44;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.irl-key {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, #e8e6e0, #b9b6ad);
+    border-right: 1px solid #2a2b2c;
+    box-sizing: border-box;
+}
+
+/* A sharp is shorter than a natural and sits on the boundary between two. */
+.irl-key.is-sharp {
+    bottom: 38%;
+    background: linear-gradient(180deg, #2b2d2f, #121314);
+    border: 1px solid #0a0a0b;
+    border-radius: 0 0 1px 1px;
+    z-index: 1;
+}
+
+/* --- pad and button grids --- */
+.irl-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 1), 1fr);
+    grid-template-rows: repeat(var(--rows, 1), 1fr);
+    gap: 2px;
+    width: 100%;
+    height: 100%;
+}
+
+.irl-cell {
+    background: linear-gradient(160deg, #34383c, #1c1f21);
+    border: 1px solid #45494e;
+    border-radius: 2px;
+}
+
+.irl-buttons .irl-cell {
+    border-radius: 1px;
+    background: linear-gradient(160deg, #2a2d30, #17191b);
+}
+
+/* --- screen --- */
+.irl-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(160deg, #0d1a14, #060b09);
+    border: 1px solid #2f3a2b;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.irl-screen-text {
+    font-size: 7px;
+    letter-spacing: 1px;
+    color: var(--rad-ink);
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+/* --- wheel --- */
+/* Pitch and modulation: upright, seen edge-on, so a cylinder rather than a
+   disc. */
+.irl-wheel {
+    background: linear-gradient(90deg, #101112, #3c4145 45%, #101112);
+    border: 1px solid #4a4f54;
+    border-radius: 40% / 12%;
+}
+
+/* --- grille and vent --- */
+.irl-grille {
+    background: repeating-linear-gradient(
+        90deg, #202325 0 2px, #0e1011 2px 4px);
+    border: 1px solid #3a3f44;
+    border-radius: 2px;
+}
+
+.irl-vent {
+    background: repeating-linear-gradient(
+        0deg, #191b1d 0 2px, #0b0c0d 2px 4px);
+    border-radius: 1px;
+}
+
+/* --- plate: the boundary that makes a panel read as sections --- */
+.irl-plate {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 3px;
+}
+
+/* --- legends --- */
+.irl-logo,
+.irl-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.irl-legend {
+    font-size: 7px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #8b8b8b;
+    white-space: nowrap;
+}
+
+.irl-logo .irl-legend {
+    font-weight: bold;
+    color: #c0392b;
+    letter-spacing: 3px;
+}
+
+/* === CONTROLS THAT ARE NOT KNOBS === */
+/* A fader is not a knob turned sideways. A mixer drawn as a field of circles is
+   recognisable as nothing at all. */
+.irl-fader {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    touch-action: none;
+    cursor: ns-resize;
+}
+
+.irl-fader[data-orient="horizontal"] {
+    cursor: ew-resize;
+}
+
+.irl-fader-slot {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 2px;
+    background: #0a0b0c;
+    border: 1px solid #3a3f44;
+    border-radius: 1px;
+}
+
+.irl-fader[data-orient="horizontal"] .irl-fader-slot {
+    width: auto;
+    height: 2px;
+}
+
+/* The cap carries `.knob-indicator` so one painting path moves every kind of
+   control. It is the rotation that is reinterpreted as travel, in CSS, rather
+   than a second animation path in JS. */
+.irl-fader-cap {
+    position: absolute;
+    /* Up is more. `--value` is the parameter's fraction of its own range,
+       written by the one painting path every control shares. */
+    top: calc((1 - var(--value, 0.5)) * 100%);
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(10px * var(--size, 1));
+    height: calc(5px * var(--size, 1));
+    background: linear-gradient(180deg, #6a7075, #2c3033);
+    border: 1px solid #7d858b;
+    border-radius: 1px;
+}
+
+.irl-fader[data-orient="horizontal"] .irl-fader-cap {
+    top: 50%;
+    left: calc(var(--value, 0.5) * 100%);
+    width: calc(5px * var(--size, 1));
+    height: calc(10px * var(--size, 1));
+}
+
+/* A drawbar is a fader with a grip you can see, which is what tells an organ
+   section apart from a mixer strip at a glance. */
+.irl-drawbar .irl-fader-cap {
+    width: calc(9px * var(--size, 1));
+    height: calc(11px * var(--size, 1));
+    border-radius: 2px;
+    background: repeating-linear-gradient(
+        0deg, #d8d2c4 0 2px, #9a948a 2px 3px);
+    border-color: #7a746a;
+}
+
+.irl-drawbar .irl-fader-slot {
+    width: 4px;
+    background: #131415;
+}
+
+/* An encoder has no end stops, so it is drawn with a detent ring rather than a
+   travel arc. */
+.irl-encoder .knob-base {
+    border-style: dotted;
+    border-width: 2px;
+}
+
+.irl-switch {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    touch-action: none;
+    cursor: ns-resize;
+}
+
+.irl-switch-body {
+    width: calc(8px * var(--size, 1));
+    height: calc(14px * var(--size, 1));
+    background: #16181a;
+    border: 1px solid #4a4f54;
+    border-radius: 2px;
+    position: relative;
+}
+
+.irl-switch:focus-visible,
+.irl-fader:focus-visible {
+    outline: 2px solid var(--rad-ink);
+    outline-offset: 2px;
 }
 
 /* === MIDI ACTIVITY === */

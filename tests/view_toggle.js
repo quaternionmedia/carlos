@@ -257,6 +257,61 @@ check('painting a knob updates the value it announces',
         .getAttribute('aria-valuenow'),
     String(Math.round(param.maxValue)));
 
+// --- a device drawn as a caricature of itself ---
+// `irl` used to draw knobs and sockets and nothing else, so a stage piano came
+// out as five circles on an empty rectangle. These assert the tree: the keybed,
+// the screens and the section plates are either on it or they are not.
+system.clearRack();
+system.setMode('irl');
+const nord = system.addModule('nord.stage-3');
+const drawn = (sel) => nord.element.querySelectorAll(sel);
+
+check('a stage piano opens on the face it is played from', nord.view, 'top');
+check('and has the three sides it carries', nord.sides, ['front', 'back', 'top']);
+
+// 88 keys is 52 naturals and 36 sharps. Any other split is a keybed drawn from
+// the wrong note, which puts the wrong key under every hand position.
+const keys = drawn('.irl-key');
+const sharps = drawn('.irl-key.is-sharp');
+check('an 88 draws 88 keys', keys.length, 88);
+check('52 of them natural', keys.length - sharps.length, 52);
+check('36 of them sharp', sharps.length, 36);
+
+check('the three sections read as sections', drawn('.irl-plate').length, 3);
+check('each section has a screen, and the programmer has one',
+    drawn('.irl-screen').length, 4);
+check('pitch and modulation are both there', drawn('.irl-wheel').length, 2);
+check('the organ has its nine drawbars', drawn('.irl-drawbar').length, 9);
+check('and the drawbars are controls, not decoration',
+    drawn('.irl-drawbar').every(d => d.getAttribute('role') === 'slider'), true);
+
+// Decoration is decoration. Announcing 88 keys before the controls would bury
+// the controls, and none of it is anything this app can play.
+check('the panel furniture is hidden from a screen reader',
+    drawn('.irl-feature').every(f => f.getAttribute('aria-hidden') === 'true'), true);
+
+// The face's own proportion, and the measurement it was compressed from.
+const activePanel = drawn('.irl-panel').find(
+    panel => panel.parent?.classList.contains('active'));
+const panelStyle = activePanel?.getAttribute('style') || '';
+check('the drawn face carries a proportion', /--aspect:[\d.]+/.test(panelStyle), true);
+check('and the measurement it came from',
+    /--true-aspect:3\.84/.test(panelStyle), true);
+check('the top is not drawn at the front’s proportion',
+    /--true-aspect:10\.7/.test(panelStyle), false);
+
+// A device drawn as laid out is drawn at something like its real size.
+check('a laid-out device carries its own drawn width',
+    nord.element.style.getPropertyValue('--panel-width').endsWith('px'), true);
+
+// `minimal` is the abstract box every device shares and makes no such claim.
+system.setMode('minimal');
+const bare = system.modules.get(nord.id);
+check('minimal draws no panel furniture',
+    bare.element.querySelectorAll('.irl-feature').length, 0);
+check('and claims no proportion',
+    bare.element.style.getPropertyValue('--panel-width'), '');
+
 let failed = 0;
 for (const r of results) {
     const pass = JSON.stringify(r.got) === JSON.stringify(r.want);

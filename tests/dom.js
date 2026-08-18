@@ -37,7 +37,18 @@ class El {
         this.listeners = [];
         this._text = '';
         this.classList = new ClassList(this);
-        this.style = { setProperty() {}, removeProperty() {} };
+        // A style object that remembers. It was two no-ops, which models a DOM
+        // that silently forgets rather than a thin one: a custom property set
+        // through it could not be read back, so `--panel-width` and `--value`
+        // were unassertable and a rule reading them would have failed silently.
+        // Plain assignment (`style.transform = ...`) still works and is
+        // recorded alongside.
+        this.style = {
+            _props: {},
+            setProperty(name, value) { this._props[name] = String(value); },
+            getPropertyValue(name) { return this._props[name] ?? ''; },
+            removeProperty(name) { delete this._props[name]; },
+        };
         this.dataset = new Proxy({}, {
             get: (_, key) => this.getAttribute(`data-${camelToDash(String(key))}`),
             set: (_, key, value) => {
