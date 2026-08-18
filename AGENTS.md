@@ -239,9 +239,13 @@ somebody else's process.
 
 **Run from the repository root.** `Settings` resolves `data/db.json`,
 `templates/` and `static/` against the working directory, so starting from
-`src/` silently writes a second database at `src/data/`.
+`src/` writes a second database at `src/data/`. It is no longer silent:
+`/healthz` reports the resolved path, so the way to check which database a
+server is actually using is to ask it.
 
-To choose the port, or to run without reload:
+The address is overridable per process — `CARLOS_HOST`, `CARLOS_PORT`,
+`CARLOS_DB` — which is how to run two at once without either pretending to be
+the other. To choose the port on the command line, or to run without reload:
 
 ```sh
 uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
