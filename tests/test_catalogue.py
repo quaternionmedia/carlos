@@ -1,8 +1,12 @@
 import asyncio
 import json
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+
+NODE = shutil.which("node")
 
 from src import catalogue, patch_format
 from src.main import (
@@ -122,6 +126,72 @@ class CatalogueRejectionTests(unittest.TestCase):
         with self.assertRaises(catalogue.CatalogueError) as caught:
             catalogue.load_device(self._write(self.valid))
         self.assertIn("duplicate jack", str(caught.exception))
+
+    def test_a_feature_running_off_the_panel_is_refused(self):
+        # Legal size, illegal place: a keybed 0.4 wide centred at 0.9 reaches
+        # 1.1, and draws as a device that is not the shape the entry says.
+        # This is the case the field bounds cannot see, because each number is
+        # in range on its own and it is the pair that is wrong.
+        self.valid["layout"] = {
+            "features": [
+                {"kind": "keybed", "keys": 88, "x": 0.9, "y": 0.7,
+                 "w": 0.4, "h": 0.4}
+            ]
+        }
+        with self.assertRaises(catalogue.CatalogueError) as caught:
+            catalogue.load_device(self._write(self.valid))
+        self.assertIn("runs off the front", str(caught.exception))
+
+    def test_a_feature_wider_than_its_panel_is_refused(self):
+        # The simpler half, caught by the field bound rather than the pair.
+        self.valid["layout"] = {
+            "features": [
+                {"kind": "keybed", "keys": 88, "x": 0.5, "y": 0.7,
+                 "w": 1.2, "h": 0.4}
+            ]
+        }
+        with self.assertRaises(catalogue.CatalogueError) as caught:
+            catalogue.load_device(self._write(self.valid))
+        self.assertIn("less than or equal to 1", str(caught.exception))
+
+    def test_a_feature_missing_what_its_kind_needs_is_refused(self):
+        for feature, missing in (
+            ({"kind": "keybed", "x": 0.5, "y": 0.5, "w": 0.5, "h": 0.2}, "keys"),
+            ({"kind": "pads", "x": 0.5, "y": 0.5, "w": 0.5, "h": 0.2}, "rows"),
+            ({"kind": "logo", "x": 0.5, "y": 0.5, "w": 0.2, "h": 0.1}, "text"),
+        ):
+            with self.subTest(feature["kind"]):
+                self.valid["layout"] = {"features": [feature]}
+                with self.assertRaises(catalogue.CatalogueError) as caught:
+                    catalogue.load_device(self._write(self.valid))
+                self.assertIn(missing, str(caught.exception))
+
+    def test_facing_a_side_the_device_has_not_is_refused(self):
+        self.valid["layout"] = {"face": "left"}
+        with self.assertRaises(catalogue.CatalogueError) as caught:
+            catalogue.load_device(self._write(self.valid))
+        self.assertIn("faces the left", str(caught.exception))
+
+    def test_a_feature_gives_the_device_the_side_it_sits_on(self):
+        # Sockets alone was the older rule, and under it a device could carry a
+        # fully drawn face that officially did not exist.
+        self.valid["layout"] = {
+            "face": "top",
+            "features": [
+                {"kind": "screen", "x": 0.5, "y": 0.5, "w": 0.3, "h": 0.2,
+                 "side": "top", "text": "HELLO"}
+            ],
+        }
+        device = catalogue.load_device(self._write(self.valid))
+        self.assertIn("top", device.sides())
+        self.assertEqual(device.layout.face, "top")
+
+    def test_a_box_gives_the_faces_their_own_proportions(self):
+        self.valid["layout"] = {"box": {"width": 400, "height": 100, "depth": 200}}
+        device = catalogue.load_device(self._write(self.valid))
+        self.assertAlmostEqual(device.layout.aspect_of("front"), 4.0)
+        self.assertAlmostEqual(device.layout.aspect_of("top"), 2.0)
+        self.assertAlmostEqual(device.layout.aspect_of("left"), 2.0)
 
     def test_unknown_field_is_refused(self):
         self.valid["colour"] = "black"
@@ -271,3 +341,76 @@ class FrontendCatalogueContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(NODE, "node is not installed")
+class FaceGeometryAcrossTheSeamTests(unittest.TestCase):
+    """One box, six faces, computed on both sides of the seam.
+
+    `Layout.aspect_of` here and `aspectOf` in `static/models.js` are two
+    implementations of the same rule, in the same position as
+    `patch_format.py` and `models.js` are for the interchange format. This
+    checks the answers rather than the source text: a string assertion over
+    JavaScript catches a rename and misses an inverted ratio, which is the
+    error that would actually be made.
+    """
+
+    def _js_aspects(self) -> dict:
+        script = r"""
+        const fs = require('fs');
+        (0, eval)(fs.readFileSync('static/models.js', 'utf8')
+            + '\nglobalThis.aspectOf = aspectOf;'
+            + '\nglobalThis.SIDE_ORDER = SIDE_ORDER;'
+            + '\nglobalThis.sidesUsedByLayout = sidesUsedByLayout;');
+        const out = {};
+        const dir = 'catalogue/devices';
+        for (const file of fs.readdirSync(dir)) {
+            if (!file.endsWith('.json')) continue;
+            const device = JSON.parse(fs.readFileSync(dir + '/' + file, 'utf8'));
+            if (!device.layout) continue;
+            out[device.id] = {};
+            for (const side of SIDE_ORDER) {
+                out[device.id][side] = aspectOf(device.layout, side);
+            }
+        }
+        console.log(JSON.stringify(out));
+        """
+        result = subprocess.run(
+            [NODE, "-e", script], capture_output=True, text=True, timeout=120
+        )
+        if result.returncode != 0:
+            self.fail(f"the browser implementation failed:\n{result.stderr}")
+        return json.loads(result.stdout)
+
+    def test_both_implementations_agree_on_every_face(self):
+        js = self._js_aspects()
+        devices = catalogue.load_all()
+        laid_out = {i: d for i, d in devices.items() if d.layout}
+        self.assertTrue(laid_out, "no device carries a layout to compare")
+        self.assertEqual(set(js), set(laid_out), "the two saw different devices")
+
+        for device_id, device in laid_out.items():
+            for side in catalogue.SIDE_ORDER:
+                with self.subTest(device=device_id, side=side):
+                    self.assertAlmostEqual(
+                        device.layout.aspect_of(side), js[device_id][side], places=9
+                    )
+
+    def test_a_box_gives_each_pair_of_faces_its_own_proportion(self):
+        # The point of declaring a box rather than one aspect. A device whose
+        # top is drawn at its front's proportion is drawn as a different shape.
+        box = catalogue.Box(width=1284, height=120, depth=334)
+        self.assertAlmostEqual(box.aspect("front"), 1284 / 120)
+        self.assertAlmostEqual(box.aspect("back"), 1284 / 120)
+        self.assertAlmostEqual(box.aspect("top"), 1284 / 334)
+        self.assertAlmostEqual(box.aspect("bottom"), 1284 / 334)
+        self.assertAlmostEqual(box.aspect("left"), 334 / 120)
+        self.assertAlmostEqual(box.aspect("right"), 334 / 120)
+        self.assertNotAlmostEqual(box.aspect("front"), box.aspect("top"))
+
+    def test_a_device_without_a_box_still_answers(self):
+        # Most of the catalogue predates the box and carries a single aspect.
+        # It has to keep drawing, at that aspect, on every side.
+        layout = catalogue.Layout(aspect=2.3)
+        for side in catalogue.SIDE_ORDER:
+            self.assertAlmostEqual(layout.aspect_of(side), 2.3)

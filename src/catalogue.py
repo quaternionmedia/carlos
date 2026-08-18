@@ -106,6 +106,97 @@ class Parameter(BaseModel):
         return value
 
 
+# What a parameter-backed control looks like on the panel. A fader is not a
+# knob turned sideways, and drawing one as the other is the difference between a
+# recognisable device and a grid of circles.
+ControlKind = Literal[
+    "knob",     # a rotary you turn
+    "fader",    # a linear travel, long axis vertical unless said otherwise
+    "encoder",  # a rotary with no end stops, drawn with a detent ring
+    "switch",   # a two- or three-position throw
+    "drawbar",  # an organ drawbar: a fader with a stepped grip
+]
+
+# What else is on a panel. None of these carry a value - they are what makes a
+# device recognisable rather than what makes it playable in this app. A device
+# is not usefully drawn without them: a Stage 3 with its knobs and sockets and
+# no keybed is not a Stage 3.
+FeatureKind = Literal[
+    "keybed",   # a piano keyboard; `keys` long, starting at `from_note`
+    "pads",     # a grid of `rows` x `cols` performance pads
+    "buttons",  # a grid of `rows` x `cols` small buttons
+    "screen",   # a display, showing `text` if it has anything to say
+    "wheel",    # pitch or modulation, upright
+    "grille",   # a speaker
+    "vent",     # a slot or a fan
+    "logo",     # the maker's mark, drawn as `text`
+    "label",    # a panel legend or a section name
+    "plate",    # a section boundary: the thing that makes a panel read as parts
+]
+
+
+class Box(BaseModel):
+    """A device's real outside dimensions, in millimetres.
+
+    One measurement set, six faces derived from it: front and back are width by
+    height, top and bottom are width by depth, left and right are depth by
+    height. Declaring the box rather than a per-face aspect is what makes the
+    sides agree with each other - two aspects typed by hand can contradict, and
+    a device whose top is wider than its front is not a shape.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    width: float = Field(gt=0, le=5000)
+    height: float = Field(gt=0, le=3000)
+    depth: float = Field(gt=0, le=3000)
+
+    def aspect(self, side: str) -> float:
+        """Width over height of one face, as that face is seen."""
+        if side in ("front", "back"):
+            return self.width / self.height
+        if side in ("top", "bottom"):
+            return self.width / self.depth
+        return self.depth / self.height  # left, right
+
+
+class Feature(BaseModel):
+    """One thing on a panel that is not a socket and carries no value.
+
+    Placed by its centre like everything else, but sized too: a keybed and a
+    screen are areas, not points, and a vocabulary that could only place points
+    would draw every device as scattered dots.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: FeatureKind
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    w: float = Field(gt=0, le=1)
+    h: float = Field(gt=0, le=1)
+    side: Side = "front"
+    # A keybed's length, and where it starts. 88 keys from A, 61 from C.
+    keys: int | None = Field(default=None, ge=1, le=128)
+    from_note: Literal["C", "E", "F", "A"] | None = None
+    # A grid's shape.
+    rows: int | None = Field(default=None, ge=1, le=32)
+    cols: int | None = Field(default=None, ge=1, le=32)
+    # What a screen shows, or a logo or label reads.
+    text: str | None = None
+    label: str | None = None
+
+    @model_validator(mode="after")
+    def _kind_carries_what_it_needs(self) -> "Feature":
+        if self.kind == "keybed" and not self.keys:
+            raise ValueError("a keybed needs `keys`")
+        if self.kind in ("pads", "buttons") and not (self.rows and self.cols):
+            raise ValueError(f"a {self.kind} grid needs `rows` and `cols`")
+        if self.kind == "logo" and not self.text:
+            raise ValueError("a logo needs the `text` it reads")
+        return self
+
+
 class Placement(BaseModel):
     """Where one control or socket sits on a face.
 
@@ -121,6 +212,13 @@ class Placement(BaseModel):
     y: float = Field(ge=0, le=1)
     side: Side = "front"
     size: float = Field(default=1.0, gt=0, le=4)
+    kind: ControlKind = "knob"
+    # Travel direction, for the kinds that have one. A mixer's channel faders
+    # run up and down; a crossfader runs across.
+    orient: Literal["vertical", "horizontal"] = "vertical"
+    # Long axis as a fraction of the panel, for the kinds that have length.
+    # `size` scales the grip; this is how far it slides.
+    length: float | None = Field(default=None, gt=0, le=1)
 
 
 class Layout(BaseModel):
@@ -138,8 +236,35 @@ class Layout(BaseModel):
     # narrow; a mixer is wide and shallow. Getting this one number right is most
     # of what makes a rack recognisable at a glance.
     aspect: float = Field(default=1.0, gt=0, le=20)
+    # The side you look at first. `front` for almost everything, because almost
+    # everything is a box you face. A stage piano is not: its controls and its
+    # keybed are on its top, its front is the thin blank lip below the keys, and
+    # opening it facing that would show a device with nothing on it. Naming the
+    # face is one field; deriving it from whichever side carries the most would
+    # silently reface every device nobody has laid out yet.
+    face: Side = "front"
+    # Real millimetres. When present every face's proportion is derived from it
+    # and `aspect` is ignored, because a box knows about six faces and a single
+    # number only ever described one of them.
+    box: Box | None = None
     controls: dict[str, Placement] = Field(default_factory=dict)
     jacks: dict[str, Placement] = Field(default_factory=dict)
+    # Everything on the panel that is not a socket and carries no value.
+    features: list[Feature] = Field(default_factory=list)
+
+    def aspect_of(self, side: str) -> float:
+        """The proportion of one face. The box if there is one, else `aspect`.
+
+        `aspect` describes the front and was only ever applied to every side
+        because nothing else was available; a device with a box gets its top
+        drawn as a top.
+        """
+        return self.box.aspect(side) if self.box else self.aspect
+
+    def sides_used(self) -> set[str]:
+        """Sides this layout puts something on."""
+        placed = list(self.controls.values()) + list(self.jacks.values())
+        return {p.side for p in placed} | {f.side for f in self.features}
 
 
 class Device(BaseModel):
@@ -210,6 +335,24 @@ class Device(BaseModel):
                 raise ValueError(
                     f"layout places control {name!r}, which this device has no"
                 )
+
+        if self.layout.face not in self.sides():
+            raise ValueError(
+                f"layout faces the {self.layout.face}, which this device has no "
+                f"(it has {', '.join(self.sides())})"
+            )
+
+        # A feature is checked for fitting on the face it claims. A keybed
+        # centred at x=0.5 that is 1.2 panels wide is a typo, and one that runs
+        # off the edge draws as a device that is not the shape it says it is.
+        for feature in self.layout.features:
+            for axis, centre, extent in (("x", feature.x, feature.w),
+                                         ("y", feature.y, feature.h)):
+                if centre - extent / 2 < -0.001 or centre + extent / 2 > 1.001:
+                    raise ValueError(
+                        f"{feature.kind} at {axis}={centre} is {extent} wide "
+                        f"and runs off the {feature.side}"
+                    )
         return self
 
     def jack(self, name: str) -> Jack | None:
@@ -218,13 +361,19 @@ class Device(BaseModel):
     def sides(self) -> list[str]:
         """The sides this device has, in cycling order.
 
-        Derived from the jacks rather than declared, so a device cannot claim a
-        side with nothing on it. `front` is always included even when nothing is
-        socketed there: every device has a face you look at, and it is where the
-        knobs are drawn. A Nord Stage 3 wires entirely from the back and still
-        has a front, because that is the side you play.
+        Derived from what is on them rather than declared, so a device cannot
+        claim a side with nothing on it. A side counts if it carries a socket
+        or anything the layout places there - a keybed, a screen, a fader.
+        Sockets alone was the older rule and it was too narrow: a K.O. II's
+        pads and screen are the front of a K.O. II, and under a jacks-only rule
+        a device could carry a fully drawn face that officially did not exist.
+
+        `front` is always included even when nothing is on it: every device has
+        a face you look at.
         """
         used = {jack.side for jack in self.jacks} | {"front"}
+        if self.layout:
+            used |= self.layout.sides_used()
         return [side for side in SIDE_ORDER if side in used]
 
 

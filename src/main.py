@@ -132,7 +132,10 @@ async def catalogue_index():
                 "parameters": [p.model_dump(exclude_none=True) for p in device.parameters],
                 # Optional: `irl` display falls back to the minimal arrangement
                 # for a device nobody has laid out yet.
-                "layout": device.layout.model_dump() if device.layout else None,
+                "layout": (
+                    device.layout.model_dump(exclude_none=True)
+                    if device.layout else None
+                ),
             }
             for device in devices.values()
         ],

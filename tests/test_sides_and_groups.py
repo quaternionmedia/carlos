@@ -48,10 +48,31 @@ class SideTests(unittest.TestCase):
                 self.assertEqual(device.sides(), order)
 
     def test_no_device_claims_a_side_with_nothing_on_it(self):
+        # "Something on it" is a socket or anything the layout places there - a
+        # keybed, a screen, a fader. Sockets alone was the older rule and it was
+        # too narrow: a device could carry a fully drawn face that officially
+        # did not exist, and a K.O. II's pads and screen are the front of a
+        # K.O. II whether or not anything is socketed on it.
         for device in self.devices.values():
             used = {j.side for j in device.jacks} | {"front"}
+            if device.layout:
+                used |= device.layout.sides_used()
             with self.subTest(device.id):
                 self.assertEqual(set(device.sides()), used)
+
+    def test_every_side_a_device_claims_carries_something(self):
+        # The same invariant read the other way, which is the direction that
+        # catches a side appearing from nowhere. `front` is exempt: every device
+        # has a face you look at, and for some of them it is genuinely blank.
+        for device in self.devices.values():
+            for side in device.sides():
+                if side == "front":
+                    continue
+                carries = any(j.side == side for j in device.jacks) or (
+                    device.layout is not None and side in device.layout.sides_used()
+                )
+                with self.subTest(f"{device.id}:{side}"):
+                    self.assertTrue(carries, f"{device.id} claims an empty {side}")
 
     def test_the_format_accepts_every_side_the_catalogue_can_produce(self):
         for device in self.devices.values():
