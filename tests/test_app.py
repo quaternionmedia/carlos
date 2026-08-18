@@ -60,6 +60,92 @@ class AppSmokeTests(unittest.TestCase):
         self.assertEqual(answered["port"], odd)
         self.assertNotEqual(answered["port"], settings.port)
 
+    def test_a_taken_port_is_reported_as_taken(self):
+        # The failure this replaces: uvicorn printed the address to open, then
+        # "Application startup complete", and only then one ERROR line saying
+        # it never bound. Whoever already held the port answered the URL, so
+        # the server looked up and was not running.
+        import socket
+
+        from src.main import port_is_free
+
+        squatter = socket.socket()
+        squatter.bind(("127.0.0.1", 0))
+        squatter.listen(1)
+        taken = squatter.getsockname()[1]
+        try:
+            self.assertFalse(port_is_free("127.0.0.1", taken))
+        finally:
+            squatter.close()
+
+    def test_a_free_port_is_reported_as_free(self):
+        import socket
+
+        from src.main import port_is_free
+
+        finder = socket.socket()
+        finder.bind(("127.0.0.1", 0))
+        free = finder.getsockname()[1]
+        finder.close()
+
+        self.assertTrue(port_is_free("127.0.0.1", free))
+
+    def test_checking_the_port_does_not_keep_it(self):
+        # A probe that held what it tested would make the real bind fail.
+        import socket
+
+        from src.main import port_is_free
+
+        finder = socket.socket()
+        finder.bind(("127.0.0.1", 0))
+        free = finder.getsockname()[1]
+        finder.close()
+
+        self.assertTrue(port_is_free("127.0.0.1", free))
+        after = socket.socket()
+        try:
+            after.bind(("127.0.0.1", free))
+        finally:
+            after.close()
+
+    def test_the_advertised_address_is_never_the_bind_address(self):
+        # `0.0.0.0` means "every interface" to a listener and nothing at all
+        # to a browser: Chrome answers ERR_ADDRESS_INVALID. uvicorn prints it
+        # on startup regardless, so for the life of this project the one URL
+        # the server offered was one that could not be opened.
+        from src.main import reachable_urls
+
+        for host in ("0.0.0.0", "::", ""):
+            urls = reachable_urls(host, 8000)
+            self.assertTrue(urls, f"{host!r} advertised nothing")
+            for url in urls:
+                self.assertNotIn("0.0.0.0", url)
+                self.assertNotIn("[::]", url)
+            self.assertEqual(urls[0], "http://127.0.0.1:8000/")
+
+    def test_a_specific_bind_is_advertised_as_itself(self):
+        from src.main import reachable_urls
+
+        self.assertEqual(
+            reachable_urls("127.0.0.1", 9001), ["http://127.0.0.1:9001/"])
+
+    def test_the_port_it_advertises_is_the_port_it_was_given(self):
+        from src.main import reachable_urls
+
+        for url in reachable_urls("0.0.0.0", 8123):
+            self.assertTrue(url.endswith(":8123/"), url)
+
+    def test_finding_the_network_address_sends_nothing_and_cannot_hang(self):
+        # A UDP socket has no handshake, so connecting one only asks the
+        # routing table which local address it would use. The destination is
+        # TEST-NET-1, reserved and unroutable, and is never contacted — which
+        # is what makes this safe to call on every startup, offline included.
+        from src.main import lan_address
+
+        found = lan_address()
+        if found is not None:
+            self.assertRegex(found, r"^\d+\.\d+\.\d+\.\d+$")
+
     def test_reload_is_off_by_default(self):
         # It does not reload here, and the reloader process it adds owns the
         # socket and hands it to a child — so killing the server that answers

@@ -71,9 +71,16 @@ that way is collected by nobody and stays green forever.
 uv run python src/main.py
 ```
 
-`http://localhost:8000`, bound on `0.0.0.0:8000`. The bare address redirects to
-`/splash`; the workspace is at `/rack`. Two things to know before you
-debug anything:
+`http://localhost:8000`. The bare address redirects to `/splash`; the workspace
+is at `/rack`. Three things to know before you debug anything:
+
+**Do not open the address uvicorn prints.** It binds `0.0.0.0:8000` and says
+so, and `0.0.0.0` is not somewhere a browser can go — Chrome refuses it with
+`ERR_ADDRESS_INVALID`. The bind is right: every interface is what lets a phone
+on the same network reach this, which is the whole point of an on-device test.
+Only the advertisement was wrong, so the server now prints the addresses that
+work — loopback, and this machine's address on the network — above uvicorn's
+line.
 
 **Reload is off, and that is deliberate.** It does not reload here — uvicorn
 prints `StatReload detected changes ... Reloading...` and keeps serving the old

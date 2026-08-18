@@ -65,6 +65,13 @@ was the whole of the stale-server problem: it owned the socket, so killing the
 server that answered left a parent to spawn another. Restart by hand after any
 change under `src/`. Templates and static files are a browser refresh.
 
+**Open the address the server prints, not the one uvicorn prints.** uvicorn
+announces its bind, `0.0.0.0:8000`, which no browser will open — Chrome says
+`ERR_ADDRESS_INVALID`. Carlos prints the reachable ones above it: loopback, and
+this machine's address on the network for testing from a phone. And if the port
+is already taken it says so and stops, rather than printing an address that
+belongs to somebody else's process.
+
 **Stopping the server is still its own round.** `netstat` attributes the
 listening socket to the parent that bound it, and that parent has exited by the
 time you look, so it names a process `taskkill` says does not exist. `carlos

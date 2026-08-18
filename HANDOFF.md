@@ -91,7 +91,7 @@ Git Bash but **not** under PowerShell, which needs the absolute path.
 uv sync
 uv run playwright install chromium   # once, for the runtime-bound page
 uv run carlos check                  # the suite and the pages
-uv run carlos serve                  # http://localhost:8000
+uv run carlos serve                  # http://localhost:8000 (not the 0.0.0.0 uvicorn prints)
 uv run carlos stop                   # which is its own round here
 ```
 

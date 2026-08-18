@@ -482,8 +482,98 @@ async def validate_patch(document: dict):
     }
 
 
+def lan_address() -> str | None:
+    """This machine's address on the network, or `None` if it has none.
+
+    No packet is sent: a UDP socket has no handshake, so connecting one only
+    asks the routing table which local address would be used to reach that
+    destination. The destination is never contacted and need not exist, which
+    is why this answers instantly offline instead of timing out.
+    """
+    import socket
+
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(("192.0.2.1", 9))  # TEST-NET-1: reserved, unroutable.
+        return probe.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        probe.close()
+
+
+def reachable_urls(host: str, port: int) -> list[str]:
+    """The addresses a browser can actually open, given what we bound.
+
+    `0.0.0.0` is not one of them. It is a bind address meaning "every
+    interface", and it is the address uvicorn prints on startup — so the one
+    URL the server offers you is the one Chrome refuses with
+    `ERR_ADDRESS_INVALID`. Firefox and curl are more forgiving on some
+    platforms, which makes it worse rather than better: it works until the
+    person it does not work for is the one you handed the link to.
+
+    Binding every interface stays right, because it is what lets a phone or a
+    tablet on the same network reach this. Only the advertisement was wrong.
+    """
+    if host in ("0.0.0.0", "::", ""):
+        urls = [f"http://127.0.0.1:{port}/"]
+        lan = lan_address()
+        if lan and lan != "127.0.0.1":
+            urls.append(f"http://{lan}:{port}/")
+        return urls
+    return [f"http://{host}:{port}/"]
+
+
+def port_is_free(host: str, port: int) -> bool:
+    """Whether we can take the port, asked by trying to take it.
+
+    Not a guarantee — something can claim it between this and uvicorn's own
+    bind — and it is not meant to be one. It exists so the failure has a
+    sentence a person can act on instead of one ERROR line among the INFO,
+    printed *after* "Application startup complete" and after this program has
+    already told you the address to open. That combination is how you end up
+    reading an hour-old server and believing it is yours.
+
+    No HTTP client here, deliberately: `src/` is forbidden one, so this cannot
+    ask `/healthz` who the occupant is. It says which command will.
+    """
+    import socket
+
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        probe.bind(("" if host in ("0.0.0.0", "::") else host, port))
+        return True
+    except OSError:
+        return False
+    finally:
+        probe.close()
+
+
 def main() -> None:
     import uvicorn
+
+    # `flush=True` on every line, because this is the first thing anybody
+    # reads and it is written to a pipe as often as to a terminal. Python
+    # block-buffers a pipe, so without the flush the banner sits in the buffer
+    # while the server runs — it appeared in a terminal and vanished under
+    # `carlos serve`, which is exactly the audience that needs it.
+    if not port_is_free(settings.host, settings.port):
+        print(flush=True)
+        print(f"  :{settings.port} is already taken, so this did not start.",
+              flush=True)
+        print("  `carlos status` names who has it, `carlos stop` frees it.",
+              flush=True)
+        print(flush=True)
+        raise SystemExit(1)
+
+    urls = reachable_urls(settings.host, settings.port)
+    print(flush=True)
+    print(f"  {settings.app_name} is at {urls[0]}", flush=True)
+    for other in urls[1:]:
+        print(f"  and on this network at {other}", flush=True)
+    print("  (uvicorn will say 0.0.0.0 below; that is the bind, not a URL)",
+          flush=True)
+    print(flush=True)
 
     uvicorn.run(
         "main:app",
