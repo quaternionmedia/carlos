@@ -31,6 +31,10 @@ session (the README rewrite, the TinyDB cleanup, the community files) is
 committed here too rather than left loose.
 
 ```text
+Record the keybed and the desk, and let a named face win
+Make the walkthrough, the demo and the tests one object
+Add a modular drum rig, and finish the catalogue to the same standard
+Bring the handoff up to date with the tool palette
 Float the bottom bar as a tool palette with a default starting position
 Record the panel work, and the stale-server trap
 Lay out the Nord Stage 3, and say how to lay out the next one
@@ -73,9 +77,15 @@ Git Bash but **not** under PowerShell, which needs the absolute path.
 
 ```bash
 uv sync
-uv run python -m unittest discover   # 225 tests
+uv run playwright install chromium   # once, for the runtime-bound page
+uv run pytest tests walkthrough --doctest-glob=*.md   # 244, incl. the pages
 uv run python src/main.py            # http://localhost:8000
 ```
+
+**Both paths are named on purpose.** `testpaths` is ignored the moment pytest
+receives a path argument, so a walkthrough wired that way runs for nobody.
+`uv run python -m unittest discover` still works and still runs the same tests;
+it does not run the walkthrough, which is why it is not the command.
 
 A bare `python -m unittest discover` fails — `ModuleNotFoundError: No module
 named 'fastapi'`. Use `uv run`.
@@ -100,9 +110,10 @@ default branch is `they`.
 
 A browser workspace for sketching rigs of real gear.
 
-- **A device catalogue** — nine devices across seven categories, each a JSON
+- **A device catalogue** — eleven devices across nine categories, each a JSON
   file under `catalogue/devices/`. Adding one is a file and no code. Every
-  device ships a simple and a complex worked example.
+  device ships a simple and a complex worked example, carries its real
+  dimensions in millimetres, and names the face it opens on.
 - **A versioned interchange format**, `carlos.patch` v3, implemented on both
   sides of the seam and validated server-side. Reads v1 and v2 through named
   upgrade steps; refuses v4.
@@ -127,14 +138,15 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 
 | Check | Result |
 | --- | --- |
-| `uv run python -m unittest discover` | 225 tests, OK |
+| `uv run pytest tests walkthrough --doctest-glob=*.md` | 244 passed, 777 subtests |
 | `node tests/palette.js` | 39/39 |
 | `node tests/view_toggle.js` | 65/65 |
-| `node tests/rack_behaviour.js` | 87/87 |
+| `node tests/rack_behaviour.js` | 91/91 |
 | `node tests/cable_tracing.js` | 52/52 |
 | `node tests/click_layers.js` | 9/9 |
 | rad conformance | 66 passed, 0 failed, 16 skipped |
 | Live end-to-end, cold start | all green, 15 OpenAPI paths |
+| `walkthrough/05-in-the-browser.md` | real Chromium, 5 shots, console clean |
 
 Every new check above was watched go red against the code it names before being
 kept: the fan-out assertion against a `disconnect`-based unpatch, the `irl` knob
@@ -174,6 +186,11 @@ them would be a false report.**
   rendering, assert the tree.
 - **Verify the artifact, not that the step ran.** Reload was recorded as working
   on the evidence of a log line. It does not work.
+- **The model agreeing with itself is not evidence.** `#view-indicator` read
+  `EMPTY` on a rack with two devices in it for two sessions. Every model-level
+  test agreed, because the model was right and nothing wrote it to the screen.
+  The first run of the browser page found it in seconds. Anything that only the
+  screen can be wrong about needs `walkthrough/05-in-the-browser.md`.
 - **Rule out the harness before reporting a defect.** Twice this session a
   harness measured a different object than the app used, or never invoked the
   handler it was testing, and reported a bug against code it had not executed.
@@ -213,23 +230,22 @@ Ordered by what unblocks the most.
 6. **Settle the frontend conflict.** `static/` is now five modules with no build
    step; the house-stack set names mithril with parcel. Neither the blessed
    answer nor a recorded exception.
-7. **Lay out the rest of the catalogue.** The panel vocabulary exists and the
-   Stage 3 is the worked example; `docs/catalogue.md` has the six steps. The
-   Qu-24 is next and is also a modelling correction - a desk's control surface
-   is its top, and it is currently described as a front. Then the Hapax and the
-   K.O. II, whose fronts are their pads and screens and are empty today.
+7. **Get a human eye on the five screenshots.** They are asserted for counts
+   and geometry and nothing else. See the validation list.
 8. **Finish the UI pass this session started.** Left undone, in order:
    - **The radial menu has no ARIA at all.** It handles its own keys, so it is
      operable; it is not announced. Everything else on the page now is, which
      makes the menu the remaining gap rather than one of several.
    - **Undo.** Double-click resets one knob and that is the whole of it. Unpatch
      and Delete are both a single act with no way back.
-   - **No browser ran this session.** Every claim above is the served bytes, the
-     DOM harness, or the model. A JS error still never reaches the server log,
-     so "the page loads" has not been established by anyone looking at it. This
-     matters more after the panel work than before it: the vocabulary is CSS
-     shapes, and nothing here has checked that a keybed looks like a keyboard
-     rather than a row of grey boxes. **That is the first thing to do next.**
+   - **A browser runs now, and nobody has looked at what it drew.**
+     `walkthrough/05-in-the-browser.md` drives real Chromium and records five
+     screenshots under `walkthrough/media/`. Every *countable* claim is
+     asserted there — 88 keys as 52 naturals and 36 sharps, 21 bank faders, a
+     square Launchpad panel, an empty console. What no assertion can settle is
+     whether those shapes read as the devices they stand for. **The screenshots
+     are waiting for a human eye**, and the list of what to judge is in the
+     session notes rather than here.
 
 ## What Was Reported Upstream
 
