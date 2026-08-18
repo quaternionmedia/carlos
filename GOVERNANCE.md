@@ -21,11 +21,22 @@ underway and not finished, and this page is the honest state of it.
 - [x] Issue and pull request templates exist.
 - [x] `governance/qm` submodule is added, pinned to `project/carlos`.
 - [x] Seed workflows are copied into `.github/workflows/` — all six.
+- [x] The project's own tests run in CI, beside the gates
+      (`.github/workflows/tests.yml`). Until that existed nothing ran them, and
+      green checks meant six gates about paperwork.
 - [x] `AGENTS.md`, `CLAUDE.md`, and `.github/copilot-instructions.md` are wired.
-- [ ] `project/carlos` is pushed to `quaternionmedia/qm`.
-- [ ] Initial adoption and scope records (ADR-0001) are written.
+- [x] The adoption record is written —
+      `governance/qm/adr/DRAFT-adopt-the-qm-constitution.md`, numberless and
+      Proposed. Ratification is a human commit.
+- [x] `walkthrough/` exists and runs from the ordinary test command.
+- [ ] `project/carlos` is pushed to `quaternionmedia/qm`. **A remote write.**
+- [ ] The adoption record is ratified: status flipped, number assigned by the
+      index, index updated. **A human commit naming the record.**
 - [ ] Runtime dependency policy is settled — see the conflicts below.
-- [ ] Licensing pass done and `reuse-lint` green.
+- [ ] Licensing pass done and `reuse-lint` green. **Deliberately not done**:
+      it is gated on the outbound licence class, and settling a licence class
+      to turn a check green decides the wrong question for the wrong reason.
+      Publishing with this red is the accepted state.
 - [x] Patch export/import behaviour is implemented and specified.
 - [x] Device catalogue, worked examples, and the interop seam are specified.
 - [x] Menus adopt the `quaternionmedia/rad` interaction contract, with its
@@ -119,6 +130,36 @@ harness. Two of its three clauses are met; the third is declined with a reason.
   attributed. The port is observed off the connection rather than read back off
   settings, because a process serving somewhere other than where it was
   configured is precisely the case worth catching.
+
+## Publishing
+
+What a publisher does, in order. Everything above the line is done; everything
+below needs a person, and two of the three are remote writes.
+
+1. **Push `project/carlos`** to `quaternionmedia/qm`. Closes `submodule-check`,
+   and completes fork steps 2 and 3.
+2. **Push this branch and open one pull request.** One open pull request per
+   contributor, per repository — `one-pr-check` enforces it. Never request a
+   review; add the person who asked for the work as assignee. Reviewers are
+   named at the version tag, by the human cutting it.
+3. **Expect two of the three red gates to go green** on that push.
+   `signature-check` passes once the forge can see the commits — every one is
+   signed, verifiable now with `carlos signatures`. `submodule-check` passes
+   once step 1 lands. `reuse-lint` stays red, by the decision recorded above.
+4. **The tests run remotely for the first time.** They have only ever run on
+   one workstation. That run is also what satisfies the walkthrough record's
+   decision 7, which no file can satisfy: a page that ran where nobody merges
+   has not run.
+5. **Ratify the adoption record**, or don't. The branch merges either way; the
+   record is what lets Carlos be described as carrying governance rather than
+   improvising it.
+
+**Merging into the default branch is not a release.** Per the version-tags
+record, the default branch, a pull request and a local build are all drafts.
+The two human gates are ratification, for what a record says, and the version
+tag, for what this project ships — a `v*` tag asserts a human reviewed the
+change set, a human manually tested it against its real runtime, and
+deterministic validation passed.
 
 ## Local Rule
 

@@ -24,8 +24,11 @@ uv run carlos status                 # what state this checkout is in
 `carlos --help` lists every durable round, and `carlos --dry-run <round>`
 prints the command it runs — each is one you could type yourself.
 
-Expected: 289 passed; 83, 95, 52, 10 and 39 from the harnesses; three gate
+Expected: 289 passed; 83, 95, 52, 13 and 39 from the harnesses; three gate
 failures named below and no others.
+
+`GOVERNANCE.md` has the publishing procedure — what a publisher does, in order,
+and which steps are remote writes.
 
 `walkthrough/01-onboarding.md` is the page that proves your checkout works, and
 it is executable — if it passes, the setup it describes happened on your machine.
@@ -46,7 +49,8 @@ devices they stand for.
 | `05-in-the-browser-keybed-and-desk.png` | Does the 88-note keybed read as a keyboard? Do the Qu-24's channel faders read as a desk? Are the Nord's striped drawbars visibly a different control from the desk's plain fader caps? |
 | `05-in-the-browser-irl-drum-rig.png` | The Launchpad's 8×8 grid, the Hapax, two drum modules. **Relative sizing:** the drum module hits a 150px floor, so it draws 1.8× narrower than the Launchpad where reality is 6×. Too generous a floor? |
 | | **Aspect compression:** the Hapax draws at 1.30 against a true 1.56, the drum at 0.50 against 0.31. Too aggressive? |
-| `05-in-the-browser-boot.png` | The palette at its default corner, the status line, minimal mode |
+| `05-in-the-browser-boot.png` | The palette at its default corner, the status line, minimal mode — and the house navy behind all of it |
+| the splash, at `/` | The bare port redirects here. Does it say enough, and is the way in obvious? |
 | `05-in-the-browser-menu.png` | The eight-wedge ring |
 | `05-in-the-browser-turned.png` | Cables after `Tab` — all four occluded with four anchors, which is correct for where those sockets are |
 
@@ -56,7 +60,9 @@ the 160ms flash is *readable* at pad size is a judgement.
 
 **2. The licensing class.** `reuse-lint` fails and will keep failing until this
 is settled: the outbound-licensing record puts services at AGPL-3.0-or-later and
-the declared licence is MIT.
+the declared licence is MIT. **Publishing with it red is the decision**, taken
+deliberately — settling a licence class to turn a check green decides the wrong
+question for the wrong reason. It is still yours to settle.
 
 Three files carry copyright information and the rest do not; `python -m reuse
 lint` gives the current total, which moves with every file added. The class
@@ -90,8 +96,10 @@ push; the licensing one does not.
   look. Recorded in `GOVERNANCE.md` with the reasoning.
 - **Outbound calls are planned and never sent.** `docs/interop.md` says why.
 - **Named patch persistence.** Blocked on the datastore conflict.
-- **No ADR-0001.** The fork procedure requires it and it carries the conflict
-  table. It is the next governance step and it needs a human to ratify.
+- **The adoption record is unratified.** It is written and Proposed at
+  `governance/qm/adr/DRAFT-adopt-the-qm-constitution.md`, carrying the component
+  audit, the seam protocol, the service inventory, the risk register and twelve
+  named conflicts. Ratifying it — status, number, index — is a human commit.
 - **`walkthrough/` decision 7 is unmet.** A page that ran somewhere nobody
   merges has not run; the evidence has to be a job run on the default branch.
   `.github/workflows/tests.yml` exists to produce that evidence and cannot
