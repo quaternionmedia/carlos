@@ -136,6 +136,19 @@ uv run carlos serve --port 8123
   DFAM has a front and a back; a K.O. II has a face and a top edge and no back
   at all. Cables may run between any two sides. Losing track of a lead is part
   of the instrument.
+- **It opens on a rig, not a demonstration.** A Launchpad X playing an EP-133
+  down one USB lead, with four groups bound to four channels — so the first
+  thing on screen has a question in it rather than two boxes of knobs with
+  nothing running between them.
+- **A lead carrying channels is drawn as the channels.** One USB cable, four
+  strands, one per channel bound to the device at the far end. The split is
+  derived from the MIDI bindings rather than stored on the cable, so rebinding a
+  group redraws it and nothing has to be kept in step. Audio leads stay one
+  line: audio has no channel 10.
+- **USB is a bus, not a direction.** Two USB ports may be linked even though the
+  catalogue types both `output`, because host and device is a role the two ends
+  negotiate rather than a property of either socket. The cable says `through a
+  host`, because on a real desk a computer or a host adapter sits between them.
 - **Devices open on the face you look at.** A rack-mount opens on its front, a
   stage piano or a grid controller on its top, and a side with nothing on it —
   the blank lip under a Launchpad's pads — is not drawn and not turned to. What

@@ -59,6 +59,28 @@ def page(app, browser):
 
 
 @pytest.fixture
+def bench(page):
+    """A known rig, built here rather than inherited from the opening rack.
+
+    The page opens on a grid and a sampler linked over USB, which is a rig with
+    a question in it and a poor fixture: both devices are played from above,
+    both sockets are round the back, and neither has a front to patch. Tests
+    that need two boxes with visible sockets should say so rather than depend on
+    whatever ships as the opening picture - that rack is presentation, and it
+    has changed twice already.
+    """
+    page.evaluate(
+        """() => {
+            system.clearRack();
+            system.setMode('minimal');
+            system.addModule('carlos.vco');
+            system.addModule('carlos.vcf');
+        }"""
+    )
+    return page
+
+
+@pytest.fixture
 def blank(app, browser):
     """A page that has navigated nowhere yet, for testing what the port does."""
     fresh = browser.new_page(viewport={"width": 1280, "height": 860})

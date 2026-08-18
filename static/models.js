@@ -19,6 +19,10 @@ const SIDE_ORDER = ['front', 'back', 'top', 'bottom', 'left', 'right'];
 // mouse.
 const CABLE_HIT_WIDTH = 16;
 
+// Signals that carry channels. A cable on one of these splits into a strand
+// per channel; everything else is one line, because audio has no channel 10.
+const CHANNELLED_SIGNALS = new Set(['usb', 'midi']);
+
 // How far a hidden socket's anchor is kept from the corners of its device, as a
 // fraction of the edge. Without it the first and last socket on a face anchor
 // exactly at the corners, and a lead there reads as leaving the device
@@ -32,6 +36,24 @@ const CABLE_SAG_MIN = 26;
 const CABLE_SAG_RATIO = 0.12;
 const CABLE_SAG_MAX = 90;
 const CABLE_SAG_SPREAD = 14;
+// How far apart the strands of a split cable hang. One cable carrying several
+// channels is drawn as several strands, and this is the gap between them.
+const LANE_SPREAD = 9;
+
+// Signals that are a bus rather than a direction.
+//
+// A USB-C socket on a Launchpad X is a port, not an output: the pair of wires
+// carries messages both ways, and which end is host is a role the two devices
+// negotiate rather than a property of either socket. The catalogue types every
+// jack `input` or `output` because almost everything is one or the other, and
+// under that rule two USB ports refused each other - correctly for audio, and
+// wrongly for the thing USB actually is.
+//
+// On a real desk a link between two device ports has a host in the middle: a
+// computer, or a host adapter. The cable's own title says so, because a rig
+// sketch that quietly implies a Launchpad X can drive a K.O. II on its own is
+// worse than one that says where the computer goes.
+const BUS_SIGNALS = new Set(['usb']);
 
 // Device text comes from `catalogue/devices/*.json` and is interpolated into
 // attributes. A label holding a quote would otherwise end the attribute early
@@ -327,12 +349,27 @@ class Jack {
     // a lead from the front panel round to a rear header is legal, and being
     // able to lose track of one is part of the instrument.
     canConnectTo(otherJack) {
-        return this.type !== otherJack.type && this !== otherJack;
+        if (this === otherJack) return false;
+        if (this.isBus() && otherJack.isBus()) return this.signal === otherJack.signal;
+        return this.type !== otherJack.type;
+    }
+
+    // Whether this jack is a bus port rather than a one-way socket.
+    isBus() {
+        return BUS_SIGNALS.has(this.signal);
     }
 
     // Why a connection was refused, for the status line. Null when it is legal.
     refusalReason(otherJack) {
         if (this === otherJack) return 'A jack cannot patch into itself';
+        if (this.isBus() !== otherJack.isBus()) {
+            return `${this.signal} does not go into ${otherJack.signal}`;
+        }
+        if (this.isBus()) {
+            return this.signal === otherJack.signal
+                ? null
+                : `${this.signal} does not go into ${otherJack.signal}`;
+        }
         if (this.type === otherJack.type) return `Two ${this.type}s cannot be patched together`;
         return null;
     }
@@ -1278,8 +1315,12 @@ class PatchBayManager {
             // what the interchange format stores. A cable's sides are read off
             // its jacks rather than stored: a jack's side is fixed by its
             // module definition, so a stored copy could only ever disagree.
-            const source = jack1.type === 'output' ? jack1 : jack2;
-            const target = jack1.type === 'output' ? jack2 : jack1;
+            // Two bus ports are both `output`, so "the output end" is not a
+            // question with an answer. The order they were clicked in is: the
+            // first is the one being plugged in, which is the one driving.
+            const bus = jack1.isBus() && jack2.isBus();
+            const source = bus || jack1.type === 'output' ? jack1 : jack2;
+            const target = bus || jack1.type === 'output' ? jack2 : jack1;
             this.connections.push({ source, target, cable: null });
             this.markThrough(source, target);
             this.redrawAll();
@@ -1321,7 +1362,49 @@ class PatchBayManager {
             const drawn = this.createCable(conn.source, conn.target);
             conn.cable = drawn?.path || null;
             conn.hit = drawn?.hit || null;
+            conn.strands = drawn?.strands || [];
         });
+    }
+
+    // The channels one cable carries, worked out rather than recorded.
+    //
+    // A MIDI binding says "messages like this belong to that device". A cable
+    // into that device is what those messages arrive on, so the channels bound
+    // to the device at the far end are the channels on the cable. Deriving it
+    // is the only version that cannot go stale: rebinding a channel or pulling
+    // the lead changes the picture without anything having to be kept in step.
+    //
+    // Only a cable that carries messages has channels at all. Audio does not
+    // have a channel 10, and drawing one strand per binding on a patch lead
+    // would be inventing a distinction the cable does not make.
+    lanesOf(source, target) {
+        const bindings = hostSystem()?.midi;
+        if (!bindings?.length) return [];
+        if (!CHANNELLED_SIGNALS.has(source.signal)) return [];
+
+        const driven = target.module?.id;
+        const byChannel = new Map();
+        bindings.forEach(binding => {
+            if (binding.module !== driven) return;
+            const channel = binding.source?.channel;
+            if (channel == null) return;
+            if (!byChannel.has(channel)) byChannel.set(channel, []);
+            byChannel.get(channel).push(binding);
+        });
+
+        return Array.from(byChannel.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([channel, bound]) => ({
+                channel,
+                bound,
+                // The label of the first binding on the channel, when they all
+                // agree on one; several different rules on a channel is a
+                // distribution, and naming it after one of them would be a
+                // caption for the wrong thing.
+                label: bound.every(b => b.label === bound[0].label)
+                    ? bound[0].label
+                    : `${bound.length} bindings`,
+            }));
     }
 
     rackOrigin() {
@@ -1433,7 +1516,6 @@ class PatchBayManager {
         const to = this.endpointOf(target);
         if (!from || !to) return null;
 
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         const midX = (from.x + to.x) / 2;
         // Cables hang below, under gravity: further for a longer run, and each
         // by its own small amount so two cables between the same two devices
@@ -1445,28 +1527,64 @@ class PatchBayManager {
             + cableSpread(source, target) * CABLE_SAG_SPREAD;
         const midY = Math.max(from.y, to.y) + sag;
 
-        const curve = `M ${from.x} ${from.y} Q ${midX} ${midY} ${to.x} ${to.y}`;
-        path.setAttribute('d', curve);
-        // Rear wiring reads as rear wiring wherever the device is pointing.
-        path.setAttribute('stroke', source.side === 'back' ? '#ff9f43' : '#00ff88');
-        path.setAttribute('stroke-width', '2');
-        path.setAttribute('fill', 'none');
+        // One strand per channel the cable carries, and one plain strand when
+        // it carries none. A USB lead between two devices is a bundle: drawing
+        // it as a single line says the two are connected, and drawing it as the
+        // channels says what is going down it - which is the question you have
+        // when a grid is meant to be playing four groups and one of them is
+        // silent.
+        //
+        // They fan rather than sit parallel: shared endpoints, different sag,
+        // because both ends really are one socket and only the middle is
+        // several things at once.
+        const lanes = this.lanesOf(source, target);
+        const spread = lanes.length > 1 ? lanes : [null];
 
-        const classes = ['cable'];
+        const shared = ['cable'];
         // A cable with an end out of sight is dashed: it is still one line you
         // can follow, and the dashes say part of its run is behind something.
-        if (from.hidden || to.hidden) classes.push('is-occluded');
-        if (source.side !== target.side) classes.push('crosses-faces');
+        if (from.hidden || to.hidden) shared.push('is-occluded');
+        if (source.side !== target.side) shared.push('crosses-faces');
         if (this.tracing && (source.module.id === this.tracing || target.module.id === this.tracing)) {
-            classes.push('is-traced');
+            shared.push('is-traced');
         }
-        path.setAttribute('class', classes.join(' '));
+        if (lanes.length > 1) shared.push('is-split');
 
-        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-        title.textContent =
+        const link = source.isBus() && target.isBus();
+        const ends =
             `${source.module.name} ${source.label} (${source.side})`
-            + ` -> ${target.module.name} ${target.label} (${target.side})`;
-        path.appendChild(title);
+            + ` ${link ? '<->' : '->'} ${target.module.name} ${target.label} (${target.side})`
+            // Two device ports do not reach each other on a real desk. Saying
+            // so on the cable is cheaper than a rig sketch that implies a
+            // Launchpad X can drive a K.O. II with nothing in between.
+            + (link ? ' - through a host' : '');
+
+        const strands = spread.map((lane, index) => {
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const offset = (index - (spread.length - 1) / 2) * LANE_SPREAD;
+            const curve =
+                `M ${from.x} ${from.y} Q ${midX} ${midY + offset} ${to.x} ${to.y}`;
+            path.setAttribute('d', curve);
+            // Rear wiring reads as rear wiring wherever the device is pointing.
+            path.setAttribute('stroke', source.side === 'back' ? '#ff9f43' : '#00ff88');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('class', shared.join(' '));
+            if (lane) {
+                path.setAttribute('data-channel', String(lane.channel));
+                path.dataset && (path.dataset.channel = String(lane.channel));
+            }
+
+            const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+            title.textContent = lane
+                ? `${ends} - channel ${lane.channel}: ${lane.label}`
+                : ends;
+            path.appendChild(title);
+            return path;
+        });
+
+        const path = strands[0];
+        const curve = path.getAttribute('d');
 
         // A 2px curve is not something anyone can hit. This is the same curve
         // at a thickness you can aim at, invisible and never painted; it exists
@@ -1481,13 +1599,17 @@ class PatchBayManager {
         // painting area, and a stroke set to `none` has no painting area to be
         // inside. Transparent paints nothing and still has geometry.
         hit.setAttribute('stroke', 'transparent');
-        hit.setAttribute('stroke-width', String(CABLE_HIT_WIDTH));
+        // Wide enough to cover every strand, so a split cable is one thing to
+        // aim at. Pulling out channel 3 on its own is not a gesture a desk has:
+        // you unplug the lead, and the lead is the connection.
+        hit.setAttribute('stroke-width', String(
+            CABLE_HIT_WIDTH + (strands.length - 1) * LANE_SPREAD));
 
-        this.svg.appendChild(path);
+        strands.forEach(strand => this.svg.appendChild(strand));
         this.svg.appendChild(hit);
         if (from.hidden) this.createAnchorMark(from, source.side);
         if (to.hidden) this.createAnchorMark(to, target.side);
-        return { path, hit };
+        return { path, hit, strands };
     }
 
     // Which cable, if any, is under a viewport point. Asked of the geometry

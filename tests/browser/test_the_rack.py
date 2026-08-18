@@ -67,41 +67,41 @@ class TestTheMenu:
 
 
 class TestPatchingAndUnpatching:
-    def test_clicking_two_sockets_makes_a_cable(self, page):
-        before = page.locator("path.cable").count()
-        modules = page.locator(".module")
+    def test_clicking_two_sockets_makes_a_cable(self, bench):
+        before = bench.locator("path.cable").count()
+        modules = bench.locator(".module")
         modules.nth(0).locator('.face.active .jack[data-type="output"]').first.click()
         modules.nth(1).locator('.face.active .jack[data-type="input"]').first.click()
         until(
-            page,
+            bench,
             f"() => document.querySelectorAll('path.cable').length > {before}",
         )
-        assert page.locator("path.cable").count() == before + 1
+        assert bench.locator("path.cable").count() == before + 1
 
-    def test_a_cable_can_be_pulled_out_again(self, page):
-        modules = page.locator(".module")
+    def test_a_cable_can_be_pulled_out_again(self, bench):
+        modules = bench.locator(".module")
         modules.nth(0).locator('.face.active .jack[data-type="output"]').first.click()
         modules.nth(1).locator('.face.active .jack[data-type="input"]').first.click()
-        until(page, "() => document.querySelectorAll('path.cable').length === 1")
+        until(bench, "() => document.querySelectorAll('path.cable').length === 1")
 
         # The menu on a device offers to pull every lead out of it. Reaching a
         # cable itself needs the geometry probe, which is covered by the model
         # harness; this is the path a hand takes.
         module = modules.nth(0).bounding_box()
-        page.mouse.click(module["x"] + module["width"] / 2, module["y"] + 8,
+        bench.mouse.click(module["x"] + module["width"] / 2, module["y"] + 8,
                          button="right")
-        page.wait_for_selector(".rad-wedge", timeout=5_000)
-        pick(page, "Unpatch")
+        bench.wait_for_selector(".rad-wedge", timeout=5_000)
+        pick(bench, "Unpatch")
 
-        until(page, "() => document.querySelectorAll('path.cable').length === 0")
-        assert page.locator("path.cable").count() == 0
+        until(bench, "() => document.querySelectorAll('path.cable').length === 0")
+        assert bench.locator("path.cable").count() == 0
 
-    def test_two_outputs_refuse_each_other(self, page):
-        modules = page.locator(".module")
+    def test_two_outputs_refuse_each_other(self, bench):
+        modules = bench.locator(".module")
         modules.nth(0).locator('.face.active .jack[data-type="output"]').first.click()
         modules.nth(1).locator('.face.active .jack[data-type="output"]').first.click()
-        assert "cannot" in page.locator("#status").inner_text().lower()
-        assert page.locator("path.cable").count() == 0
+        assert "cannot" in bench.locator("#status").inner_text().lower()
+        assert bench.locator("path.cable").count() == 0
 
 
 class TestDrawnAsLaidOut:
@@ -226,9 +226,9 @@ class TestOnlyTheFacesThatHaveSomething:
         )
         assert empty == []
 
-    def test_a_device_with_a_front_still_opens_on_it(self, page):
+    def test_a_device_with_a_front_still_opens_on_it(self, bench):
         # The other half: nothing here refaces a device that has a front.
-        first = page.locator(".module").first
+        first = bench.locator(".module").first
         assert first.locator(".face.active").get_attribute("data-side") == "front"
 
     def test_nothing_throws_through_any_of_it(self, drum_rig):

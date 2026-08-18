@@ -76,7 +76,12 @@ ModuleFactory.load({
     devices: fs.readdirSync(devDir).filter(f => f.endsWith('.json'))
         .map(f => JSON.parse(fs.readFileSync(path.join(devDir, f), 'utf8'))),
 });
-const system = new EurorackSystem();
+// On the global, not a module-scoped `const`. `models.js` is eval'd into the
+// global scope, so the `hostSystem()` its code calls looks for `system` there -
+// a local binding here is invisible to it, and anything routed through that
+// accessor silently sees no system at all. That is how the lane checks below
+// first "passed" against an empty list.
+global.system = new EurorackSystem();
 
 // Give each device a real box, and each jack an element that measures zero when
 // its own face is turned away — which is what `display: none` does in a browser
@@ -324,6 +329,98 @@ check('turning walks every side in order', walked, [...SIDE_ORDER]);
 check('and wraps back to the first', six.cycle(1), SIDE_ORDER[0]);
 
 delete ModuleFactory.definitions['test.six-sided'];
+
+
+// ---------------------------------------------------------------------------
+// A bus is not a direction, and a lead carrying channels is drawn as them
+// ---------------------------------------------------------------------------
+// Every USB socket in the catalogue is typed `output`, because the catalogue
+// types every jack `input` or `output` and almost everything is one or the
+// other. Under the plain rule two of them refused each other - correct for
+// audio, wrong for what USB is: a pair of wires carrying messages both ways,
+// with host and device a role the two ends negotiate.
+system.clearRack();
+// `place` gives each device a measurable box: this harness stubs the DOM, and
+// a device with no geometry anchors nowhere, so a lead between two of them
+// would not be drawn at all.
+const pad = place(system.addModule('novation.launchpad-x'));
+const box = place(system.addModule('teenage-engineering.ep-133'));
+
+const padUsb = pad.jacks.get('usb');
+const boxUsb = box.jacks.get('usb_c');
+
+check('both USB sockets are typed as outputs',
+    [padUsb.type, boxUsb.type], ['output', 'output']);
+check('and both are bus ports', [padUsb.isBus(), boxUsb.isBus()], [true, true]);
+check('two USB ports may be linked anyway', padUsb.canConnectTo(boxUsb), true);
+check('and nothing is refused', padUsb.refusalReason(boxUsb), null);
+
+// The rule is about the bus, not about giving up on direction.
+const audioOut = box.jacks.get('line_out');
+check('two audio outputs still refuse each other',
+    audioOut.canConnectTo(pad.jacks.get('midi_out')), false);
+check('and USB does not go into an audio socket',
+    padUsb.canConnectTo(audioOut), false);
+check('with a reason that names both signals',
+    typeof padUsb.refusalReason(audioOut), 'string');
+
+check('the link is made', system.patchBay.createConnection(padUsb, boxUsb), true);
+
+// --- the split, derived from the bindings ---
+//
+// No bindings, no channels: a lead nobody has assigned anything to is one
+// line, because it is one lead. The strands are the assignments, so they
+// cannot be drawn before there are any.
+system.midi = [];
+system.patchBay.redrawAll();
+const link = system.patchBay.connections[0];
+check('an unassigned lead is a single strand', link.strands.length, 1);
+check('and carries no channels',
+    system.patchBay.lanesOf(link.source, link.target).length, 0);
+
+system.midi = ['A', 'B', 'C', 'D'].map((group, index) => ({
+    id: `bind-${group}`,
+    source: { type: 'channel', channel: index + 1 },
+    module: box.id,
+    label: `Group ${group}`,
+}));
+system.patchBay.redrawAll();
+
+const lanes = system.patchBay.lanesOf(link.source, link.target);
+check('four bindings on four channels make four lanes', lanes.length, 4);
+check('in channel order', lanes.map(l => l.channel), [1, 2, 3, 4]);
+check('each named by what is bound to it',
+    lanes.map(l => l.label), ['Group A', 'Group B', 'Group C', 'Group D']);
+check('and the lead is drawn as four strands',
+    system.patchBay.connections[0].strands.length, 4);
+
+// Derived, not stored: rebinding moves the picture with nothing kept in step.
+system.midi = system.midi.slice(0, 2);
+system.patchBay.redrawAll();
+check('unbinding two groups leaves two strands',
+    system.patchBay.connections[0].strands.length, 2);
+
+// Several rules on one channel is a distribution, not four captions.
+system.midi = [
+    { id: 'a', source: { type: 'note', channel: 10, note: 36 }, module: box.id, label: 'kick' },
+    { id: 'b', source: { type: 'note', channel: 10, note: 39 }, module: box.id, label: 'clap' },
+];
+system.patchBay.redrawAll();
+const shared = system.patchBay.lanesOf(link.source, link.target);
+check('two rules on one channel are one strand', shared.length, 1);
+check('named for the count rather than for one of them',
+    shared[0].label, '2 bindings');
+
+// A binding for some other device is not on this lead.
+system.midi = [
+    { id: 'c', source: { type: 'channel', channel: 7 }, module: 'somewhere-else', label: 'x' },
+];
+system.patchBay.redrawAll();
+check('a binding naming another device is not on this lead',
+    system.patchBay.lanesOf(link.source, link.target).length, 0);
+
+system.midi = [];
+system.clearRack();
 
 let failed = 0;
 for (const r of results) {

@@ -24,15 +24,67 @@ async function bootstrap() {
 
     ModuleFactory.load(payload);
 
-    // A rack to start from, if the catalogue has the generic pair.
-    if (ModuleFactory.definitions['carlos.vco']) system.addModule('carlos.vco');
-    if (ModuleFactory.definitions['carlos.vcf']) system.addModule('carlos.vcf');
+    openingRack();
 
     const count = ModuleFactory.ids.length;
     system.status.update(
         `Carlos ready - ${count} devices. Right-click for the menu, `
         + 'or long-press and release to pick in one gesture.'
     );
+}
+
+// ===================================
+// THE OPENING RACK
+// ===================================
+// A grid playing a sampler down one USB lead: the smallest rig that is a rig
+// rather than a demonstration of the drawing code. Two devices people own, one
+// cable, and four channels going down it.
+//
+// It replaced a VCO next to a VCF, which showed the patch bay and nothing else
+// - two boxes of knobs with nothing running between them. What is worth
+// arriving to is a picture with a question in it: four groups are bound to four
+// channels, and you can see which.
+//
+// Guarded on the catalogue rather than assumed: entries are data files, and a
+// build without these two should open on an empty rack, not on an exception.
+function openingRack() {
+    const has = (id) => Boolean(ModuleFactory.definitions[id]);
+    if (!has('novation.launchpad-x') || !has('teenage-engineering.ep-133')) {
+        // Whatever else is there, so an unfamiliar catalogue still opens on
+        // something rather than on nothing.
+        if (has('carlos.vco')) system.addModule('carlos.vco');
+        if (has('carlos.vcf')) system.addModule('carlos.vcf');
+        return;
+    }
+
+    // Laid out, because the whole point of naming two real devices is that they
+    // look like themselves: 64 pads and a sampler panel, at their real sizes
+    // relative to each other.
+    system.setMode('irl');
+
+    const grid = system.addModule('novation.launchpad-x');
+    const sampler = system.addModule('teenage-engineering.ep-133');
+
+    // Four groups on four channels. This is what the cable splits into: the
+    // bindings are the channel assignments, and the strands are drawn from
+    // them, so rebinding a group moves the picture without anything being kept
+    // in step by hand.
+    system.midi = ['A', 'B', 'C', 'D'].map((group, index) => ({
+        id: `opening-${group.toLowerCase()}`,
+        source: { type: 'channel', channel: index + 1 },
+        module: sampler.id,
+        label: `Group ${group}`,
+    }));
+
+    // Both sockets are round the back, which is where USB lives on both of
+    // these. The cable is drawn to the silhouette of each device rather than to
+    // a socket you cannot see, and dashed to say part of its run is behind
+    // something - which is true of every USB lead on every desk.
+    const from = grid.jacks.get('usb');
+    const to = sampler.jacks.get('usb_c');
+    if (from && to) system.patchBay.createConnection(from, to);
+
+    system.patchBay.redrawAll();
 }
 
 // ===================================

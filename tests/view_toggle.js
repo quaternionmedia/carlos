@@ -46,7 +46,11 @@ ModuleFactory.load({
         .map(f => JSON.parse(fs.readFileSync(path.join(devDir, f), 'utf8'))),
 });
 
-const system = new EurorackSystem();
+// On the global: `models.js` is eval'd into global scope, so the `hostSystem()`
+// its code calls looks for `system` there. A module-scoped binding here is
+// invisible to it, and every path routed through that accessor quietly sees no
+// system at all - which is a harness agreeing with code it never ran.
+global.system = new EurorackSystem();
 
 const results = [];
 const check = (name, got, want) => results.push({ name, got, want });

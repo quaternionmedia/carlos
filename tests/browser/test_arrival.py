@@ -77,8 +77,45 @@ class TestTheWorkspace:
     def test_the_facing_indicator_reports_the_rack_it_is_looking_at(self, page):
         # It read EMPTY on a rack with two devices for two sessions, because
         # nothing refreshed it when a device was added and every model-level
-        # test agreed with the model.
-        assert page.locator("#view-indicator").inner_text() == "ALL FRONT"
+        # test agreed with the model. Both opening devices are played from
+        # above, so the rack it is looking at is all tops.
+        assert page.locator("#view-indicator").inner_text() == "ALL TOP"
+
+    def test_it_opens_on_a_grid_and_a_sampler(self, page):
+        # The opening rack is a rig rather than a demonstration of the drawing
+        # code: two devices people own, one lead, four channels down it. It
+        # used to be a VCO beside a VCF with nothing running between them.
+        names = " ".join(page.locator(".module .module-title").all_text_contents())
+        assert "Launchpad" in names
+        assert "EP-133" in names or "K.O" in names
+
+    def test_they_arrive_linked(self, page):
+        assert page.locator("path.cable").count() >= 1
+
+    def test_the_lead_is_split_into_the_channels_it_carries(self, page):
+        # Four groups bound to four channels, so the lead is drawn as four
+        # strands. Derived from the bindings rather than stored on the cable:
+        # nothing has to be kept in step when a group is rebound.
+        channels = page.locator("path.cable[data-channel]").evaluate_all(
+            "paths => paths.map(p => p.dataset.channel)")
+        assert sorted(channels) == ["1", "2", "3", "4"]
+
+    def test_every_strand_says_what_it_carries(self, page):
+        titles = page.locator("path.cable[data-channel] title").all_text_contents()
+        assert len(titles) == 4
+        assert all("channel" in t for t in titles)
+        assert any("Group A" in t for t in titles)
+
+    def test_the_lead_is_marked_as_split(self, page):
+        assert page.locator("path.cable.is-split").count() == 4
+
+    def test_it_says_a_host_sits_in_the_middle(self, page):
+        # Two USB device ports do not reach each other on a real desk. The
+        # cable says so rather than implying a grid can drive a sampler alone.
+        # `text_content`, not `inner_text`: an SVG <title> is not an
+        # HTMLElement and has no rendered text to read.
+        title = page.locator("path.cable title").first.text_content()
+        assert "through a host" in title
 
     def test_the_palette_opens_at_its_default_corner(self, page):
         palette = page.locator("#tool-palette").bounding_box()

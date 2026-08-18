@@ -75,13 +75,57 @@ The way in is a link, so it works before any JavaScript does:
 
 ```
 
-The catalogue is fetched at startup, and the rack begins with the generic pair:
+The catalogue is fetched at startup, and the rack opens on a rig rather than on
+a demonstration: a Launchpad X playing an EP-133 down one USB lead.
 
 ```python
 >>> page.locator('.module').count()
 2
+>>> names = ' '.join(page.locator('.module .module-title').all_text_contents())
+>>> 'Launchpad' in names, 'EP-133' in names
+(True, True)
 
 ```
+
+Both are played from above and both have their USB round the back, so the lead
+runs to the silhouette of each device rather than to a socket you cannot see.
+It is dashed for the part of its run that is behind something — which is true
+of every USB lead on every desk.
+
+```python
+>>> page.locator('path.cable').count() > 0
+True
+>>> 'is-occluded' in page.locator('path.cable').first.get_attribute('class')
+True
+
+```
+
+One lead, four channels. Four groups on the sampler are bound to channels 1
+through 4, so the cable is drawn as four strands: the picture answers "which
+group is that going to" without anything being clicked.
+
+```python
+>>> strands = page.locator('path.cable[data-channel]')
+>>> sorted(strands.evaluate_all('paths => paths.map(p => p.dataset.channel)'))
+['1', '2', '3', '4']
+
+```
+
+The split is **derived, not stored**. A MIDI binding says which messages belong
+to which device; the channels bound to the device at the far end are the
+channels on the cable. Rebinding a group redraws the strands, and nothing has to
+be kept in step by hand — the same rule that keeps a knob's rotation and a
+jack's side out of the document.
+
+```python
+>>> page.locator('path.cable[data-channel] title').first.text_content()
+'Launchpad X USB-C (back) <-> EP-133 K.O. II USB-C (back) - through a host - channel 1: Group A'
+
+```
+
+Two USB device ports do not reach each other on a real desk: a computer or a
+host adapter sits between them. The cable says so, because a rig sketch that
+implies otherwise is a sketch you cannot build from.
 
 **A browser JS error never reaches the server log.** The log is identical
 whether the page works perfectly or throws on every keypress, which is why this
@@ -111,7 +155,7 @@ And the facing indicator reports the rack it is actually looking at:
 
 ```python
 >>> page.locator('#view-indicator').inner_text()
-'ALL FRONT'
+'ALL TOP'
 
 ```
 

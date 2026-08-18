@@ -106,6 +106,28 @@ for the caller's rack rather than one this process happens to hold. The parse is
 exposed because it is the fiddly half, and a peer should not reimplement
 note-on-velocity-zero to talk to this rack.
 
+### Bindings are what splits a cable
+
+A binding says which messages belong to which device. That is also the answer to
+"what is going down this lead": the channels bound to the device at the far end
+of a cable are the channels the cable carries, so a USB lead into a sampler with
+four groups on four channels is drawn as four strands.
+
+Nothing about the split is stored. It is read off the bindings every time the
+cables are drawn, which is the same rule that keeps a knob's rotation and a
+jack's side out of the document — a stored copy could only ever disagree with
+the thing it copied. Rebind a group and the picture follows; pull the lead and
+there is nothing left over to clean up.
+
+Two rules on the same channel are one strand, not two. A channel is a lane, and
+several bindings sharing one is a distribution down that lane rather than a
+second cable — the strand is labelled for the count instead of for whichever
+binding happened to be first.
+
+Only `usb` and `midi` split. An audio lead is one line because audio has no
+channel 10, and drawing one strand per binding on a patch lead would invent a
+distinction the cable does not make.
+
 ```sh
 curl -s -X POST http://127.0.0.1:8000/api/midi/route \
   -H 'Content-Type: application/json' \
