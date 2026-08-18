@@ -239,7 +239,7 @@ uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
 
 ## Tests
 
-207 tests, no network, no `httpx` — `fastapi.testclient` is deliberately unused
+210 tests, no network, no `httpx` — `fastapi.testclient` is deliberately unused
 so the suite has no dependency the project does not otherwise need.
 
 The `FrontendContractTests` are the ones to watch: they assert that

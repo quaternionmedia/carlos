@@ -66,7 +66,7 @@ Git Bash but **not** under PowerShell, which needs the absolute path.
 
 ```bash
 uv sync
-uv run python -m unittest discover   # 207 tests
+uv run python -m unittest discover   # 210 tests
 uv run python src/main.py            # http://localhost:8000
 ```
 
