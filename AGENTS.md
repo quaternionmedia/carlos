@@ -191,15 +191,19 @@ your change.
 **Check, then run, then check again.**
 
 ```sh
-uv run python -m unittest discover   # 1. check
-uv run python src/main.py            # 2. run, on http://localhost:8000
+uv run pytest tests walkthrough --doctest-glob=*.md   # 1. check
+uv run python src/main.py                             # 2. run, on :8000
 ```
 
-Use `uv run`. A bare `python -m unittest discover` fails with
-`ModuleNotFoundError: No module named 'fastapi'` — the system interpreter does
-not have the project's dependencies. Under `uv run`, `python -m unittest`
-without `discover` also works; `tests/__init__.py` makes the suite discoverable
-either way.
+Use `uv run`. A bare `pytest` fails with `ModuleNotFoundError: No module named
+'fastapi'` — the system interpreter does not have the project's dependencies.
+`uv run python -m unittest discover` still works and still runs the same tests;
+it does not run the walkthrough, which is why it is not the command.
+
+**Both paths are named on purpose.** `testpaths` is ignored the moment pytest
+receives a path argument, so a walkthrough wired that way is collected by
+nobody and stays green forever. `tests/test_walkthrough.py` enforces that this
+command appears wherever it is documented.
 
 | Changed | Needed |
 | --- | --- |
@@ -239,8 +243,17 @@ uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
 
 ## Tests
 
-225 tests, no network, no `httpx` — `fastapi.testclient` is deliberately unused
-so the suite has no dependency the project does not otherwise need.
+The suite is `unittest.TestCase` classes run by pytest — the blessed runner,
+adopted without rewriting a test. No network, no `httpx`: `fastapi.testclient`
+is deliberately unused so the suite has no dependency the project does not
+otherwise need.
+
+`walkthrough/` is the other half and it is not optional. Its pages are the
+documentation *and* the demo *and* a test: the example a reader reads is the
+example that ran, and the screenshots under `walkthrough/media/` are byproducts
+of the run that asserted the behaviour they show. They are **recorded, never
+compared** — a test that diffs images fails on a font and gets switched off,
+taking the assertions beside it with it.
 
 The `FrontendContractTests` are the ones to watch: they assert that
 `static/models.js` and `src/patch_format.py` still declare the same format and

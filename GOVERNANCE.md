@@ -64,11 +64,11 @@ Enumerating a conflict is not waiving it.
 | --- | --- | --- |
 | Packaging is `uv`, the blessed tool is PDM | house-stack §1 | **Do not write a project exception.** Three QM projects stand on `uv` — carlos, loopwall, sqlmodel-ui — which fires the record's own revision trigger. This is an org-level amendment, not a local waiver |
 | Store is TinyDB | house-stack §1, seams | The blessed default is PostgreSQL, or SQLite for single-node tools, reached over SQL. TinyDB has no protocol seam and fails the replaceability test |
-| Tests are `unittest` | house-stack §1 | The blessed test tool is pytest. Cost has grown: 207 tests plus five Node harnesses now depend on this choice |
+| ~~Tests are `unittest`~~ | house-stack §1 | **Closed.** The runner is pytest. The tests themselves are still `unittest.TestCase`, which pytest runs natively, so adopting the blessed tool cost a dependency and no rewrite |
 | `static/anime-shim.js` is a local stand-in | house-stack §1 | The set names vendored `anime.js`; a 25-line reimplementation is neither vendored nor anime.js |
 | Declared licence is MIT | outbound-licensing §4 | Services and control planes are AGPL-3.0-or-later. The declared licence is a reviewed output, not an inherited default |
 | No SPDX headers, no `LICENSES/` | outbound-licensing §12 | What `reuse-lint` is failing on |
-| No `walkthrough/` | one-executable-walkthrough §1 | Every QM repository carries one, executed by the ordinary test command |
+| ~~No `walkthrough/`~~ | one-executable-walkthrough §1 | **Closed.** Five pages, four hermetic and one runtime-bound, executed by the ordinary test command. Decision 7 is not satisfied yet: a page that ran on a branch no remote carries has not run, and nothing here is pushed |
 | Frontend is plain modular JS, no build step | house-stack §1 | The set names mithril with a parcel build for frontend applications. Carlos ships no build step at all, which is neither the blessed answer nor a recorded exception |
 | No dependency-manifest licence gate | open-license §4 | Required per package ecosystem shipped |
 | No service inventory | open-license §6 | No scanner can produce it, which is why it is written down |

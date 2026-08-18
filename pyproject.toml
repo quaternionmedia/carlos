@@ -15,3 +15,23 @@ dependencies = [
     "tinydb>=4.8.2",
     "uvicorn>=0.35.0",
 ]
+
+[tool.pytest.ini_options]
+# Deliberately no `testpaths`. The one-executable-walkthrough record measured
+# it: with `testpaths = ["walkthrough"]` set, `pytest tests` collects zero
+# pages, because `testpaths` is ignored the moment pytest is handed a path
+# argument. The invocation names the directory or the pages do not run, so the
+# command in README.md and AGENTS.md names both:
+#
+#     uv run pytest tests walkthrough --doctest-glob=*.md
+#
+# NORMALIZE_WHITESPACE keeps pages readable; ELLIPSIS lets a page show the
+# shape of a long value without pasting a hundred characters nobody reads.
+doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
+
+[dependency-groups]
+dev = [
+    "playwright>=1.62.0",
+    "pytest>=9.1.1",
+    "pytest-playwright>=0.9.0",
+]

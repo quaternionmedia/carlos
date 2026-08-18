@@ -35,12 +35,21 @@ Check first, then run. The server stays up while you work.
 **1. Run the checks.**
 
 ```bash
-uv run python -m unittest discover
+uv run pytest tests walkthrough --doctest-glob=*.md
 ```
 
+That runs the test suite *and* the walkthrough, whose pages are executable —
+the examples a reader reads are the examples that ran. Both paths are named
+deliberately: `testpaths` is ignored the moment pytest is handed a path
+argument, so a walkthrough wired that way is collected by nobody.
+
 `uv run` is required, not a convenience — the checks import FastAPI, and a bare
-`python -m unittest discover` fails with `ModuleNotFoundError: No module named
-'fastapi'` unless you have the project environment activated yourself.
+`pytest` fails with `ModuleNotFoundError: No module named 'fastapi'` unless you
+have the project environment activated yourself.
+
+The last page drives the real app in a real browser and records what it saw
+into `walkthrough/media/`. It does not skip when the browser is missing; it
+fails. On a fresh checkout, `uv run playwright install chromium` once.
 
 **2. Start the server.**
 
@@ -74,6 +83,10 @@ fetching the changed bytes, not by reading a log line.
 **4. Re-run the checks before you call it done**, and see the frontend contract
 tests in particular — they are what catch `static/models.js` and
 `src/patch_format.py` drifting apart.
+
+Regeneration rides that same command, so a screenshot that no longer matches
+what the app draws turns up as an uncommitted diff in `git status` rather than
+as staleness nobody sees.
 
 To pick the port explicitly:
 
