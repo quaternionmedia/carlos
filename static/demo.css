@@ -7,7 +7,7 @@ body {
     /* The house navy. Only the ground changes: the rack, the modules and every
        signal colour above it are what they were, because a background is the
        one surface that can be restated without restating anything on it. */
-    background: linear-gradient(135deg, var(--qm-navy), var(--qm-navy-lift));
+    background: linear-gradient(135deg, var(--qm-navy), var(--qm-navy-deep));
     font-family: 'Courier New', monospace;
     color: #00ff88;
 }
@@ -457,9 +457,14 @@ kbd {
 :root {
     /* The ground everything else sits on. Named rather than inlined so the two
        stops of the gradient cannot drift apart, and so a theme has one place to
-       change rather than a literal to find. */
-    --qm-navy: #0d1b2a;
-    --qm-navy-lift: #16273d;
+       change rather than a literal to find.
+
+       `#003054` is not invented here: it is the navy that recurs across the
+       org's projects, counted rather than remembered. The second stop is the
+       same colour deepened, so the gradient carries depth without introducing
+       a second hue nobody chose. */
+    --qm-navy: #003054;
+    --qm-navy-deep: #001d33;
 
     --rad-surface: #12140f;
     --rad-surface-edge: #2f3a2b;
