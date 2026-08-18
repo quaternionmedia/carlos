@@ -250,6 +250,26 @@ captured, and here it is:
 
 ```
 
+The panel says what is on screen: what this rack is, what is in it, which way
+it faces, and what just happened. That last line used to be a bar pinned across
+the top of the window, so the running commentary was in one place and the facts
+it commented on in another — and fifty-six pixels were held above every rack to
+clear it, whether or not it had anything to say.
+
+```python
+>>> [page.locator(f'#count-{what}').inner_text()
+...  for what in ('devices', 'cables', 'rows')]
+['11', '17', '3']
+>>> page.evaluate("() => document.querySelector('#tool-palette')"
+...               ".contains(document.querySelector('#status'))")
+True
+
+```
+
+Leads rather than pieces, and counted off the rack rather than tallied as things
+are added — so an import, a deletion and a hand-patched cable all reach it the
+same way, and none of them can forget to.
+
 The palette opens at its default corner, which is the top right — the first
 thing here ever to check that against a real viewport rather than arithmetic:
 

@@ -3,12 +3,17 @@
    interaction contract, and a second menu system would be a second answer to a
    question the contract already settles. See docs/rad-integration.md.
 
-   This is not that. A tool palette holds the things a ring cannot express — a
-   patch name is a text field, a file input is a file input — and it resolves no
-   context and emits no intent, which is what a menu is. It floats over the rack
-   rather than pinning a strip to the bottom of the window, because a rack is
-   the width of the window and a fixed bar takes a slice of it away from every
-   rack whether or not anyone is naming a patch.
+   What is left is tuned to one job: saying what is on screen. A status bar was
+   pinned across the top of the window and this floated over the rack, so the
+   two halves of that answer were in two places — the running commentary up
+   there, the persistent facts down here — and the bar took a slice off the top
+   of every rack whether or not it had anything to say.
+
+   One panel now, and it reads top to bottom: what this rack is, what is in it,
+   which way it faces, and what just happened. It still holds the two controls a
+   ring cannot express — a patch name is a text field, a file input is a file
+   input — and it resolves no context and emits no intent, which is what a menu
+   is.
 
    `palette` here is rad's word for a set of colour tokens, and that is what
    this is built from: no colour below is a literal. #}
@@ -27,12 +32,37 @@
       <input id="patch-name" type="text" value="Untitled Patch" spellcheck="false">
     </div>
 
+    {# What is in the rack, counted from the rack rather than from whatever put
+       it there. Every one of these is written by `refreshReadout`, which runs
+       wherever the set of modules, cables or rows can have changed — the same
+       rule that keeps the facing indicator honest. #}
+    <dl class="rad-readout" id="rack-readout">
+      <div class="rad-readout-cell">
+        <dt>Devices</dt>
+        <dd id="count-devices">0</dd>
+      </div>
+      <div class="rad-readout-cell">
+        <dt>Leads</dt>
+        <dd id="count-cables">0</dd>
+      </div>
+      <div class="rad-readout-cell">
+        <dt>Rows</dt>
+        <dd id="count-rows">0</dd>
+      </div>
+    </dl>
+
     {# Which way the rack is facing: the one answer that has to persist, as
        against the status line, where the next message overwrites it. #}
     <div class="rad-palette-row">
       <span class="view-label">Facing</span>
       <span id="view-indicator">EMPTY</span>
     </div>
+
+    {# How this app answers back: a refused cable, a parameter under the cursor,
+       what an import actually loaded. A live region, so that answer is not
+       sighted-only. It is last because it is the only line here that changes on
+       its own — the facts above it stay put while this one talks. #}
+    <div class="status" id="status" role="status" aria-live="polite">System Ready</div>
 
     <label class="visually-hidden" for="patch-file">Patch file to import</label>
     <input id="patch-file" type="file" accept=".json,application/json"

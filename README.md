@@ -142,6 +142,10 @@ uv run carlos serve --port 8123
   fetched from `/api/opening`, not built in the browser: `catalogue/opening.json`
   is an ordinary patch document, so the first thing you see is a file you can
   export, edit and import again.
+- **One panel that says what is on screen.** What the rack is, what is in it,
+  which way it faces, and what just happened — devices, leads and rows counted
+  off the rack itself. The status line used to be a bar pinned across the top of
+  the window; it is a line in the panel now, and the rack got the strip back.
 - **One ring of six.** Right-click the rack and every wedge opens something:
   Add, Rows, View, Patch, MIDI, All Devices. The ring used to mix families with
   actions, and which was which you learned by trying.

@@ -1,9 +1,11 @@
 /* === BASE STYLES === */
 body {
     margin: 0;
-    /* Room for the status line above. Nothing is reserved below: the palette
-       floats over the rack rather than pinning a strip across the bottom. */
-    padding: 56px 20px 24px;
+    /* Nothing is reserved on any edge. Fifty-six pixels used to be held at the
+       top for a status bar that has since moved into the palette, and the
+       reservation outlived it: a strip of empty ground above every rack,
+       clearing something that was no longer there. */
+    padding: 20px 20px 24px;
     /* The house navy. Only the ground changes: the rack, the modules and every
        signal colour above it are what they were, because a background is the
        one surface that can be restated without restating anything on it. */
@@ -217,6 +219,38 @@ svg {
    in order. */
 #patch-cables-behind {
     z-index: 1;
+}
+
+/* What is in the rack, in three figures. Counted from the rack rather than
+   from whatever put it there, so an import, an undo and a hand-patched cable
+   all reach it by the same route. */
+.rad-readout {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin: 10px 0 0;
+}
+
+.rad-readout-cell {
+    padding: 6px 4px;
+    border-radius: 4px;
+    background: var(--rad-hub);
+    border: 1px solid var(--rad-surface-edge);
+    text-align: center;
+}
+
+.rad-readout dt {
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--rad-ink-dim);
+}
+
+.rad-readout dd {
+    margin: 2px 0 0;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    color: var(--rad-ink);
 }
 
 /* === DEVICE SIDES === */
@@ -537,16 +571,17 @@ kbd {
    dropped when the inline stylesheet moved into this file, which left the
    element in normal flow under the patch bar and its reserved space empty. */
 .status {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 20;
-    padding: 8px 20px;
-    background: rgba(0, 0, 0, 0.94);
-    border-bottom: 1px solid var(--rad-surface-edge);
-    font-size: 12px;
-    line-height: 1.5;
+    /* In the panel, not across the window. It was `position: fixed` at the top
+       of the viewport: the commentary in one place, the facts it was
+       commenting on in another, and eight pixels of every rack given up to a
+       line that is usually idle. */
+    margin-top: 10px;
+    padding: 7px 9px;
+    border-radius: 4px;
+    background: var(--rad-hub);
+    border: 1px solid var(--rad-surface-edge);
+    font-size: 11px;
+    line-height: 1.45;
     color: var(--rad-ink);
     /* One line, whatever the message. A status that wraps changes the height
        of the bar, moves the rack, and so moves every cable endpoint it was

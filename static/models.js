@@ -344,7 +344,17 @@ function cellLegend(feature, index) {
 // null value, not a missing name - so every reach for the host goes through
 // here.
 function hostSystem() {
-    return typeof system === 'undefined' ? null : system;
+    try {
+        return typeof system === 'undefined' ? null : system;
+    } catch {
+        // `typeof` is only safe for a name that was never declared. `system` is
+        // declared with `const`, and anything reached from inside that
+        // constructor runs while the binding is in its temporal dead zone -
+        // where `typeof` throws a ReferenceError rather than answering
+        // 'undefined'. Which is exactly when the answer is "there is no system
+        // yet", so that is what this returns.
+        return null;
+    }
 }
 
 // A knob is a slider that happens to be round. Saying so is what makes it
@@ -1413,6 +1423,14 @@ class PatchBayManager {
             conn.hit = drawn?.hit || null;
             conn.strands = drawn?.strands || [];
         });
+
+        // The lead count lives on the panel, and this is the one path every
+        // change to the set of cables goes through - patching, unpatching,
+        // importing, clearing. Writing it from here rather than from each of
+        // those is the same rule the facing indicator learned the hard way:
+        // a readout refreshed only on the paths somebody remembered is a
+        // readout that is wrong on the paths they did not.
+        hostSystem()?.refreshReadout?.();
     }
 
     // The channels one cable carries, worked out rather than recorded.
@@ -2225,7 +2243,30 @@ class EurorackSystem {
     refreshViewIndicator() {
         const indicator = document.getElementById('view-indicator');
         if (indicator) indicator.textContent = this.viewSummary();
+        this.refreshReadout();
         return indicator;
+    }
+
+    // What is in the rack, in three figures.
+    //
+    // Counted off the rack itself rather than tallied as things are added, so
+    // an import, a deletion and a hand-patched cable all reach it the same way
+    // and none of them can forget to. Written from the same place as the facing
+    // indicator for the same reason: that one read EMPTY on a rack with two
+    // devices in it for two sessions, because it was only refreshed on a path
+    // nobody took.
+    //
+    // Leads, not pieces: a cable with one end round the back is drawn in two
+    // halves, and a rack that says it has 34 leads when it has 17 is worse than
+    // one that says nothing.
+    refreshReadout() {
+        const write = (id, value) => {
+            const cell = document.getElementById(id);
+            if (cell) cell.textContent = String(value);
+        };
+        write('count-devices', this.modules.size);
+        write('count-cables', this.patchBay.connections.length);
+        write('count-rows', this.groups.length);
     }
 
     // What the rack is actually showing, which is not one value once devices

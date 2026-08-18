@@ -380,6 +380,90 @@ class TestTheWorkspace:
         )
         assert shared == 1
 
+    def test_the_panel_counts_what_is_in_the_rack(self, page):
+        # Read off the rack rather than tallied as things are added, so an
+        # import, a deletion and a hand-patched cable all reach it the same way.
+        assert page.locator("#count-devices").inner_text() == "11"
+        assert page.locator("#count-cables").inner_text() == "17"
+        assert page.locator("#count-rows").inner_text() == "3"
+
+    def test_it_counts_leads_rather_than_the_pieces_they_are_drawn_in(self, page):
+        # A rack that says 34 when it has 17 leads is worse than one that says
+        # nothing: every cable with an end round the back is drawn in halves.
+        pieces = page.locator("path.cable").count()
+        assert pieces > 17
+        assert page.locator("#count-cables").inner_text() == "17"
+
+    def test_the_counts_follow_the_rack(self, bench):
+        # Two devices on the bench, and one more makes three.
+        assert bench.locator("#count-devices").inner_text() == "2"
+        bench.evaluate("() => system.addModule('moog.dfam')")
+        assert bench.locator("#count-devices").inner_text() == "3"
+
+    def test_patching_something_moves_the_lead_count(self, bench):
+        assert bench.locator("#count-cables").inner_text() == "0"
+        modules = bench.locator(".module")
+        modules.nth(0).locator('.face.active .jack[data-type="output"]').first.click()
+        modules.nth(1).locator('.face.active .jack[data-type="input"]').first.click()
+        bench.wait_for_function(
+            "() => document.querySelectorAll('path.cable').length > 0",
+            timeout=5_000)
+        assert bench.locator("#count-cables").inner_text() == "1"
+
+    def test_the_status_line_lives_in_the_panel(self, page):
+        # It was a bar pinned across the top of the window: the running
+        # commentary in one place and the facts it commented on in another, and
+        # a slice off the top of every rack whether or not it had anything to
+        # say. One panel now, and it reads top to bottom.
+        inside = page.evaluate(
+            """() => Boolean(document.querySelector('#tool-palette')
+                 ?.contains(document.querySelector('#status')))"""
+        )
+        assert inside
+
+    def test_the_status_line_is_still_announced(self, page):
+        # Moving it must not cost a screen reader the one thing that answers
+        # back. A live region is the whole reason a refused cable is not a
+        # sighted-only message.
+        status = page.locator("#status")
+        assert status.get_attribute("role") == "status"
+        assert status.get_attribute("aria-live") == "polite"
+
+    def test_nothing_spans_the_window_any_more(self, page):
+        # The palette still floats - that is the point of it - but nothing
+        # stretches across the window taking a slice off the rack. The status
+        # bar did, whether or not it had anything to say.
+        spanning = page.evaluate(
+            """() => {
+                const wide = window.innerWidth - 4;
+                return [...document.querySelectorAll('body > *')]
+                    .filter(el => {
+                        const style = getComputedStyle(el);
+                        if (style.position !== 'fixed') return false;
+                        return el.getBoundingClientRect().width >= wide;
+                    })
+                    .map(el => el.id || el.className);
+            }"""
+        )
+        assert spanning == []
+
+    def test_the_strip_the_status_bar_held_is_given_back(self, page):
+        # Fifty-six pixels were reserved at the top of the body to clear a
+        # fixed status bar. The bar moved into the palette and the reservation
+        # outlived it: a band of empty ground above every rack, clearing
+        # something that was no longer there.
+        #
+        # What is left above the rack is ordinary page padding and the rack's
+        # own margin, so this asserts against the reservation rather than
+        # against zero.
+        top = page.evaluate(
+            "() => document.querySelector('#rack').getBoundingClientRect().top")
+        assert top < 56, f"{top}px above the rack - the old bar's strip"
+
+        padding = page.evaluate(
+            "() => getComputedStyle(document.body).paddingTop")
+        assert padding == "20px"
+
     def test_the_palette_opens_at_its_default_corner(self, page):
         palette = page.locator("#tool-palette").bounding_box()
         viewport = page.viewport_size
