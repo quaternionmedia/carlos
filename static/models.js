@@ -204,6 +204,30 @@ function drawnWidth(layout) {
 // it, so a cable keeps its own hang however many others are added or removed
 // around it. An index into the connection list would have made every cable
 // move whenever any cable was unpatched.
+// Cut a quadratic in two at `t`, giving two quadratics that together draw
+// exactly the original curve.
+//
+// de Casteljau: the split point and both new handles are lerps of the points
+// you already have. Needed because a lead with one end out of sight is on two
+// layers at once - the half that goes behind a device is drawn behind it and
+// the half in the open is drawn in front - and clipping one path across two
+// parents is not a thing SVG does. Two halves that meet exactly is.
+function splitQuadratic(from, control, to, t = 0.5) {
+    const lerp = (a, b) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    const near = lerp(from, control);
+    const far = lerp(control, to);
+    const middle = lerp(near, far);
+    return [
+        { from, control: near, to: middle },
+        { from: middle, control: far, to },
+    ];
+}
+
+// One quadratic as a path definition.
+function quadraticPath({ from, control, to }) {
+    return `M ${from.x} ${from.y} Q ${control.x} ${control.y} ${to.x} ${to.y}`;
+}
+
 function cableSpread(source, target) {
     const key = PatchBayManager.keyOf(source, target);
     let hash = 0;
@@ -1571,9 +1595,8 @@ class PatchBayManager {
         const shared = ['cable'];
         // Rear wiring reads as rear wiring wherever the device is pointing.
         if (source.side === 'back') shared.push('is-rear');
-        // A cable with an end out of sight is dashed: it is still one line you
-        // can follow, and the dashes say part of its run is behind something.
-        if (from.hidden || to.hidden) shared.push('is-occluded');
+        // The dashes are per half rather than per cable - see `layerFor`. A
+        // lead half in the open is dashed for the half that is not.
         if (source.side !== target.side) shared.push('crosses-faces');
         if (this.tracing && (source.module.id === this.tracing || target.module.id === this.tracing)) {
             shared.push('is-traced');
@@ -1600,53 +1623,97 @@ class PatchBayManager {
         const normalX = -runY / run;
         const normalY = runX / run;
 
-        const strands = spread.map((lane, index) => {
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        // Where each half of a lead belongs.
+        //
+        // A cable is not one thing on one layer. A lead from a socket you can
+        // see to one round the back is in the open where it leaves the panel
+        // and behind the gear where it arrives, and drawing all of it on either
+        // layer is wrong at one end: entirely in front and it lies across the
+        // device it disappears into, entirely behind and it vanishes at the
+        // socket it is plugged into.
+        //
+        // So each end names its own layer, and a lead whose ends disagree is
+        // cut in half. The dashes go with the hidden half only - the visible
+        // half is visible, and dashing it says something untrue about it.
+        const layerFor = (hidden) => (hidden ? this.behindLayer() : this.svg);
+        const split = from.hidden !== to.hidden;
+
+        const strands = [];
+        spread.forEach((lane, index) => {
             // Doubled, because a quadratic passes half way to its control
             // point: moving the handle by n moves the curve's midpoint by n/2,
             // so the gap on screen was half the gap in the code and four
             // strands read as one thick cable.
             const step = (index - (spread.length - 1) / 2) * LANE_SPREAD * 2;
-            const curve = `M ${from.x} ${from.y} `
-                + `Q ${midX + normalX * step} ${midY + normalY * step} `
-                + `${to.x} ${to.y}`;
-            path.setAttribute('d', curve);
-            path.setAttribute('fill', 'none');
+            const control = {
+                x: midX + normalX * step,
+                y: midY + normalY * step,
+            };
 
-            // Colour is a class and a position, never a value. The stroke
-            // itself is a palette token in the stylesheet: hard-coding
-            // `#00ff88` here is how a theme ends up with one cable that does
-            // not follow it.
-            const classes = [...shared];
-            if (lane) {
-                classes.push('is-lane');
-                if (lane.channel === DRUM_CHANNEL) classes.push('is-drums');
-            }
-            path.setAttribute('class', classes.join(' '));
+            const pieces = split
+                ? splitQuadratic(from, control, to).map((half, at) => ({
+                    curve: quadraticPath(half),
+                    // The first half belongs to `from`, the second to `to`.
+                    hidden: at === 0 ? from.hidden : to.hidden,
+                }))
+                : [{
+                    curve: quadraticPath({ from, control, to }),
+                    hidden: from.hidden && to.hidden,
+                }];
 
-            if (lane) {
-                path.setAttribute('data-channel', String(lane.channel));
-                // Where this strand sits along the run, 0 to 1, for the
-                // stylesheet to mix a tint from. One lane is at 0 rather than
-                // at the middle: a single strand should read as the start of
-                // the scale, not as an arbitrary point in it.
-                const along = spread.length > 1 ? index / (spread.length - 1) : 0;
-                path.setAttribute('data-lane', String(index));
-                path.style?.setProperty?.('--lane-mix', String(along));
-            }
+            pieces.forEach(piece => {
+                const path = document.createElementNS(
+                    'http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', piece.curve);
+                path.setAttribute('fill', 'none');
+                // Which lead this piece belongs to. A cable can be drawn in
+                // two pieces on two layers, so counting `path.cable` counts
+                // pieces and not leads - this is how anything downstream asks
+                // the question it actually means.
+                path.setAttribute('data-cable', PatchBayManager.keyOf(source, target));
 
-            const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-            title.textContent = lane
-                ? `${ends} - channel ${lane.channel}`
-                    + `${lane.channel === DRUM_CHANNEL ? ' (drums)' : ''}`
-                    + `: ${lane.label}`
-                : ends;
-            path.appendChild(title);
-            return path;
+                // Colour is a class and a position, never a value. The stroke
+                // itself is a palette token in the stylesheet: hard-coding
+                // `#00ff88` here is how a theme ends up with one cable that
+                // does not follow it.
+                const classes = [...shared];
+                if (piece.hidden) classes.push('is-occluded');
+                if (lane) {
+                    classes.push('is-lane');
+                    if (lane.channel === DRUM_CHANNEL) classes.push('is-drums');
+                }
+                path.setAttribute('class', classes.join(' '));
+
+                if (lane) {
+                    path.setAttribute('data-channel', String(lane.channel));
+                    // Where this strand sits along the run, 0 to 1, for the
+                    // stylesheet to mix a tint from. One lane is at 0 rather
+                    // than at the middle: a single strand should read as the
+                    // start of the scale, not an arbitrary point in it.
+                    const along = spread.length > 1
+                        ? index / (spread.length - 1) : 0;
+                    path.setAttribute('data-lane', String(index));
+                    path.style?.setProperty?.('--lane-mix', String(along));
+                }
+
+                const title = document.createElementNS(
+                    'http://www.w3.org/2000/svg', 'title');
+                title.textContent = lane
+                    ? `${ends} - channel ${lane.channel}`
+                        + `${lane.channel === DRUM_CHANNEL ? ' (drums)' : ''}`
+                        + `: ${lane.label}`
+                    : ends;
+                path.appendChild(title);
+
+                layerFor(piece.hidden).appendChild(path);
+                strands.push(path);
+            });
         });
 
         const path = strands[0];
-        const curve = path.getAttribute('d');
+        // The whole run, for the probe: a lead is one thing to aim at however
+        // many pieces it is drawn in.
+        const curve = `M ${from.x} ${from.y} Q ${midX} ${midY} ${to.x} ${to.y}`;
 
         // A 2px curve is not something anyone can hit. This is the same curve
         // at a thickness you can aim at, invisible and never painted; it exists
@@ -1667,15 +1734,11 @@ class PatchBayManager {
         hit.setAttribute('stroke-width', String(
             CABLE_HIT_WIDTH + (strands.length - 1) * LANE_SPREAD));
 
-        // Behind the gear when any part of this run is out of sight, in front
-        // when both ends are on faces you can see. A lead across a front panel
-        // really is in front of it; one going round the back really is not.
-        const layer = (from.hidden || to.hidden) ? this.behindLayer() : this.svg;
-        strands.forEach(strand => layer.appendChild(strand));
-        // The probe follows its cable, so `cableAt` reaches a lead wherever it
-        // was drawn. It is never painted, so which layer it sits in is a
-        // question about geometry and not about what is on top of what.
-        layer.appendChild(hit);
+        // The probe is one piece covering the whole run, and always on the
+        // front layer. It is never painted, so which layer it sits in is a
+        // question about geometry rather than about what is on top of what -
+        // and a lead cut in half is still one lead to aim at.
+        this.svg.appendChild(hit);
         if (from.hidden) this.createAnchorMark(from, source.side);
         if (to.hidden) this.createAnchorMark(to, target.side);
         return { path, hit, strands };

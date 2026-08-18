@@ -98,6 +98,14 @@ front panel runs over the gear, and one going round the back does not. Which
 layer a lead lands on is read off its geometry every redraw, so turning a device
 away moves its lead under.
 
+A lead does not have to pick one layer. When one end is on a face you can see
+and the other is round the back, it is cut in half at the middle: the half
+leaving the visible socket is drawn in front and solid, the half arriving behind
+the other device is drawn under it and dashed. Drawing all of it either way is
+wrong at one end — entirely in front and it lies across the device it disappears
+into, entirely behind and it vanishes at the socket it is plugged into. The two
+halves are quadratics from one de Casteljau split, so they meet exactly.
+
 Three positive numbers in one order — lower layer 1, devices 2, upper layer 5 —
 and the first attempt at this used `z-index: -1` on the layer instead, which
 made every dashed lead **vanish**. A negative child paints above its *stacking
@@ -291,8 +299,19 @@ drawn as laid out:
 ```python
 >>> page.locator('body').get_attribute('data-display-mode')
 'irl'
->>> page.locator('path.cable').count()
+
+```
+
+Counted as leads rather than as paths, because each of these has one end round
+the back: a lead whose two ends are in different places in the room is drawn in
+two halves on two layers, and every piece says which lead it belongs to.
+
+```python
+>>> page.locator('path.cable').evaluate_all(
+...     'paths => new Set(paths.map(p => p.dataset.cable)).size')
 4
+>>> page.locator('path.cable').count()
+8
 
 ```
 
@@ -521,10 +540,12 @@ True
 ```
 
 Every cable is still drawn, with the ends that went out of sight anchored to
-their device's outline rather than dropped:
+their device's outline rather than dropped — and each one still one lead,
+however many pieces it took to draw it:
 
 ```python
->>> page.locator('path.cable').count()
+>>> page.locator('path.cable').evaluate_all(
+...     'paths => new Set(paths.map(p => p.dataset.cable)).size')
 4
 
 ```

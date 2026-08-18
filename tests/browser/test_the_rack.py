@@ -116,7 +116,11 @@ class TestDrawnAsLaidOut:
 
     def test_the_example_loads_a_whole_rack(self, drum_rig):
         assert drum_rig.locator(".module").count() == 4
-        assert drum_rig.locator("path.cable").count() == 4
+        # Leads, not pieces: a lead with one end round the back is drawn in two
+        # halves on two layers, and counting paths counts halves.
+        leads = drum_rig.locator("path.cable").evaluate_all(
+            "paths => new Set(paths.map(p => p.dataset.cable)).size")
+        assert leads == 4
 
     def test_it_arrives_drawn_as_laid_out(self, drum_rig):
         assert drum_rig.locator("body").get_attribute("data-display-mode") == "irl"

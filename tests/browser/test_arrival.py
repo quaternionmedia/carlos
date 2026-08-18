@@ -253,8 +253,11 @@ class TestTheWorkspace:
         assert bench.locator("#patch-cables path.cable").count() == 1
         assert bench.locator("#patch-cables-behind path.cable").count() == 0
 
-    def test_turning_a_device_away_moves_its_lead_under(self, bench):
-        # Which layer a lead is on is read off the geometry every redraw, not
+    def test_turning_one_end_away_leaves_the_lead_half_in_half_out(self, bench):
+        # One lead in two pieces, because its two ends are in different places
+        # in the room: the half leaving the socket you can see is in the open,
+        # and the half arriving behind the turned device is under it. Which
+        # layer each half is on is read off the geometry every redraw, not
         # decided once when the cable was made.
         modules = bench.locator(".module")
         modules.nth(0).locator('.face.active .jack[data-type="output"]').first.click()
@@ -270,7 +273,65 @@ class TestTheWorkspace:
             "() => document.querySelectorAll("
             "'#patch-cables-behind path.cable').length === 1",
             timeout=5_000)
-        assert bench.locator("#patch-cables path.cable").count() == 0
+
+        # Still one lead, now drawn in two pieces - one per layer.
+        assert bench.locator("#patch-cables path.cable").count() == 1
+        assert bench.locator("#patch-cables-behind path.cable").count() == 1
+        leads = bench.locator("path.cable").evaluate_all(
+            "paths => new Set(paths.map(p => p.dataset.cable)).size")
+        assert leads == 1
+
+    def test_only_the_hidden_half_is_dashed(self, bench):
+        # The dashes say "part of this run is behind something". Dashing the
+        # half you can see says something untrue about it.
+        modules = bench.locator(".module")
+        modules.nth(0).locator('.face.active .jack[data-type="output"]').first.click()
+        modules.nth(1).locator('.face.active .jack[data-type="input"]').first.click()
+        bench.wait_for_function(
+            "() => document.querySelectorAll('path.cable').length === 1",
+            timeout=5_000)
+        modules.nth(1).click()
+        bench.keyboard.press("t")
+        bench.wait_for_function(
+            "() => document.querySelectorAll("
+            "'#patch-cables-behind path.cable').length === 1",
+            timeout=5_000)
+
+        assert bench.locator("#patch-cables-behind path.cable.is-occluded").count() == 1
+        assert bench.locator("#patch-cables path.cable.is-occluded").count() == 0
+
+    def test_the_two_halves_meet(self, bench):
+        # Or the lead has a gap in it where it crosses from one layer to the
+        # other, which would read as two cables rather than one.
+        modules = bench.locator(".module")
+        modules.nth(0).locator('.face.active .jack[data-type="output"]').first.click()
+        modules.nth(1).locator('.face.active .jack[data-type="input"]').first.click()
+        bench.wait_for_function(
+            "() => document.querySelectorAll('path.cable').length === 1",
+            timeout=5_000)
+        modules.nth(1).click()
+        bench.keyboard.press("t")
+        bench.wait_for_function(
+            "() => document.querySelectorAll("
+            "'#patch-cables-behind path.cable').length === 1",
+            timeout=5_000)
+
+        shared = bench.evaluate(
+            """() => {
+                const ends = (p) => {
+                    const g = p.getTotalLength();
+                    const a = p.getPointAtLength(0);
+                    const b = p.getPointAtLength(g);
+                    return [[a.x, a.y], [b.x, b.y]].map(
+                        pt => pt.map(n => Math.round(n)).join(','));
+                };
+                const front = ends(document.querySelector('#patch-cables path.cable'));
+                const back = ends(
+                    document.querySelector('#patch-cables-behind path.cable'));
+                return front.filter(p => back.includes(p)).length;
+            }"""
+        )
+        assert shared == 1
 
     def test_the_palette_opens_at_its_default_corner(self, page):
         palette = page.locator("#tool-palette").bounding_box()

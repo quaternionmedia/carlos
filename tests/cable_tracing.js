@@ -168,13 +168,42 @@ const m = d.match(/M ([\d.-]+) ([\d.-]+) Q ([\d.-]+) ([\d.-]+) ([\d.-]+) ([\d.-]
 check('its ends are at different points',
     Boolean(m) && Math.hypot(m[5] - m[1], m[6] - m[2]) > 50, true);
 
-// ---- turning one device in reveals one end, and the cable stays whole ----
+// ---- turning one device in reveals one end: half in, half out ----
+//
+// One lead, drawn in two pieces, because the two ends are in different places
+// in the room. The half leaving the socket you can see is in the open and
+// solid; the half arriving behind the other device is under it and dashed.
+// Drawing all of it on either layer is wrong at one end - entirely in front and
+// it lies across the device it disappears into, entirely behind and it vanishes
+// at the socket it is plugged into.
 desk.setView('front');
 system.patchBay.redrawAll();
 check('turning one end into view keeps one cable',
-    paths().length, 1);
-check('still occluded while the other end is away',
-    classesOf(paths()[0]).includes('is-occluded'), true);
+    system.patchBay.connections.length, 1);
+check('drawn as two pieces, one per end', paths().length, 2);
+check('the visible half is over the gear and solid',
+    [frontPaths().length, classesOf(frontPaths()[0]).includes('is-occluded')],
+    [1, false]);
+check('the hidden half is under the gear and dashed',
+    [behindPaths().length, classesOf(behindPaths()[0]).includes('is-occluded')],
+    [1, true]);
+
+// The two halves meet: the end of one is the start of the other, or the lead
+// has a gap in it where it crosses from one layer to the other.
+const ends = (path) => {
+    const m = path.getAttribute('d').match(
+        /M ([\d.-]+) ([\d.-]+) Q [\d.-]+ [\d.-]+ ([\d.-]+) ([\d.-]+)/);
+    return m && { start: [+m[1], +m[2]], finish: [+m[3], +m[4]] };
+};
+// Which half is which depends on which end is hidden, so this asks that they
+// share a point rather than assuming an order.
+const front = ends(frontPaths()[0]);
+const back = ends(behindPaths()[0]);
+const corners = [front.start, front.finish].map(p => JSON.stringify(p));
+const theirs = [back.start, back.finish].map(p => JSON.stringify(p));
+check('and the halves meet exactly',
+    corners.filter(c => theirs.includes(c)).length, 1);
+
 check('only the still-hidden end keeps an anchor',
     anchors().length, 1);
 
@@ -267,10 +296,13 @@ check('both anchors stay off the corners of the device',
     [anchorL, anchorR].every(
         a => a && a.x > boxLeft && a.x < boxLeft + sendBox.width), true);
 
-// And the two runs are two curves, not one drawn twice.
+// And the two runs are two curves, not one drawn twice. Four pieces, because
+// each lead has one end in sight and one out of it.
 const drawn = paths().map(p => p.getAttribute('d'));
-check('two cables produced two curves', drawn.length, 2);
-check('and they are not the same curve', drawn[0] !== drawn[1], true);
+check('two cables produced two runs', system.patchBay.connections.length, 2);
+check('drawn as four pieces, two per lead', drawn.length, 4);
+check('and no two pieces are the same curve',
+    new Set(drawn).size, drawn.length);
 
 // A device with no layout falls back to socket order, which is still an order.
 system.clearRack();
@@ -465,10 +497,13 @@ check('and it is not marked occluded',
 // Turn one device away and the same lead now leaves out of sight.
 lower.setView('back');
 system.patchBay.redrawAll();
-check('turning a device away moves its lead under the gear',
-    [frontPaths().length, behindPaths().length], [0, 1]);
-check('and the lead says so',
+// Half in, half out: the end still on a face you can see stays in front.
+check('turning a device away puts that half of the lead under the gear',
+    [frontPaths().length, behindPaths().length], [1, 1]);
+check('the hidden half says so',
     classesOf(behindPaths()[0]).includes('is-occluded'), true);
+check('and the visible half does not',
+    classesOf(frontPaths()[0]).includes('is-occluded'), false);
 
 // The probe follows its cable, or `cableAt` stops finding leads that moved.
 check('the probe went with it', probes().length, 1);

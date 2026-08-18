@@ -146,9 +146,10 @@ uv run carlos serve --port 8123
   looking at a rack rather than a container the gear lives inside.
 - **Cables route behind the gear when they run behind it.** Two cable layers,
   one over the devices and one under: a lead across a front panel runs over the
-  rack, and one going round the back is drawn under it, dashed. Which layer a
-  lead is on is read off its geometry, so turning a device away moves its lead
-  underneath.
+  rack, and one going round the back is drawn under it, dashed. A lead with one
+  end each way is cut in half — solid and in front where it leaves the socket
+  you can see, dashed and underneath where it arrives behind the other device.
+  Read off the geometry every redraw, so turning a device moves its lead.
 - **A lead carrying channels is drawn as the channels.** One USB cable, four
   strands, one per channel bound to the device at the far end. The split is
   derived from the MIDI bindings rather than stored on the cable, so rebinding a
