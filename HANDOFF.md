@@ -31,6 +31,11 @@ session (the README rewrite, the TinyDB cleanup, the community files) is
 committed here too rather than left loose.
 
 ```text
+Lay out the Nord Stage 3, and say how to lay out the next one
+Draw devices as caricatures, and stop a hidden pair collapsing into one line
+Give the catalogue a box, panel features, and control kinds
+Correct the test counts the UI pass moved
+Bring the handoff up to date with the UI pass
 Correct the docs the drawer deletion left behind, and record the edge context
 Make the rack operable: pull a lead out, reach a knob without a mouse
 Put the status line back on screen, and the facing indicator with it
@@ -66,7 +71,7 @@ Git Bash but **not** under PowerShell, which needs the absolute path.
 
 ```bash
 uv sync
-uv run python -m unittest discover   # 210 tests
+uv run python -m unittest discover   # 220 tests
 uv run python src/main.py            # http://localhost:8000
 ```
 
@@ -116,10 +121,10 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 
 | Check | Result |
 | --- | --- |
-| `uv run python -m unittest discover` | 210 tests, OK |
-| `node tests/view_toggle.js` | 48/48 |
+| `uv run python -m unittest discover` | 220 tests, OK |
+| `node tests/view_toggle.js` | 65/65 |
 | `node tests/rack_behaviour.js` | 87/87 |
-| `node tests/cable_tracing.js` | 22/22 |
+| `node tests/cable_tracing.js` | 52/52 |
 | `node tests/click_layers.js` | 9/9 |
 | rad conformance | 66 passed, 0 failed, 16 skipped |
 | Live end-to-end, cold start | all green, 15 OpenAPI paths |
@@ -165,6 +170,20 @@ them would be a false report.**
 - **Rule out the harness before reporting a defect.** Twice this session a
   harness measured a different object than the app used, or never invoked the
   handler it was testing, and reported a bug against code it had not executed.
+  Three more turned up since, all the same shape: a stub that swallows what it
+  is given. `click_layers` had a no-op `setAttribute` and no `getAttribute`;
+  its selector matcher could not read `[tabindex]`, so it reported the app
+  broken for a guard it could not see; `dom.js` stubbed `style` as two no-ops,
+  so a custom property could not be read back. **A stub that forgets does not
+  model a thin DOM, it models a lying one.**
+- **`pkill -f` does not stop the server here, and the port does not tell you.**
+  Windows left three uvicorn processes bound to `:8000` at once. `/healthz`
+  answered from an hour-old one, so a restarted server looked healthy while
+  serving code from before the change - the reload lie with a second face on
+  it. `netstat -ano | grep :8000` shows how many are really listening; kill by
+  PID with `taskkill //F //PID`, and expect the reloader parent to respawn its
+  child if you kill only one of the pair. **Count the listeners before trusting
+  a response.**
 
 ## Next Useful Work
 
@@ -187,7 +206,12 @@ Ordered by what unblocks the most.
 6. **Settle the frontend conflict.** `static/` is now five modules with no build
    step; the house-stack set names mithril with parcel. Neither the blessed
    answer nor a recorded exception.
-7. **Finish the UI pass this session started.** Left undone, in order:
+7. **Lay out the rest of the catalogue.** The panel vocabulary exists and the
+   Stage 3 is the worked example; `docs/catalogue.md` has the six steps. The
+   Qu-24 is next and is also a modelling correction - a desk's control surface
+   is its top, and it is currently described as a front. Then the Hapax and the
+   K.O. II, whose fronts are their pads and screens and are empty today.
+8. **Finish the UI pass this session started.** Left undone, in order:
    - **The radial menu has no ARIA at all.** It handles its own keys, so it is
      operable; it is not announced. Everything else on the page now is, which
      makes the menu the remaining gap rather than one of several.
@@ -195,7 +219,10 @@ Ordered by what unblocks the most.
      and Delete are both a single act with no way back.
    - **No browser ran this session.** Every claim above is the served bytes, the
      DOM harness, or the model. A JS error still never reaches the server log,
-     so "the page loads" has not been established by anyone looking at it.
+     so "the page loads" has not been established by anyone looking at it. This
+     matters more after the panel work than before it: the vocabulary is CSS
+     shapes, and nothing here has checked that a keybed looks like a keyboard
+     rather than a row of grey boxes. **That is the first thing to do next.**
 
 ## What Was Reported Upstream
 
