@@ -31,6 +31,8 @@ session (the README rewrite, the TinyDB cleanup, the community files) is
 committed here too rather than left loose.
 
 ```text
+Float the bottom bar as a tool palette with a default starting position
+Record the panel work, and the stale-server trap
 Lay out the Nord Stage 3, and say how to lay out the next one
 Draw devices as caricatures, and stop a hidden pair collapsing into one line
 Give the catalogue a box, panel features, and control kinds
@@ -71,7 +73,7 @@ Git Bash but **not** under PowerShell, which needs the absolute path.
 
 ```bash
 uv sync
-uv run python -m unittest discover   # 220 tests
+uv run python -m unittest discover   # 225 tests
 uv run python src/main.py            # http://localhost:8000
 ```
 
@@ -107,6 +109,10 @@ A browser workspace for sketching rigs of real gear.
 - **n-sided devices** that turn independently and in place, gathered into rows.
 - **One menu**, implementing `quaternionmedia/rad`'s interaction contract, with
   rad's own conformance vectors vendored and passing.
+- **A floating tool palette** for what a ring cannot express - the patch name and
+  the file input. Not the device palette that was deleted; the guard on that is
+  now on shape rather than name, and was tested by routing a renamed device tray
+  around the old one.
 - **MIDI mapping** — bind a device to a channel, note, controller or transport
   and it lights when that arrives. Works with no hardware via a synthetic
   source.
@@ -121,7 +127,8 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 
 | Check | Result |
 | --- | --- |
-| `uv run python -m unittest discover` | 220 tests, OK |
+| `uv run python -m unittest discover` | 225 tests, OK |
+| `node tests/palette.js` | 39/39 |
 | `node tests/view_toggle.js` | 65/65 |
 | `node tests/rack_behaviour.js` | 87/87 |
 | `node tests/cable_tracing.js` | 52/52 |
