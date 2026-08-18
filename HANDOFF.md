@@ -174,7 +174,7 @@ them would be a false report.**
 
 `adr-lint` and `one-pr-check` pass. Three fail, all expected:
 
-- **`reuse-lint`** — the licensing pass has not been done. 3 of 112 files carry
+- **`reuse-lint`** — the licensing pass has not been done. three files carry
   copyright information. This job got bigger as the project grew.
 - **`submodule-check`** — `project/carlos` is unpushed.
 - **`signature-check`** — asks the forge about commits it has never seen.
@@ -242,7 +242,7 @@ Ordered by what unblocks the most.
    the reproduction that established it.
 3. **The licensing pass.** Settle the MIT/AGPL class question first
    (outbound-licensing §4 puts services at AGPL-3.0-or-later), then `LICENSES/`,
-   SPDX headers, and `reuse-lint` green. 112 files.
+   SPDX headers, and `reuse-lint` green. `python -m reuse lint` counts what is left.
 4. **Add `walkthrough/`**, which every QM repository owes and this one lacks.
    Note it implies pytest, which is a second open conflict.
 5. **Instance discovery.** `/healthz` now names the instance, its start time,
