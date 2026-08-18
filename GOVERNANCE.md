@@ -44,7 +44,7 @@ python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they
 | `adr-lint` | pass | |
 | `one-pr-check` | pass | |
 | `signature-check` | **fail** under the runner, passes locally | The runner uses the CI path, which asks the forge about a commit the forge has never seen and reports `E` — "could not be checked", not "bad signature". With `--source git`, on a machine holding the key, the same commit reports `G` |
-| `reuse-lint` | **fail** | The licensing pass has not been done — **3 of 95** files carry copyright information and there is no `LICENSES/` directory. The ratio has worsened as the project grew, which is the cost of deferring it |
+| `reuse-lint` | **fail** | The licensing pass has not been done — **3 of 112** files carry copyright information and there is no `LICENSES/` directory. The ratio has worsened as the project grew, which is the cost of deferring it |
 | `submodule-check` | **fail** | `project/carlos` exists only locally |
 | `tag-claims` | skipped | Only fires on a `v*` tag |
 
@@ -81,7 +81,7 @@ Enumerating a conflict is not waiving it.
 The repository is materially larger than when the checklist above was written,
 and two rows are worth stating plainly rather than leaving to be rediscovered:
 
-- **The licensing pass is now a bigger job than it was.** 95 files need SPDX
+- **The licensing pass is now a bigger job than it was.** 112 files need SPDX
   headers rather than 37. Nothing about it got harder; there is just more of it,
   and there will be more again next time.
 - **The frontend is no longer a single prototype file.** `static/` carries the

@@ -31,12 +31,29 @@ class _ArrivedOn:
         self.scope = {"server": server}
 
 
+# Routes that are deliberately not part of the seam, each with the reason.
+#
+# An allowlist rather than a prefix rule. The prefix rule this replaces only
+# looked at `/api` and `/healthz`, so a route added anywhere else was neither
+# declared nor caught - a guard with a hole in exactly the place a reader would
+# assume it was covered. Adding a route now forces a decision: declare its
+# cadence, or say here why it has none.
+NOT_A_SEAM = {
+    ("GET", "/"): "the HTML page a browser opens, not an endpoint a peer calls",
+    ("GET", "/docs"): "FastAPI's own interactive documentation",
+    ("GET", "/docs/oauth2-redirect"): "FastAPI's own OAuth redirect helper",
+    ("GET", "/redoc"): "FastAPI's own alternative documentation",
+    ("GET", "/openapi.json"): "the generated API description; a peer reads it once",
+    ("GET", "/api/cadence"): "the declaration itself, which cannot describe itself",
+}
+
+
 def routes() -> dict[tuple[str, str], object]:
-    """Every API route this build serves, keyed by (method, path)."""
+    """Every route this build serves, keyed by (method, path)."""
     found = {}
     for route in main.app.routes:
         path = getattr(route, "path", "")
-        if not (path.startswith("/api") or path == "/healthz"):
+        if not path:
             continue
         for method in getattr(route, "methods", set()) - {"HEAD", "OPTIONS"}:
             found[(method, path)] = route
@@ -52,8 +69,19 @@ class DeclarationCoversTheSeamTests(unittest.TestCase):
 
     def setUp(self):
         self.declared = {(e.method, e.path) for e in cadence.CADENCE}
-        # The declaration describes itself too; it is not in its own list.
-        self.served = {k for k in routes() if k != ("GET", "/api/cadence")}
+        self.served = {k for k in routes() if k not in NOT_A_SEAM}
+
+    def test_every_exclusion_names_a_route_that_exists(self):
+        # An exclusion for a route that has gone is a licence nobody revoked.
+        served = set(routes())
+        for excluded in NOT_A_SEAM:
+            with self.subTest(excluded):
+                self.assertIn(excluded, served)
+
+    def test_every_exclusion_gives_a_reason(self):
+        for excluded, reason in NOT_A_SEAM.items():
+            with self.subTest(excluded):
+                self.assertGreater(len(reason), 20)
 
     def test_every_endpoint_this_build_serves_is_declared(self):
         missing = self.served - self.declared

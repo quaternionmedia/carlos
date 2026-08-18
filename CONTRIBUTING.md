@@ -51,7 +51,13 @@ That is not a slogan; it changes what a behaviour change costs you.
 
 ## Governance gates
 
-Six seed workflows run in CI, and they run locally too:
+Six seed workflows run in CI — they are governance gates, about records,
+signatures and licensing rather than about whether the code works. **The suite
+runs beside them**, in `.github/workflows/tests.yml`: until that existed nothing
+ran the tests, and a reviewer seeing green checks was reading six gates and
+could reasonably have believed the suite had passed.
+
+The gates run locally too:
 
 ```bash
 python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they

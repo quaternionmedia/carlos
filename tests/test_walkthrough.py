@@ -72,6 +72,15 @@ class PageSetTests(unittest.TestCase):
             elif seen_bound:
                 self.fail(f"{page.name} is hermetic and sits after a bound page")
 
+    def test_this_suite_does_not_skip_either(self):
+        # The guard that exempts itself is the oldest hole there is. This file
+        # enforces "a skip is not a pass" over the pages, so it may not contain
+        # one - and it did, until a from-scratch regeneration exposed it.
+        body = Path("tests/test_walkthrough.py").read_text(encoding="utf-8")
+        body = re.sub(r"#.*$", "", body, flags=re.M)
+        body = re.sub(r'""".*?"""', "", body, flags=re.S)
+        self.assertNotIn("self." + "skipTest(", body)
+
     def test_no_page_declares_a_skip(self):
         # A skip is not a pass. A page that vanishes into a skip count reports
         # green for a demonstration nobody ran.
@@ -121,14 +130,35 @@ class MediaTests(unittest.TestCase):
             shown |= set(re.findall(r"!\[[^\]]*\]\(media/([^)]+)\)", body))
         return shown
 
+    # The command that puts it right, named in the failure rather than left for
+    # the reader to work out. A shot is only ever missing for one reason.
+    REGENERATE = (
+        "uv run pytest walkthrough/05-in-the-browser.md --doctest-glob=*.md"
+    )
+
+    def test_the_recorded_media_is_in_the_checkout(self):
+        # Committed, so a fresh clone has it. This is checked before the two
+        # below, because "the directory is not there" and "this page shows an
+        # image nothing produces" are different problems with different fixes,
+        # and the second message is misleading when the first is the truth.
+        self.assertTrue(
+            MEDIA.is_dir(),
+            f"walkthrough/media is missing. It is committed, so either the "
+            f"checkout is broken or it was deleted: {self.REGENERATE}",
+        )
+
     def test_every_image_a_page_shows_exists(self):
         for name in self.shown():
             with self.subTest(name):
-                self.assertTrue((MEDIA / name).is_file(), "shown but never recorded")
+                self.assertTrue(
+                    (MEDIA / name).is_file(),
+                    f"a page shows {name} and nothing recorded it: {self.REGENERATE}",
+                )
 
     def test_every_recorded_image_is_shown_by_a_page(self):
-        if not MEDIA.is_dir():
-            self.skipTest("nothing recorded yet")
+        # No skip when the directory is absent. A skip is not a pass, and this
+        # is the suite that holds the walkthrough pages to exactly that - one
+        # here would have been the guard exempting itself.
         shown = self.shown()
         for path in MEDIA.glob("*.png"):
             with self.subTest(path.name):
@@ -188,9 +218,6 @@ class RegistryTests(unittest.TestCase):
                 self.assertIn("--doctest-glob=*.md", body)
 
 
-@unittest.skipUnless(
-    Path(sys.executable).exists(), "no interpreter to re-enter, which cannot happen"
-)
 class CollectionTests(unittest.TestCase):
     def test_pytest_collects_every_page(self):
         # The property the record measured and this project would otherwise
@@ -245,15 +272,51 @@ class ContributingTests(unittest.TestCase):
     def test_the_gate_count_it_claims_is_the_gate_count_there_is(self):
         # A number written out in prose is the kind of thing that is right when
         # typed and wrong a year later, and nothing else would notice.
+        #
+        # "Seed workflows" means the ones that call into the corpus's own CI
+        # scripts, which is what makes them the org's gates rather than this
+        # project's. Counting every file in the directory was wrong the moment
+        # the project added a workflow of its own - this guard caught that on
+        # the commit that added `tests.yml`, which is what it is for.
         words = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
                  "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
         claimed = re.search(r"(\w+) seed workflows", self.body)
         self.assertIsNotNone(claimed, "CONTRIBUTING.md no longer counts them")
         spelled = claimed.group(1).lower()
-        self.assertEqual(
-            words.get(spelled, spelled),
-            len(list(Path(".github/workflows").glob("*.yml"))),
+
+        # Named rather than sniffed. Two of the gates run a tool directly
+        # rather than a seed script, so "calls into project-seed/ci" is not the
+        # discriminator it looks like - and a workflow added later has to be
+        # put in a bucket deliberately rather than silently counted as a gate.
+        ours = {"tests.yml"}
+        present = {p.name for p in Path(".github/workflows").glob("*.yml")}
+        gates = present - ours
+
+        self.assertEqual(words.get(spelled, spelled), len(gates))
+        self.assertTrue(
+            ours <= present, f"{ours - present} is named here and is not there"
         )
+
+    def test_the_project_runs_its_own_tests_in_ci(self):
+        # Every other workflow is a governance gate. Until one of them ran the
+        # suite, a reviewer seeing green checks was reading six gates about
+        # records, signatures and licensing - and could reasonably have believed
+        # the tests had passed. They had only ever run on one workstation.
+        workflows = {
+            path.name: path.read_text(encoding="utf-8")
+            for path in Path(".github/workflows").glob("*.yml")
+        }
+        runs_tests = [n for n, body in workflows.items() if "pytest tests" in body]
+        self.assertTrue(runs_tests, "no workflow runs the test suite")
+
+        body = "".join(workflows.values())
+        # And the halves the walkthrough record's tiering requires.
+        self.assertIn("walkthrough/05-in-the-browser.md", body)
+        self.assertIn("playwright install", body)
+        for harness in ("view_toggle", "rack_behaviour", "cable_tracing",
+                        "click_layers", "palette"):
+            with self.subTest(harness):
+                self.assertIn(f"tests/{harness}.js", body)
 
     def test_the_expected_failures_it_names_are_the_ones_governance_records(self):
         governance = Path("GOVERNANCE.md").read_text(encoding="utf-8")
