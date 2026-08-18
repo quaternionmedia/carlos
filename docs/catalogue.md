@@ -105,26 +105,141 @@ Optional. Carried only for devices whose panel someone has laid out, and used by
 
 ```json
 "layout": {
-  "aspect": 3.2,
-  "controls": { "gain_1": { "x": 0.22, "y": 0.36, "side": "front", "size": 1.3 } },
-  "jacks":    { "input_1": { "x": 0.10, "y": 0.74, "side": "front", "size": 1.4 } }
+  "box":   { "width": 1284, "height": 120, "depth": 334 },
+  "face":  "top",
+  "controls": { "master_level": { "x": 0.045, "y": 0.17, "side": "top", "size": 1.5 },
+                "organ_db1":    { "x": 0.150, "y": 0.30, "side": "top",
+                                  "kind": "drawbar", "length": 0.30 } },
+  "jacks":    { "out_l": { "x": 0.50, "y": 0.5, "side": "back", "size": 1.1 } },
+  "features": [ { "kind": "keybed", "keys": 88, "from_note": "A",
+                  "x": 0.565, "y": 0.775, "w": 0.865, "h": 0.44, "side": "top" } ]
 }
 ```
 
-`aspect` is width over height and is most of what makes a rack recognisable at a
-glance: a Eurorack module is 0.38, a Scarlett 3.2, a DFAM 2.3. Coordinates are
-fractions of the panel, origin top-left — fractions rather than millimetres
-because the drawing is abstract, and what has to be right is the arrangement
-rather than the absolute size.
+Coordinates are fractions of the panel, origin top-left — fractions rather than
+millimetres because the placement is abstract, and what has to be right is the
+arrangement rather than the absolute size.
 
 The loader refuses a layout that places a jack or control the device does not
-have, or that puts a jack on a different side than the entry declares. **A
-layout describing a different device is worse than no layout**, which is why
-both are checked rather than trusted.
+have, that puts a jack on a different side than the entry declares, that faces a
+side the device has not, or that places a feature running off the edge of its
+panel. **A layout describing a different device is worse than no layout**, which
+is why all of them are checked rather than trusted.
 
 **A device without a layout still draws in `irl`**, falling back to the minimal
-arrangement. Six of the nine carry one today; the Hapax, Stage 3 and K.O. II do
-not, which is what keeps that fallback exercised.
+arrangement.
+
+#### `box` — the device's real size
+
+```json
+"box": { "width": 1284, "height": 120, "depth": 334 }
+```
+
+Millimetres. One measurement set, six faces derived from it:
+
+| Face | Proportion |
+| --- | --- |
+| `front`, `back` | width ÷ height |
+| `top`, `bottom` | width ÷ depth |
+| `left`, `right` | depth ÷ height |
+
+`aspect` is the older single number and still works for an entry with no box.
+It only ever described the front, and was applied to every side because nothing
+else was there to apply — a device whose top was drawn at its front's proportion
+was drawn as a shape it is not. **Prefer the box.**
+
+Two things are drawn from the box rather than to scale, and both are named
+constants in `static/models.js` rather than per-device fudges:
+
+- **Width** is `√(mm)`-scaled between 150px and 680px. A Eurorack module beside
+  an 88-key stage piano is a twentieth of its width; drawn to scale either the
+  piano does not fit on a screen or the module is a sliver.
+- **Proportion** is compressed toward square by a fixed exponent. A Stage 3's
+  front is 10.7 wide-to-tall; drawn true at a usable width it is fifty pixels
+  tall, which cannot hold the keybed and three screens that are the reason to
+  draw it. The measured value stays on the element as `--true-aspect`, so what
+  was measured is readable off what was drawn.
+
+This is why the mode is called a caricature. The ordering and the obviousness of
+the difference survive; the absolute numbers do not, and the entry keeps them.
+
+#### `face` — the side you look at first
+
+```json
+"face": "top"
+```
+
+`front` for almost everything, because almost everything is a box you face. A
+stage piano is not: its controls and its keybed are on its top, and its front is
+the thin blank lip below the keys.
+
+This exists because an empty face means one of two things and only the entry can
+tell them apart. A Stage 3's front is genuinely blank. A K.O. II's front is its
+pads and its screen and **nobody has measured them yet**. Naming the face is one
+field; deriving it from whichever side carries the most would silently reface
+every device nobody has laid out.
+
+#### `features` — everything that is not a socket and carries no value
+
+This is what makes a device recognisable rather than what makes it playable
+here: a Stage 3 with its knobs and its sockets and no keybed is not a Stage 3.
+
+```json
+{ "kind": "keybed", "keys": 88, "from_note": "A",
+  "x": 0.565, "y": 0.775, "w": 0.865, "h": 0.44, "side": "top" }
+```
+
+Placed by centre like everything else, and sized too — a keybed and a screen are
+areas, not points.
+
+| `kind` | Also needs | Draws as |
+| --- | --- | --- |
+| `keybed` | `keys`, `from_note` | naturals with the sharps hung between them |
+| `pads` | `rows`, `cols` | a grid of performance pads |
+| `buttons` | `rows`, `cols` | a grid of small buttons |
+| `screen` | `text` (optional) | a lit display |
+| `wheel` | | a pitch or modulation wheel, seen edge-on |
+| `grille` | | a speaker |
+| `vent` | | a slot or a fan |
+| `logo` | `text` | the maker's mark |
+| `label` | `text` | a panel legend or section name |
+| `plate` | | a section boundary |
+
+`from_note` matters: an 88 runs from A and one drawn from C has the wrong key
+under every hand position. 88 keys from A is 52 naturals and 36 sharps, which is
+what `tests/view_toggle.js` asserts.
+
+Every feature is `aria-hidden`. A keybed this app cannot play and a screen it
+cannot read are decoration to a screen reader, and announcing 88 keys ahead of
+the controls would bury the controls.
+
+#### Control `kind` — a fader is not a knob turned sideways
+
+A `controls` entry may say what shape it is: `knob` (the default), `fader`,
+`drawbar`, `encoder` or `switch`. A mixer drawn as a field of circles is
+recognisable as nothing at all.
+
+`fader` and `drawbar` also take `orient` (`vertical` or `horizontal`) and
+`length`, the travel as a fraction of the panel. Every kind is driven by the one
+painting path every control shares, so all of them turn, scroll and answer to
+the keyboard.
+
+### Measuring a device
+
+1. **The box first.** Three numbers off the maker's spec sheet. Everything else
+   is placed relative to the face they produce.
+2. **Name the face** if the device is not one you look at front-on.
+3. **Features before controls.** They are the panel the controls sit on, and
+   they are drawn first for the same reason.
+4. **Work in fractions off a straight-on photograph.** Centre, then extent.
+5. **Run the loader.** It refuses a placement naming something the device has
+   not, and a feature running off its own panel.
+6. **Assert the tree, not the model.** `tests/view_toggle.js` is where a device
+   is checked for having actually drawn what it claims.
+
+The Stage 3 is the worked example: `catalogue/devices/nord.stage-3.json`. The
+Qu-24 is the obvious next one — a desk's control surface is its top, and it is
+currently described as a front.
 
 ### Parameters
 
@@ -152,6 +267,13 @@ covers the device's real connections; `sketch` says it covers the ones worth
 patching in a sketch and no more. Marking something `detailed` that is not is
 the one way to make this catalogue actively misleading, so when in doubt use
 `sketch` and say what was left out.
+
+A layout carries the same obligation and one more. `irl` draws a caricature —
+the arrangement is accurate, the proportions are compressed and the mechanisms
+are not claimed. The Stage 3's nine organ drawbars are drawn as drawbars; on the
+88 and the 76 they are LED drawbars driven by button pairs. That is in the
+entry's summary, because a drawing that is wrong about a device is the same
+problem as a socket list that is, and it is harder to notice.
 
 ## Examples
 
