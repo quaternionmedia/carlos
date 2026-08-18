@@ -265,6 +265,11 @@ class RadMenu {
         if (!this.layer) {
             this.layer = document.createElementNS(RAD_SVG_NS, 'svg');
             this.layer.setAttribute('class', 'rad-layer');
+            // A ring is a menu. It handles its own keys and has always been
+            // operable without a pointer; it was never *announced*, so a
+            // screen reader met eight unlabelled shapes. The roles say what
+            // the geometry already meant.
+            this.layer.setAttribute('role', 'menu');
             document.body.appendChild(this.layer);
         }
         this.layer.replaceChildren();
@@ -285,6 +290,21 @@ class RadMenu {
             if (menuItem.enabled === false) classes.push('is-disabled');
             if (menuItem.children) classes.push('has-children');
             wedge.setAttribute('class', classes.join(' '));
+
+            // Each wedge is an item, and says which one it is, whether it
+            // opens a submenu, whether it can be chosen, and whether it is the
+            // one under the pointer. Without the last of those a reader
+            // following the ring by ear has no idea where they are.
+            wedge.setAttribute('role', 'menuitem');
+            wedge.setAttribute('aria-label', menuItem.label);
+            wedge.setAttribute('aria-setsize', String(n));
+            wedge.setAttribute('aria-posinset', String(index + 1));
+            if (menuItem.children) wedge.setAttribute('aria-haspopup', 'menu');
+            if (menuItem.enabled === false) wedge.setAttribute('aria-disabled', 'true');
+            if (index === this.machine.highlight) {
+                wedge.setAttribute('aria-current', 'true');
+            }
+
             group.appendChild(wedge);
 
             const mid = (-90 + (index + 0) * (360 / n)) * Math.PI / 180;
@@ -293,6 +313,9 @@ class RadMenu {
             text.setAttribute('x', Math.cos(mid) * labelRadius);
             text.setAttribute('y', Math.sin(mid) * labelRadius);
             text.setAttribute('class', 'rad-label');
+            // The wedge carries the label already, so the text is decoration
+            // to a reader and would otherwise be announced a second time.
+            text.setAttribute('aria-hidden', 'true');
             text.textContent = menuItem.children ? `${menuItem.label} ›` : menuItem.label;
             group.appendChild(text);
         });
@@ -302,14 +325,19 @@ class RadMenu {
         hub.setAttribute('class', 'rad-hub');
         group.appendChild(hub);
 
+        hub.setAttribute('aria-hidden', 'true');
+
         const title = document.createElementNS(RAD_SVG_NS, 'text');
         title.setAttribute('class', 'rad-title');
+        title.setAttribute('id', 'rad-menu-title');
         title.setAttribute('y', 4);
         title.textContent = this.stack.length
             ? `‹ ${this.spec.title || ''}`
             : (this.spec.title || '');
         group.appendChild(title);
 
+        // What this ring is *of* — the device, the cable, the rack.
+        this.layer.setAttribute('aria-label', this.spec.title || 'Menu');
         this.layer.appendChild(group);
     }
 

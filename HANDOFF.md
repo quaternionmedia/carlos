@@ -271,9 +271,10 @@ Ordered by what unblocks the most.
    geometry and behaviour and nothing else. Nobody has judged whether the
    shapes read as the devices they stand for.
 8. **Finish the UI pass this session started.** Left undone, in order:
-   - **The radial menu has no ARIA at all.** It handles its own keys, so it is
-     operable; it is not announced. Everything else on the page now is, which
-     makes the menu the remaining gap rather than one of several.
+   - ~~The radial menu has no ARIA.~~ Done: the ring is a `menu`, each wedge a
+     `menuitem` that names itself and says which of how many it is, and the
+     highlighted one carries `aria-current`. The labels are hidden from a
+     reader because the wedge already carries them.
    - **Undo.** Double-click resets one knob and that is the whole of it. Unpatch
      and Delete are both a single act with no way back.
    - **A browser runs now, and nobody has looked at what it drew.**

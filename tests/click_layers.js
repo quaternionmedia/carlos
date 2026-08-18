@@ -13,6 +13,10 @@ const REPO = path.resolve(__dirname, '..');
 const listeners = { doc: [] };
 function makeEl(opts = {}) {
     const el = {
+        // Per element. Declared here rather than in the literal below so every
+        // stub does not share one array, which is the kind of bug a harness
+        // hides rather than reports.
+        _children: [],
         tag: opts.tag || 'div',
         id: opts.id || '',
         className: opts.className || '',
@@ -22,7 +26,13 @@ function makeEl(opts = {}) {
         _listeners: [],
         set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html; },
         classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
-        appendChild() {}, remove() {}, replaceChildren() {},
+        // Children are recorded, not swallowed. A stub that forgets what was
+        // appended cannot answer "what is on the screen", which is the only
+        // question worth asking about a menu that renders itself.
+        _children: [],
+        appendChild(child) { this._children.push(child); return child; },
+        remove() {},
+        replaceChildren() { this._children.length = 0; },
         // Attributes are stored rather than swallowed. A no-op `setAttribute`
         // with no `getAttribute` beside it does not model a thin DOM, it models
         // one that silently forgets - and it crashed this harness the first
@@ -291,6 +301,27 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     check('C7: clicking a pad does not also select the device',
         selected === false,
         'the click reached the module and selected it');
+
+    // ---- COLLISION 8: the ring is announced, not just operable ----
+    // It handled its own keys from the start, so it was reachable without a
+    // pointer and met a screen reader as eight unlabelled shapes.
+    radMenu.openAt({ type: 'canvas', targetIds: [], position: { x: 400, y: 300 } },
+                   400, 300, 'tap');
+    const layer = radMenu.layer;
+    const wedges = (layer?._children?.[0]?._children || [])
+        .filter(n => (n._attrs?.class || '').includes('rad-wedge'));
+
+    check('C8: the ring says it is a menu',
+        layer?._attrs?.role === 'menu' && Boolean(layer?._attrs?.['aria-label']),
+        `role=${layer?._attrs?.role} label=${layer?._attrs?.['aria-label']}`);
+    check('C8: every wedge is an item that names itself',
+        wedges.length > 0 && wedges.every(w =>
+            w._attrs.role === 'menuitem' && w._attrs['aria-label']),
+        `${wedges.length} wedges, roles ${wedges.map(w => w._attrs.role).join()}`);
+    check('C8: and says where it sits in the ring',
+        wedges.every(w => w._attrs['aria-setsize'] && w._attrs['aria-posinset']),
+        'a wedge does not say which of how many it is');
+    if (radMenu.open) radMenu.close();
 
     let failed = 0;
     for (const r of results) {
