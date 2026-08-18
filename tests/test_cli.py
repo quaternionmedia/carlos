@@ -127,6 +127,28 @@ class ItDispatchesTests(unittest.TestCase):
 
 
 
+class StatusTellsTheTruthTests(unittest.TestCase):
+    def test_a_clean_tree_reads_clean(self):
+        # It read "1 changed" on a clean checkout: git says nothing when there
+        # is nothing to say, and folding that into a placeholder made the
+        # placeholder count as a line. A status tool that cries wolf about the
+        # tree is one nobody reads.
+        root = cli.repository_root()
+        dirty = cli._git(["status", "--porcelain"], root)
+        self.assertIsNotNone(dirty, "git could not be asked")
+
+        result = CliRunner().invoke(cli.main, ["status"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        if dirty == "":
+            self.assertIn("clean", result.output)
+        else:
+            self.assertIn(f"{len(dirty.splitlines())} changed", result.output)
+
+    def test_it_says_unknown_rather_than_guessing(self):
+        # The other half: a command that could not be run is not a clean tree.
+        self.assertIsNone(cli._git(["not-a-git-command"], cli.repository_root()))
+
+
 class WhereItRunsTests(unittest.TestCase):
     def test_it_finds_the_repository_from_below(self):
         # Every path in this repository resolves against the working directory,

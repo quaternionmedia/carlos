@@ -148,6 +148,19 @@ def here(argv: list[str]) -> list[str]:
     return argv
 
 
+def _tolerate_closed_output() -> None:
+    """A closed pipe is not an error worth a traceback.
+
+    `carlos status | head` closes stdout part way through, and Python answers
+    with `OSError: [Errno 22]` from the flush — a wall of traceback for the
+    most ordinary thing anyone does to a status command.
+    """
+    try:
+        sys.stdout.flush()
+    except OSError:
+        os._exit(0)
+
+
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
     "--dry-run", is_flag=True,
@@ -320,18 +333,24 @@ def status(ctx: click.Context) -> None:
     from a document, because a document is only as fresh as its last write.
     """
     root = ctx.obj["root"]
-    click.secho("Carlos", bold=True)
+    _line_writer()("Carlos")
+
+    echo = _line_writer()
 
     def line(label: str, value: str) -> None:
-        click.echo(f"  {label:<22}{value}")
+        echo(f"  {label:<22}{value}")
 
     branch = _git(["rev-parse", "--abbrev-ref", "HEAD"], root)
     ahead = _git(["rev-list", "--count", f"{BASE_REF}..HEAD"], root)
     dirty = _git(["status", "--porcelain"], root)
 
-    line("branch", branch)
-    line("unpushed commits", ahead)
-    line("working tree", "clean" if not dirty else f"{len(dirty.splitlines())} changed")
+    line("branch", branch or "unknown")
+    line("unpushed commits", ahead or "unknown")
+    if dirty is None:
+        line("working tree", "unknown")
+    else:
+        changed = len(dirty.splitlines())
+        line("working tree", "clean" if changed == 0 else f"{changed} changed")
     line("devices", str(len(list((root / "catalogue/devices").glob("*.json")))))
     line("walkthrough pages", str(len(list((root / "walkthrough").glob("*.md")))))
     line("screenshots", str(len(list((root / "walkthrough/media").glob("*.png")))))
@@ -349,22 +368,39 @@ def status(ctx: click.Context) -> None:
         if phantoms:
             line("", f"({len(phantoms)} stale netstat row(s), no process behind them)")
 
-    click.echo()
-    click.echo("  next: carlos check, carlos harness, carlos gates")
+    echo("")
+    echo("  next: carlos check, carlos harness, carlos gates")
+
+
+def _line_writer():
+    """Echo that gives up quietly when the reader has gone."""
+    def write(text: str) -> None:
+        try:
+            click.echo(text)
+        except OSError:
+            os._exit(0)
+    return write
 
 
 def _opts(ctx: click.Context) -> dict:
     return {"dry_run": ctx.obj["dry_run"], "root": ctx.obj["root"]}
 
 
-def _git(argv: list[str], root: Path) -> str:
+def _git(argv: list[str], root: Path) -> str | None:
+    """git's answer, or None when it could not be asked.
+
+    None rather than a placeholder string, because for some of these commands
+    *no output is the answer*: `status --porcelain` says nothing when the tree
+    is clean. Folding that into "?" made `status` report one changed file on a
+    clean checkout — the placeholder counted as a line.
+    """
     try:
         done = subprocess.run(
             ["git", *argv], cwd=root, capture_output=True, text=True, timeout=20
         )
-        return done.stdout.strip() or "?"
     except (OSError, subprocess.SubprocessError):
-        return "?"
+        return None
+    return done.stdout.strip() if done.returncode == 0 else None
 
 
 def _answers(port: int) -> bool:
