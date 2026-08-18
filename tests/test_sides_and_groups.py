@@ -31,8 +31,14 @@ class SideTests(unittest.TestCase):
 
     def test_a_device_declares_only_the_sides_it_uses(self):
         ko2 = self.devices["teenage-engineering.ep-133"]
-        # Everything is on its top edge, so it has a face and a top, no back.
-        self.assertEqual(ko2.sides(), ["front", "top"])
+        # Its surface is the top face and its sockets are on the back edge, so
+        # it has all three. The entry used to call that edge `top`, meaning the
+        # upper edge as you look down at the unit; under a box that name is
+        # taken by the playing surface, and the old naming asked for the pad
+        # grid on a face measuring 273mm by 34mm.
+        self.assertEqual(ko2.sides(), ["front", "back", "top"])
+        self.assertEqual({j.side for j in ko2.jacks}, {"back"})
+        self.assertEqual(ko2.layout.face, "top")
 
     def test_front_is_always_present_even_with_nothing_socketed_there(self):
         # A Stage 3 wires entirely from the back and still has a face you play,

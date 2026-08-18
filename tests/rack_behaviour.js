@@ -186,11 +186,14 @@ check('turned device survived the round trip',
 
 // --- n-sided devices ---
 const ko2 = system.addModule('teenage-engineering.ep-133');
-check('K.O. II has a face and a top, no back', ko2.sides, ['front', 'top']);
-check('it starts on its first side', ko2.view, 'front');
-check('cycling reaches its top', ko2.cycle(), 'top');
-check('cycling wraps back to front', ko2.cycle(), 'front');
-check('cycling backwards reaches top', ko2.cycle(-1), 'top');
+// A slab: its surface is the top face, its sockets the back edge, and its
+// front is the thin lip. It opens on the top because the entry names that as
+// its face - not because anything counted what is on each side.
+check('K.O. II has a front, a back and a top', ko2.sides, ['front', 'back', 'top']);
+check('it opens on the face the catalogue names', ko2.view, 'top');
+check('cycling wraps to its front', ko2.cycle(), 'front');
+check('then reaches its back', ko2.cycle(), 'back');
+check('and backwards returns to the front', ko2.cycle(-1), 'front');
 check('K.O. II turns', ko2.turns, true);
 
 const dfam = system.addModule('moog.dfam');
@@ -199,10 +202,12 @@ check('devices do not share a side list',
     JSON.stringify(ko2.sides) !== JSON.stringify(dfam.sides), true);
 
 // turning everything advances each device along its own sides
-ko2.setView('front'); dfam.setView('front');
+ko2.setView('top'); dfam.setView('front');
 system.selected = null;
 system.flipAll();
-check('each device advanced on its own list', [ko2.view, dfam.view], ['top', 'back']);
+// The point of the assertion: two devices with different side lists each
+// step along their own, rather than along a shared rack-level one.
+check('each device advanced on its own list', [ko2.view, dfam.view], ['front', 'back']);
 
 // a view a device does not have is coerced, never stored
 check('unknown side coerces to the first', dfam.setView('inside'), 'front');
@@ -264,6 +269,23 @@ check('its view survived', [...system.modules.values()][0].view, 'back');
 const future = PATCH_VERSION + 1;
 refuses('a future version is refused',
     { format: 'carlos.patch', version: future }, `Version ${future}`);
+
+// --- the facing indicator keeps up ---
+// It was written only by `applyView`, which nothing calls when a device is
+// added, so a booted rack with devices in it read EMPTY until you turned
+// something. The model was right and the screen was wrong, which is the class
+// of bug this project keeps finding late.
+system.clearRack();
+check('an empty rack reads EMPTY', nodes['view-indicator'].textContent, 'EMPTY');
+const shown = system.addModule('carlos.vco');
+check('adding a device updates the indicator',
+    nodes['view-indicator'].textContent, 'ALL FRONT');
+system.turnModule(shown.id);
+check('and turning one updates it too',
+    nodes['view-indicator'].textContent, 'ALL BACK');
+system.removeModule(shown.id);
+check('removing the last device empties it again',
+    nodes['view-indicator'].textContent, 'EMPTY');
 
 // --- unpatching ---
 // Patching used to be one-way: a lead could be run, and then only ever removed

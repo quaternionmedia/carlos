@@ -63,10 +63,48 @@ class TransformTests(unittest.TestCase):
                 self.assertIn(cable["to"]["side"], catalogue.SIDE_ORDER)
 
     def test_patchbay_reports_a_side_that_is_neither_front_nor_back(self):
-        # The Hapax rig clocks a K.O. II, whose sync input is on its top.
-        result = interop.apply_transform("patchbay", self.patch)
-        sides = {c["to"]["side"] for c in result["cables"]}
-        self.assertIn("top", sides)
+        # Real gear wires from its front or its back, and after the catalogue
+        # was measured properly nothing in it sockets anywhere else - the
+        # K.O. II's jacks are on its back edge, which is what its `top` used to
+        # mean. So the mechanism is covered by a device built for the job
+        # rather than by whichever shipped entry happened to exercise it.
+        exotic = catalogue.Device(
+            id="test.side-wired",
+            maker="Test",
+            model="Side Wired",
+            category="eurorack",
+            summary="A device that sockets on its left, for this test.",
+            jacks=[{"name": "left_in", "label": "LEFT IN", "type": "input",
+                    "signal": "audio", "side": "left"}],
+            parameters=[],
+        )
+        document = {
+            "format": "carlos.patch",
+            "version": 3,
+            "name": "One cable onto a left-hand socket",
+            "modules": [
+                {"id": "src", "type": "carlos.vco", "view": "front",
+                 "parameters": {}},
+                {"id": "dst", "type": "test.side-wired", "view": "left",
+                 "parameters": {}},
+            ],
+            "connections": [
+                {"source": {"module": "src", "jack": "audio_out"},
+                 "target": {"module": "dst", "jack": "left_in"}}
+            ],
+            "groups": [],
+        }
+
+        devices = catalogue.load_all()
+        devices[exotic.id] = exotic
+        try:
+            result = interop.apply_transform(
+                "patchbay", patch_format.load(document)
+            )
+        finally:
+            devices.pop(exotic.id, None)
+
+        self.assertEqual(result["cables"][0]["to"]["side"], "left")
 
     def test_topology_strips_every_parameter_but_keeps_the_routing(self):
         result = interop.apply_transform("topology", self.patch)

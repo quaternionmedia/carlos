@@ -63,11 +63,12 @@ function facesOf(module) {
 }
 
 const vco = system.addModule('carlos.vco');            // front, back
-const ko2 = system.addModule('teenage-engineering.ep-133'); // front, top
+const ko2 = system.addModule('teenage-engineering.ep-133'); // front, back, top
 
 // --- the tree was built at all ---
 check('a module renders its faces', facesOf(vco).sort(), ['back', 'front']);
-check('a device with a top renders that too', facesOf(ko2).sort(), ['front', 'top']);
+check('a device with a top renders that too',
+    facesOf(ko2).sort(), ['back', 'front', 'top']);
 
 // --- one face laid out, and it is the right one ---
 check('exactly one face is active to start', shownSides(vco), ['front']);
@@ -79,25 +80,26 @@ check('the model turned', vco.view, 'back');
 check('THE TREE TURNED', shownSides(vco), ['back']);
 check('still exactly one face active', shownSides(vco).length, 1);
 check('data-view follows too', vco.element.getAttribute('data-view'), 'back');
-check('the other device did not move', shownSides(ko2), ['front']);
+// It opens on its top, and turning the VCO must not move it off that.
+check('the other device did not move', shownSides(ko2), ['top']);
 
 // --- turning everything ---
 system.turnModule(vco.id); // back to front
 system.flipAll();
 check('every device turned in the model',
-    [vco.view, ko2.view], ['back', 'top']);
+    [vco.view, ko2.view], ['back', 'front']);
 check('EVERY DEVICE TURNED ON SCREEN',
-    [shownSides(vco)[0], shownSides(ko2)[0]], ['back', 'top']);
+    [shownSides(vco)[0], shownSides(ko2)[0]], ['back', 'front']);
 
 // --- cycling wraps ---
 system.flipAll();
 check('cycling wraps in the tree',
-    [shownSides(vco)[0], shownSides(ko2)[0]], ['front', 'front']);
+    [shownSides(vco)[0], shownSides(ko2)[0]], ['front', 'back']);
 
 // --- backwards ---
 system.flipAll(-1);
 check('shift-tab walks back in the tree',
-    [shownSides(vco)[0], shownSides(ko2)[0]], ['back', 'top']);
+    [shownSides(vco)[0], shownSides(ko2)[0]], ['back', 'front']);
 
 // --- a device with one side does not move ---
 system.flipAll();  // reset to front

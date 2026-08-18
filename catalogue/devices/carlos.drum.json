@@ -1,0 +1,216 @@
+{
+  "id": "carlos.drum",
+  "maker": "Carlos",
+  "model": "Drum",
+  "category": "eurorack",
+  "summary": "A generic modular drum voice. Not a real product: the neutral percussion module the workspace pairs with a grid controller. One trigger fires it, accent makes it hit harder, and tone and decay take control voltage so a sequencer can move them per step. Eight HP, which is the width the panel is drawn at.",
+  "fidelity": "sketch",
+  "jacks": [
+    {
+      "name": "trig_in",
+      "label": "TRIG",
+      "type": "input",
+      "signal": "gate",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "accent_in",
+      "label": "ACCENT",
+      "type": "input",
+      "signal": "gate",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "tone_cv_in",
+      "label": "TONE CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "decay_cv_in",
+      "label": "DECAY CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "audio_out",
+      "label": "OUT",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "power",
+      "label": "POWER",
+      "type": "input",
+      "signal": "power",
+      "side": "back",
+      "connector": "IDC-16",
+      "note": "Eurorack bus board ribbon; the red stripe is -12V."
+    }
+  ],
+  "parameters": [
+    {
+      "name": "tune",
+      "label": "TUNE",
+      "min": 0,
+      "max": 127,
+      "default": 48
+    },
+    {
+      "name": "decay",
+      "label": "DECAY",
+      "min": 0,
+      "max": 127,
+      "default": 40
+    },
+    {
+      "name": "snap",
+      "label": "SNAP",
+      "min": 0,
+      "max": 127,
+      "default": 72
+    },
+    {
+      "name": "level",
+      "label": "LEVEL",
+      "min": 0,
+      "max": 127,
+      "default": 96
+    }
+  ],
+  "layout": {
+    "box": {
+      "width": 40.3,
+      "height": 128.5,
+      "depth": 25
+    },
+    "face": "front",
+    "controls": {
+      "tune": {
+        "x": 0.32,
+        "y": 0.13,
+        "side": "front",
+        "size": 1.2
+      },
+      "decay": {
+        "x": 0.7,
+        "y": 0.13,
+        "side": "front",
+        "size": 1.2
+      },
+      "snap": {
+        "x": 0.32,
+        "y": 0.3,
+        "side": "front",
+        "size": 1.0
+      },
+      "level": {
+        "x": 0.7,
+        "y": 0.3,
+        "side": "front",
+        "size": 1.0
+      }
+    },
+    "jacks": {
+      "trig_in": {
+        "x": 0.28,
+        "y": 0.56,
+        "side": "front",
+        "size": 1.0
+      },
+      "accent_in": {
+        "x": 0.72,
+        "y": 0.56,
+        "side": "front",
+        "size": 1.0
+      },
+      "tone_cv_in": {
+        "x": 0.28,
+        "y": 0.72,
+        "side": "front",
+        "size": 1.0
+      },
+      "decay_cv_in": {
+        "x": 0.72,
+        "y": 0.72,
+        "side": "front",
+        "size": 1.0
+      },
+      "audio_out": {
+        "x": 0.5,
+        "y": 0.9,
+        "side": "front",
+        "size": 1.2
+      },
+      "power": {
+        "x": 0.5,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.4
+      }
+    },
+    "features": [
+      {
+        "kind": "logo",
+        "text": "DRUM",
+        "x": 0.5,
+        "y": 0.045,
+        "w": 0.72,
+        "h": 0.05,
+        "side": "front"
+      },
+      {
+        "kind": "plate",
+        "x": 0.5,
+        "y": 0.215,
+        "w": 0.9,
+        "h": 0.28,
+        "side": "front",
+        "label": "Voice"
+      },
+      {
+        "kind": "plate",
+        "x": 0.5,
+        "y": 0.72,
+        "w": 0.9,
+        "h": 0.4,
+        "side": "front",
+        "label": "Patch bay"
+      },
+      {
+        "kind": "label",
+        "text": "IN",
+        "x": 0.5,
+        "y": 0.465,
+        "w": 0.4,
+        "h": 0.035,
+        "side": "front"
+      },
+      {
+        "kind": "label",
+        "text": "BUS",
+        "x": 0.5,
+        "y": 0.3,
+        "w": 0.5,
+        "h": 0.06,
+        "side": "back"
+      },
+      {
+        "kind": "vent",
+        "x": 0.5,
+        "y": 0.13,
+        "w": 0.7,
+        "h": 0.1,
+        "side": "back"
+      }
+    ]
+  }
+}

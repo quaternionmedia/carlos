@@ -112,12 +112,22 @@ const probes = () => SVG_CHILDREN.filter(
 const anchors = () => SVG_CHILDREN.filter(c => c.tag === 'circle');
 
 // ---- a cable between two faces that are not both showing ----
-const vco = place(system.addModule('carlos.vco'));      // front + back
-const ko2 = place(system.addModule('teenage-engineering.ep-133')); // front + top
+const ko2 = place(system.addModule('teenage-engineering.ep-133')); // front, back, top
+const desk = place(system.addModule('allen-heath.qu24'));          // front, back, top
 
-// vco.sub_out is on its BACK; ko2.line_in is on its TOP. Non-parallel faces,
-// and with both devices showing their fronts, neither end is visible.
-system.patchBay.createConnection(vco.jacks.get('sub_out'), ko2.jacks.get('line_in'));
+// Both turned to their tops, set here rather than inherited: a Qu-24 has
+// sockets on its front lip, so into a rack facing front it arrives facing
+// front, and a harness that assumed otherwise would be testing a state it had
+// not established.
+desk.setView('top');
+ko2.setView('top');
+
+// desk.talkback_in is on its FRONT lip and ko2.line_out on its BACK edge, so
+// with both showing their tops the cable has two ends on two different faces
+// and neither of them visible. That is the case this harness exists for, and
+// the one a rack of real gear produces constantly.
+system.patchBay.createConnection(
+    ko2.jacks.get('line_out'), desk.jacks.get('talkback_in'));
 system.patchBay.redrawAll();
 
 check('a cable with neither end visible is still drawn',
@@ -138,7 +148,7 @@ check('its ends are at different points',
     Boolean(m) && Math.hypot(m[5] - m[1], m[6] - m[2]) > 50, true);
 
 // ---- turning one device in reveals one end, and the cable stays whole ----
-vco.setView('back');
+desk.setView('front');
 system.patchBay.redrawAll();
 check('turning one end into view keeps one cable',
     paths().length, 1);
@@ -148,7 +158,7 @@ check('only the still-hidden end keeps an anchor',
     anchors().length, 1);
 
 // ---- both ends visible: a plain cable ----
-ko2.setView('top');
+ko2.setView('back');
 system.patchBay.redrawAll();
 check('with both faces showing the cable is not occluded',
     classesOf(paths()[0]).includes('is-occluded'), false);
@@ -160,7 +170,8 @@ check('a cable across non-parallel faces is still flagged as crossing',
 // ---- a cable carries a description of both its ends ----
 const title = paths()[0] && paths()[0]._children.find(c => c.tag === 'title');
 check('the cable names both ends and their sides',
-    Boolean(title && /back/.test(title.textContent) && /top/.test(title.textContent)),
+    Boolean(title && /back/.test(title.textContent)
+        && /front/.test(title.textContent)),
     true);
 
 // ---- tracing ----

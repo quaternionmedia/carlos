@@ -64,6 +64,8 @@ CATEGORIES: dict[str, str] = {
     "sampler": "Devices built around recording and replaying audio",
     "semi-modular": "Fixed-architecture synths with a patch bay over the top",
     "eurorack": "Individual modules in a Eurorack case",
+    "controller": "Surfaces that play and steer other gear, and make no sound",
+    "drum-machine": "Devices built around percussion voices and their sequencing",
 }
 
 
@@ -125,6 +127,7 @@ FeatureKind = Literal[
     "keybed",   # a piano keyboard; `keys` long, starting at `from_note`
     "pads",     # a grid of `rows` x `cols` performance pads
     "buttons",  # a grid of `rows` x `cols` small buttons
+    "faders",   # a bank of `cols` faders, none of them a parameter here
     "screen",   # a display, showing `text` if it has anything to say
     "wheel",    # pitch or modulation, upright
     "grille",   # a speaker
@@ -192,6 +195,12 @@ class Feature(BaseModel):
             raise ValueError("a keybed needs `keys`")
         if self.kind in ("pads", "buttons") and not (self.rows and self.cols):
             raise ValueError(f"a {self.kind} grid needs `rows` and `cols`")
+        # A fader bank is a feature rather than a control because a desk has
+        # twenty-five of them and this catalogue describes four channels. They
+        # are the shape of the device, not things to turn here; a `controls`
+        # entry of kind `fader` is the other case, for one that is.
+        if self.kind == "faders" and not self.cols:
+            raise ValueError("a fader bank needs `cols`, the number of faders")
         if self.kind == "logo" and not self.text:
             raise ValueError("a logo needs the `text` it reads")
         return self

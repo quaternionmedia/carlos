@@ -3,7 +3,7 @@
   "maker": "Moog",
   "model": "Subharmonicon",
   "category": "semi-modular",
-  "summary": "A semi-modular polyrhythmic analogue synthesiser: two VCOs each with two subharmonic oscillators, two 4-step sequencers, four rhythm generators, and a 32-point patch bay. Normalled, so it plays without patching. This entry sketches the patch bay rather than reproducing all 32 points.",
+  "summary": "A semi-modular polyrhythmic analogue synthesiser: two VCOs each with two subharmonic oscillators, two 4-step sequencers, four rhythm generators, and a 32-point patch bay. Normalled, so it plays without patching. This entry sketches the patch bay rather than reproducing all 32 points. Drawn at the arrangement: oscillators and their subharmonics at the top left, the two polyrhythm sequencers below them, the patch bay down the right.",
   "fidelity": "sketch",
   "jacks": [
     {
@@ -281,7 +281,6 @@
     }
   ],
   "layout": {
-    "aspect": 2.3,
     "controls": {
       "vco1_freq": {
         "x": 0.07,
@@ -495,6 +494,78 @@
         "side": "back",
         "size": 1.0
       }
-    }
+    },
+    "box": {
+      "width": 314,
+      "height": 130,
+      "depth": 107
+    },
+    "face": "front",
+    "features": [
+      {
+        "kind": "logo",
+        "text": "SUBHARMONICON",
+        "x": 0.17,
+        "y": 0.055,
+        "w": 0.29,
+        "h": 0.06,
+        "side": "front"
+      },
+      {
+        "kind": "plate",
+        "x": 0.775,
+        "y": 0.4,
+        "w": 0.41,
+        "h": 0.7,
+        "side": "front",
+        "label": "Patch bay"
+      },
+      {
+        "kind": "plate",
+        "x": 0.265,
+        "y": 0.29,
+        "w": 0.47,
+        "h": 0.38,
+        "side": "front",
+        "label": "Oscillators and subharmonics"
+      },
+      {
+        "kind": "plate",
+        "x": 0.265,
+        "y": 0.74,
+        "w": 0.47,
+        "h": 0.44,
+        "side": "front",
+        "label": "Polyrhythm sequencers"
+      },
+      {
+        "kind": "buttons",
+        "rows": 2,
+        "cols": 4,
+        "x": 0.265,
+        "y": 0.76,
+        "w": 0.4,
+        "h": 0.3,
+        "side": "front",
+        "label": "Rhythm select"
+      },
+      {
+        "kind": "vent",
+        "x": 0.5,
+        "y": 0.3,
+        "w": 0.6,
+        "h": 0.14,
+        "side": "back"
+      },
+      {
+        "kind": "label",
+        "text": "IEC POWER",
+        "x": 0.5,
+        "y": 0.6,
+        "w": 0.4,
+        "h": 0.1,
+        "side": "back"
+      }
+    ]
   }
 }

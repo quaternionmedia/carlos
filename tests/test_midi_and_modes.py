@@ -301,8 +301,34 @@ class LayoutTests(unittest.TestCase):
     def test_a_device_without_a_layout_still_loads(self):
         # The catalogue accepts a device the moment someone describes it;
         # holding one back for want of a measured panel would collect fewer.
-        bare = [d for d in self.devices.values() if not d.layout]
-        self.assertTrue(bare, "no device exercises the fallback path")
+        #
+        # This used to assert some shipped device had no layout, which made
+        # finishing the catalogue break it - the fallback was being covered by
+        # the catalogue staying incomplete. It is covered by a device built
+        # here instead, so the path stays exercised and the shipped entries are
+        # free to all be finished.
+        bare = catalogue.Device(
+            id="test.bare",
+            maker="Test",
+            model="Bare",
+            category="eurorack",
+            summary="A device nobody has measured a panel for.",
+            jacks=[{"name": "out", "label": "OUT", "type": "output",
+                    "signal": "audio"}],
+            parameters=[{"name": "level", "label": "LEVEL"}],
+        )
+        self.assertIsNone(bare.layout)
+        self.assertEqual(bare.sides(), ["front"])
+
+    def test_the_shipped_catalogue_is_fully_laid_out(self):
+        # The other direction, and the one worth having now: every entry
+        # carries a box and a face, so nothing ships drawn at a proportion
+        # that only ever described its front.
+        for device in self.devices.values():
+            with self.subTest(device.id):
+                self.assertIsNotNone(device.layout, "no layout")
+                self.assertIsNotNone(device.layout.box, "no box")
+                self.assertIn(device.layout.face, device.sides())
 
     def test_every_layout_places_only_things_the_device_has(self):
         for device in self.devices.values():
@@ -348,11 +374,22 @@ class LayoutTests(unittest.TestCase):
         from src.main import catalogue_index
 
         payload = asyncio.run(catalogue_index())
-        dfam = next(d for d in payload["devices"] if d["id"] == "moog.dfam")
-        hapax = next(d for d in payload["devices"] if d["id"] == "squarp.hapax")
 
-        self.assertIsNotNone(dfam["layout"])
-        self.assertIsNone(hapax["layout"])  # falls back, and says so
+        # Every entry is laid out now, and the browser has to receive the whole
+        # of it: the box it derives each face's proportion from, the face it
+        # opens on, and the furniture it draws.
+        for served in payload["devices"]:
+            with self.subTest(served["id"]):
+                layout = served["layout"]
+                self.assertIsNotNone(layout)
+                self.assertIn("box", layout)
+                self.assertIn("face", layout)
+                self.assertIn("features", layout)
+
+        dfam = next(d for d in payload["devices"] if d["id"] == "moog.dfam")
+        self.assertEqual(
+            set(dfam["layout"]["box"]), {"width", "height", "depth"}
+        )
 
 
 class FrontendMidiAndModeTests(unittest.TestCase):

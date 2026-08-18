@@ -3,7 +3,7 @@
   "maker": "Moog",
   "model": "DFAM",
   "category": "semi-modular",
-  "summary": "Drummer From Another Mother: a semi-modular percussion synthesiser with two oscillators, a noise source, two 8-step sequencers for pitch and velocity, and a 24-point patch bay. Normalled, so it makes sound with nothing patched. This entry sketches the patch bay rather than reproducing all 24 points.",
+  "summary": "Drummer From Another Mother: a semi-modular percussion synthesiser with two oscillators, a noise source, two 8-step sequencers for pitch and velocity, and a 24-point patch bay. Normalled, so it makes sound with nothing patched. This entry sketches the patch bay rather than reproducing all 24 points. The panel is drawn at the arrangement - patch bay over the right, voice on the left, the two eight-step sequencer rows along the bottom. The sequencer sliders are the shape of the device rather than controls here, because this entry sketches the patch bay rather than reproducing all twenty-four points.",
   "fidelity": "sketch",
   "jacks": [
     {
@@ -251,7 +251,6 @@
     }
   ],
   "layout": {
-    "aspect": 2.3,
     "controls": {
       "tempo": {
         "x": 0.07,
@@ -441,6 +440,91 @@
         "side": "back",
         "size": 1.0
       }
-    }
+    },
+    "box": {
+      "width": 314,
+      "height": 130,
+      "depth": 107
+    },
+    "face": "front",
+    "features": [
+      {
+        "kind": "logo",
+        "text": "MOOG DFAM",
+        "x": 0.14,
+        "y": 0.055,
+        "w": 0.23,
+        "h": 0.06,
+        "side": "front"
+      },
+      {
+        "kind": "plate",
+        "x": 0.76,
+        "y": 0.4,
+        "w": 0.44,
+        "h": 0.7,
+        "side": "front",
+        "label": "24-point patch bay"
+      },
+      {
+        "kind": "plate",
+        "x": 0.26,
+        "y": 0.3,
+        "w": 0.48,
+        "h": 0.4,
+        "side": "front",
+        "label": "Voice"
+      },
+      {
+        "kind": "faders",
+        "rows": 1,
+        "cols": 8,
+        "x": 0.26,
+        "y": 0.7,
+        "w": 0.47,
+        "h": 0.2,
+        "side": "front",
+        "label": "Pitch sequencer"
+      },
+      {
+        "kind": "faders",
+        "rows": 1,
+        "cols": 8,
+        "x": 0.26,
+        "y": 0.9,
+        "w": 0.47,
+        "h": 0.16,
+        "side": "front",
+        "label": "Velocity sequencer"
+      },
+      {
+        "kind": "buttons",
+        "rows": 1,
+        "cols": 8,
+        "x": 0.26,
+        "y": 0.56,
+        "w": 0.47,
+        "h": 0.06,
+        "side": "front",
+        "label": "Step select"
+      },
+      {
+        "kind": "vent",
+        "x": 0.5,
+        "y": 0.3,
+        "w": 0.6,
+        "h": 0.14,
+        "side": "back"
+      },
+      {
+        "kind": "label",
+        "text": "IEC POWER",
+        "x": 0.5,
+        "y": 0.6,
+        "w": 0.4,
+        "h": 0.1,
+        "side": "back"
+      }
+    ]
   }
 }

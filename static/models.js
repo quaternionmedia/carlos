@@ -230,6 +230,18 @@ const SEMITONE_IS_WHITE = {
     6: false, 7: true, 8: false, 9: true, 10: false, 11: true,
 };
 
+// A bank of faders. Not controls: a desk has twenty-five and this catalogue
+// describes four channels, so they are the shape of the device rather than
+// things to move here. Each is a slot with a cap part way up - at a fixed
+// place, because a position that meant nothing would still look like it meant
+// something.
+function faderBank(count) {
+    const n = Math.max(1, Math.min(32, Number(count) || 1));
+    return `<div class="irl-fader-bank" style="--cols:${n}">`
+        + '<span class="irl-bank-fader"></span>'.repeat(n)
+        + '</div>';
+}
+
 // A grid of pads or buttons, as a plain CSS grid.
 function grid(rows, cols) {
     const r = Math.max(1, Math.min(32, Number(rows) || 1));
@@ -588,6 +600,8 @@ class EurorackModule {
             case 'pads':
             case 'buttons':
                 return `${open}${grid(feature.rows, feature.cols)}</div>`;
+            case 'faders':
+                return `${open}${faderBank(feature.cols)}</div>`;
             case 'screen':
                 return `${open}<span class="irl-screen-text">${feature.text || ''}</span></div>`;
             case 'logo':
@@ -1557,6 +1571,7 @@ class EurorackSystem {
         }
 
         this.patchBay.redrawAll();
+        this.refreshViewIndicator();
     }
 
     addModule(type, groupId = null) {
@@ -1671,14 +1686,27 @@ class EurorackSystem {
             module.element.classList.toggle('selected', module.id === this.selected);
         });
 
-        const indicator = document.getElementById('view-indicator');
-        if (indicator) indicator.textContent = this.viewSummary();
+        this.refreshViewIndicator();
 
         // A jack armed before a flip may no longer be on screen.
         this.patchBay.cancelPending();
         // Selecting a device traces its cables. This is the one place the two
         // pieces of state meet, so it is where they are kept in step.
         this.patchBay.trace(this.selected);
+    }
+
+    // The one persistent answer to "which way is this rack facing", written
+    // wherever the set of modules or the sides they show can have changed.
+    //
+    // It used to be written only by `applyView`, which nothing calls when a
+    // device is added or removed - so a freshly booted rack with two devices in
+    // it read EMPTY until you happened to turn something. Caught by the first
+    // run of `walkthrough/05-in-the-browser.md`, in a real browser, after two
+    // sessions of asserting the model and never the screen.
+    refreshViewIndicator() {
+        const indicator = document.getElementById('view-indicator');
+        if (indicator) indicator.textContent = this.viewSummary();
+        return indicator;
     }
 
     // What the rack is actually showing, which is not one value once devices

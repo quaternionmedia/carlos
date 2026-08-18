@@ -1,0 +1,133 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "Three drum voices from one grid",
+  "modules": [
+    {
+      "id": "grid",
+      "type": "novation.launchpad-x",
+      "view": "top",
+      "parameters": {
+        "brightness": 110
+      }
+    },
+    {
+      "id": "kick",
+      "type": "carlos.drum",
+      "view": "front",
+      "parameters": {
+        "tune": 18,
+        "decay": 70,
+        "snap": 30,
+        "level": 110
+      }
+    },
+    {
+      "id": "snare",
+      "type": "carlos.drum",
+      "view": "front",
+      "parameters": {
+        "tune": 62,
+        "decay": 44,
+        "snap": 96,
+        "level": 92
+      }
+    },
+    {
+      "id": "hat",
+      "type": "carlos.drum",
+      "view": "front",
+      "parameters": {
+        "tune": 118,
+        "decay": 12,
+        "snap": 120,
+        "level": 74
+      }
+    },
+    {
+      "id": "mixer",
+      "type": "allen-heath.qu24",
+      "view": "top",
+      "parameters": {}
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "kick",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "mixer",
+        "jack": "mic_in_1"
+      }
+    },
+    {
+      "source": {
+        "module": "snare",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "mixer",
+        "jack": "mic_in_2"
+      }
+    },
+    {
+      "source": {
+        "module": "hat",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "mixer",
+        "jack": "mic_in_3"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "row-1",
+      "kind": "row",
+      "label": "Drum voices",
+      "members": [
+        "kick",
+        "snare",
+        "hat"
+      ]
+    }
+  ],
+  "display": {
+    "mode": "minimal"
+  },
+  "midi": [
+    {
+      "id": "bind-1",
+      "source": {
+        "type": "note",
+        "channel": 10,
+        "note": 36
+      },
+      "module": "kick",
+      "label": "note 36 ch 10"
+    },
+    {
+      "id": "bind-2",
+      "source": {
+        "type": "note",
+        "channel": 10,
+        "note": 38
+      },
+      "module": "snare",
+      "label": "note 38 ch 10"
+    },
+    {
+      "id": "bind-3",
+      "source": {
+        "type": "note",
+        "channel": 10,
+        "note": 42
+      },
+      "module": "hat",
+      "label": "note 42 ch 10"
+    }
+  ]
+}

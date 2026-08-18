@@ -3,7 +3,7 @@
   "maker": "Focusrite",
   "model": "Scarlett 2i2",
   "category": "audio-interface",
-  "summary": "A two-in, two-out USB audio interface. Two combo inputs take microphone, line or instrument level on the front; balanced monitor outputs and USB-C are on the back. The archetype of the class rather than the largest of it.",
+  "summary": "A two-in, two-out USB audio interface. Two combo inputs take microphone, line or instrument level on the front; balanced monitor outputs and USB-C are on the back. The archetype of the class rather than the largest of it. A half-rack box you face, so its front really is its front - the one device in this catalogue whose surface needs no re-facing.",
   "fidelity": "detailed",
   "jacks": [
     {
@@ -91,7 +91,6 @@
     }
   ],
   "layout": {
-    "aspect": 3.2,
     "controls": {
       "gain_1": {
         "x": 0.22,
@@ -155,6 +154,50 @@
         "side": "back",
         "size": 1.0
       }
-    }
+    },
+    "box": {
+      "width": 175,
+      "height": 47.5,
+      "depth": 99
+    },
+    "face": "front",
+    "features": [
+      {
+        "kind": "logo",
+        "text": "SCARLETT 2i2",
+        "x": 0.5,
+        "y": 0.13,
+        "w": 0.3,
+        "h": 0.12,
+        "side": "front"
+      },
+      {
+        "kind": "plate",
+        "x": 0.22,
+        "y": 0.36,
+        "w": 0.32,
+        "h": 0.36,
+        "side": "front",
+        "label": "Gain halos"
+      },
+      {
+        "kind": "label",
+        "text": "48V  INST  AIR",
+        "x": 0.62,
+        "y": 0.86,
+        "w": 0.34,
+        "h": 0.1,
+        "side": "front"
+      },
+      {
+        "kind": "label",
+        "text": "REAR",
+        "x": 0.5,
+        "y": 0.18,
+        "w": 0.2,
+        "h": 0.12,
+        "side": "back"
+      }
+    ]
   }
 }
