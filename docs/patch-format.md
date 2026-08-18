@@ -67,7 +67,7 @@ still facing front, with the DFAM gathered into a row. It is a legal patch.
 | Field | Type | Rule |
 | --- | --- | --- |
 | `format` | string | Exactly `carlos.patch`. A reader refuses anything else. |
-| `version` | integer | `2` when written by this build; `1` is read and upgraded. See *Versioning*. |
+| `version` | integer | `3` when written by this build; `1` and `2` are read and upgraded. See *Versioning*. |
 | `name` | string | Human label. Defaults to `Untitled Patch`. |
 | `modules` | array | May be empty — an empty rack is a valid patch. |
 | `connections` | array | May be empty. |

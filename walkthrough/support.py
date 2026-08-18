@@ -12,6 +12,7 @@ do that, in the same run that produces the picture.
 
 from __future__ import annotations
 
+import atexit
 import socket
 import subprocess
 import sys
@@ -26,6 +27,31 @@ MEDIA = Path(__file__).resolve().parent / "media"
 # How long to wait for the server to answer before calling it unreachable.
 # Generous, because a cold start on Windows imports FastAPI first.
 STARTUP_TIMEOUT = 40.0
+
+
+# Everything that has to be shut down, however the run ends.
+#
+# A page that fails part way through never reaches its own teardown - doctest
+# stops at the first failing example - so a server started at the top of the
+# page outlives the run and holds its port forever. During one session that
+# left seven of them. Registering here instead means a failing page costs a red
+# build and nothing else.
+_LEAVING = []
+
+
+def _teardown():
+    while _LEAVING:
+        close = _LEAVING.pop()
+        try:
+            close()
+        except Exception:
+            # Teardown runs at interpreter exit, where a raise is noise printed
+            # after the test report and helps nobody. A process that will not
+            # die is not something a page can do anything about either.
+            pass
+
+
+atexit.register(_teardown)
 
 
 class Unreachable(RuntimeError):
@@ -51,12 +77,30 @@ class LiveApp:
     happened to be running rather than the code in the tree.
     """
 
+    # A free port is free when it is asked for and taken by the time it is used,
+    # so a start can lose the race with anything else on the machine. Rare, and
+    # indistinguishable from a broken server when it happens, so it is retried
+    # rather than left as a puzzle.
+    ATTEMPTS = 3
+
     def __init__(self) -> None:
         self.port = _free_port()
         self.base = f"http://127.0.0.1:{self.port}"
         self.process: subprocess.Popen | None = None
 
     def start(self) -> "LiveApp":
+        for attempt in range(1, self.ATTEMPTS + 1):
+            try:
+                return self._start_once()
+            except Unreachable:
+                self.stop()
+                if attempt == self.ATTEMPTS:
+                    raise
+                self.port = _free_port()
+                self.base = f"http://127.0.0.1:{self.port}"
+        raise Unreachable("unreachable")  # pragma: no cover - the loop returns
+
+    def _start_once(self) -> "LiveApp":
         self.process = subprocess.Popen(
             [sys.executable, "-m", "uvicorn", "src.main:app",
              "--host", "127.0.0.1", "--port", str(self.port), "--log-level", "warning"],
@@ -64,6 +108,7 @@ class LiveApp:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
         )
+        _LEAVING.append(self.stop)
         self._await_health()
         return self
 
@@ -110,8 +155,23 @@ class Shots:
         self.written: list[Path] = []
         MEDIA.mkdir(parents=True, exist_ok=True)
 
+    # Wait for the page to stop moving before looking at it.
+    #
+    # Two frames with no CSS transition or animation in flight. Without it the
+    # shot lands wherever the machine happened to be, and the file is bistable:
+    # the same tree rendered twice produced two different PNGs, which turns the
+    # uncommitted-diff signal into noise nobody reads. The DOM was identical
+    # both times, so this is about the render rather than the state.
+    SETTLE = '''() => new Promise(resolve => {
+        const idle = () => !document.getAnimations
+            || document.getAnimations().every(a => a.playState !== 'running');
+        requestAnimationFrame(() => requestAnimationFrame(
+            () => resolve(idle())));
+    })'''
+
     def take(self, page, name: str, **kwargs) -> str:
         path = MEDIA / f"{self.slug}-{name}.png"
+        page.wait_for_function(self.SETTLE, timeout=5_000)
         page.screenshot(path=str(path), **kwargs)
         if not path.exists() or path.stat().st_size == 0:
             raise AssertionError(f"screenshot {path.name} was not written")
@@ -120,6 +180,22 @@ class Shots:
 
     def recorded(self) -> list[str]:
         return [p.name for p in self.written]
+
+
+def chromium():
+    """A browser that shuts itself down.
+
+    Returned rather than constructed by the page so the page cannot forget:
+    both the driver process and the browser register their own teardown, and a
+    page that dies half way through leaves neither behind.
+    """
+    from playwright.sync_api import sync_playwright
+
+    driver = sync_playwright().start()
+    _LEAVING.append(driver.stop)
+    browser = driver.chromium.launch()
+    _LEAVING.append(browser.close)
+    return browser
 
 
 def open_rack(app: LiveApp, browser, width: int = 1280, height: int = 860):
@@ -174,3 +250,22 @@ def open_menu(page, x: int, y: int) -> None:
     page.mouse.move(x, y)
     page.mouse.click(x, y, button="right")
     page.wait_for_selector(".rad-wedge", timeout=5_000)
+
+
+def until(page, predicate: str, timeout: int = 8_000) -> None:
+    """Wait for the thing to be true, rather than for a number of milliseconds.
+
+    A page full of `wait_for_timeout` is a page that passes on this machine and
+    fails on a slower one, and the usual repair - a bigger number - makes every
+    run slower to buy the same uncertainty back. Every wait here names the
+    condition it is waiting for, so it returns the moment that holds and fails
+    saying which one did not.
+
+    `predicate` is JavaScript evaluated in the page, polled by Playwright.
+    """
+    try:
+        page.wait_for_function(predicate, timeout=timeout)
+    except Exception as error:  # noqa: BLE001 - re-raised with the predicate
+        raise AssertionError(
+            f"waited {timeout}ms and this never became true:\n  {predicate}"
+        ) from error

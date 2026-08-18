@@ -414,3 +414,104 @@ class FaceGeometryAcrossTheSeamTests(unittest.TestCase):
         layout = catalogue.Layout(aspect=2.3)
         for side in catalogue.SIDE_ORDER:
             self.assertAlmostEqual(layout.aspect_of(side), 2.3)
+
+
+@unittest.skipUnless(NODE, "node is not installed")
+class BothSidesRefuseTheSameDocumentTests(unittest.TestCase):
+    """`src/patch_format.py` and `static/models.js` are two implementations of
+    one contract, and the interesting half of a contract is what it refuses.
+
+    The existing frontend contract tests are string assertions over the JS
+    source: they catch a renamed constant and miss a rule one side never
+    implemented. This runs the documents. It found the browser accepting a
+    duplicate module id that the server refuses - which loaded a rack quietly
+    missing a device and reported success.
+    """
+
+    BAD = {
+        "duplicate module id": {
+            "modules": [
+                {"id": "a", "type": "carlos.vco", "view": "front", "parameters": {}},
+                {"id": "a", "type": "carlos.vcf", "view": "front", "parameters": {}},
+            ],
+        },
+        "connection naming an absent module": {
+            "modules": [
+                {"id": "a", "type": "carlos.vco", "view": "front", "parameters": {}},
+            ],
+            "connections": [
+                {"source": {"module": "a", "jack": "audio_out"},
+                 "target": {"module": "ghost", "jack": "audio_in"}},
+            ],
+        },
+        "duplicate group id": {
+            "modules": [
+                {"id": "a", "type": "carlos.vco", "view": "front", "parameters": {}},
+            ],
+            "groups": [
+                {"id": "row-1", "kind": "row", "label": "One", "members": []},
+                {"id": "row-1", "kind": "row", "label": "Two", "members": []},
+            ],
+        },
+        "group naming an absent module": {
+            "modules": [
+                {"id": "a", "type": "carlos.vco", "view": "front", "parameters": {}},
+            ],
+            "groups": [
+                {"id": "row-1", "kind": "row", "label": "One", "members": ["ghost"]},
+            ],
+        },
+        "a version this build cannot read": {"version": 99, "modules": []},
+        "a foreign format": {"format": "ableton.set", "modules": []},
+    }
+
+    def document(self, overrides):
+        base = {
+            "format": "carlos.patch", "version": 3, "name": "A bad patch",
+            "modules": [], "connections": [], "groups": [],
+        }
+        base.update(overrides)
+        return base
+
+    def test_the_server_refuses_every_one(self):
+        for name, overrides in self.BAD.items():
+            with self.subTest(name):
+                with self.assertRaises(Exception):
+                    patch_format.load(self.document(overrides))
+
+    def test_the_browser_refuses_every_one(self):
+        cases = {n: self.document(o) for n, o in self.BAD.items()}
+        result = subprocess.run(
+            [NODE, "tests/refusal_probe.js", json.dumps(cases)],
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        outcome = json.loads(result.stdout)
+
+        for name in self.BAD:
+            with self.subTest(name):
+                self.assertEqual(
+                    outcome[name], "refused",
+                    f"the server refuses {name!r} and the browser does not",
+                )
+
+    def test_the_catalogue_is_the_one_thing_only_the_browser_checks(self):
+        # A recorded asymmetry rather than a defect. `patch_format` validates
+        # the format, and whether a device exists is a catalogue question - a
+        # peer may legitimately hand over a document naming gear this build has
+        # never heard of, and the format layer has no business refusing it. The
+        # browser has the catalogue in hand and does refuse, because it would
+        # otherwise draw a rack with a hole in it.
+        naming_a_stranger = self.document({
+            "modules": [{"id": "a", "type": "acme.theremin", "view": "front",
+                         "parameters": {}}],
+        })
+        patch_format.load(naming_a_stranger)  # the format is satisfied
+
+        result = subprocess.run(
+            [NODE, "tests/refusal_probe.js",
+             json.dumps({"unknown device": naming_a_stranger})],
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["unknown device"], "refused")

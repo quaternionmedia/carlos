@@ -2082,6 +2082,46 @@ class EurorackSystem {
             }
         });
 
+        // The internal-consistency rules `docs/patch-format.md` states, checked
+        // here because they are the contract rather than the server's opinion.
+        // `src/patch_format.py` refuses all of these; this side used to accept
+        // them, so a document the API would reject loaded in the browser into a
+        // rack quietly missing a device - the worst kind of import, because it
+        // reports success.
+        const declared = new Set();
+        modules.forEach(m => {
+            if (declared.has(m.id)) throw new Error(`Duplicate module id: ${m.id}`);
+            declared.add(m.id);
+        });
+
+        (document.connections || []).forEach((conn, index) => {
+            [['source', conn.source], ['target', conn.target]].forEach(([role, end]) => {
+                if (!declared.has(end?.module)) {
+                    throw new Error(
+                        `Connection ${index} ${role} names module `
+                        + `"${end?.module}", which is not in this patch`
+                    );
+                }
+            });
+        });
+
+        const groupIds = new Set();
+        (document.groups || []).forEach(group => {
+            if (groupIds.has(group.id)) {
+                throw new Error(`Duplicate group id: ${group.id}`);
+            }
+            groupIds.add(group.id);
+
+            (group.members || []).forEach(member => {
+                if (!declared.has(member)) {
+                    throw new Error(
+                        `Group "${group.id}" names module "${member}", `
+                        + 'which is not in this patch'
+                    );
+                }
+            });
+        });
+
         this.clearRack();
         this.name = document.name || 'Untitled Patch';
 
@@ -2098,8 +2138,9 @@ class EurorackSystem {
             byId.set(module.id, module);
         });
 
-        // Groups naming a device this document does not carry are dropped
-        // rather than left dangling.
+        // A group naming a module this document does not carry is refused
+        // above, so anything left here names something real. The filter stays
+        // as the last line of defence, not as a policy.
         this.groups = (document.groups || []).map(group => ({
             id: group.id,
             kind: group.kind || 'row',

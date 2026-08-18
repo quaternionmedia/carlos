@@ -14,18 +14,23 @@ sitting beside it. The regression protection is the assertions.
 ## Provisioning
 
 ```python
->>> from walkthrough.support import LiveApp, Shots, open_rack, open_menu, pick
->>> from playwright.sync_api import sync_playwright
+>>> from walkthrough.support import LiveApp, Shots, chromium, open_rack
+>>> from walkthrough.support import open_menu, pick, until
 >>> app = LiveApp().start()
 >>> shots = Shots('05-in-the-browser')
->>> driver = sync_playwright().start()
->>> browser = driver.chromium.launch()
+>>> browser = chromium()
 
 ```
 
 `LiveApp.start()` polls `/healthz` and raises `Unreachable` if it never
 answers. A port of its own, not 8000: a developer's own server is usually up,
 and measuring that one would test whatever code happened to be running.
+
+Both the server and the browser register their own shutdown as they start.
+doctest stops at the first failing example, so a page that dies half way
+through never reaches the teardown at the bottom of it — and a server that
+outlives its run holds a port until somebody notices. One session left seven of
+them.
 
 ## Boot
 
@@ -130,7 +135,7 @@ would become a continuation submenu rather than a ninth wedge.
 ```python
 >>> pick(page, 'controller')
 >>> pick(page, 'Launchpad X')
->>> page.wait_for_timeout(800)
+>>> until(page, "document.querySelector('#status').textContent.includes('Imported')")
 >>> page.locator('#status').inner_text()
 'Imported "A grid playing a modular drum rig": 4 module(s), 4 cable(s), 1 group(s)'
 
@@ -225,7 +230,7 @@ Note 36 on channel 10 is what `kick` is bound to. Press it:
 
 ```python
 >>> pads.first.click()
->>> page.wait_for_timeout(120)
+>>> until(page, "document.querySelector('#status').textContent.includes('note 36')")
 >>> page.locator('#status').inner_text()
 'Launchpad X: note 36 ch 10'
 
@@ -253,7 +258,8 @@ class. The drum voice that is *not* bound to that note stays dark:
 A press is momentary, so the light goes out on its own:
 
 ```python
->>> page.wait_for_timeout(400)
+>>> until(page, '''!document.querySelector('[data-module-id="kick"]')
+...                  .classList.contains('is-active')''')
 >>> page.locator('[data-module-id="kick"]').get_attribute('class')
 'module'
 
@@ -280,7 +286,8 @@ event too:
 >>> knob = launchpad.locator('.irl-knob').first
 >>> knob.click()
 >>> page.keyboard.press('ArrowUp')
->>> page.wait_for_timeout(120)
+>>> until(page, '''document.querySelector('.face.active .irl-screen .irl-screen-text')
+...                  .textContent.startsWith('BRIGHT')''')
 >>> screen.locator('.irl-screen-text').inner_text().startswith('BRIGHT')
 True
 
@@ -300,7 +307,7 @@ and neither is in the rig above. Add them the way anyone would:
 >>> pick(page, 'Add Device')
 >>> pick(page, 'mixer')
 >>> pick(page, 'Qu-24')
->>> page.wait_for_timeout(600)
+>>> until(page, "document.querySelectorAll('.irl-key').length === 88")
 
 ```
 
@@ -363,7 +370,7 @@ Qu-24 -> top
 
 ```python
 >>> page.keyboard.press('Tab')
->>> page.wait_for_timeout(200)
+>>> until(page, "document.querySelector('#view-indicator').textContent !== 'ALL FRONT'")
 >>> page.locator('#view-indicator').inner_text() != 'ALL FRONT'
 True
 
@@ -447,11 +454,11 @@ into a red build.
 ```
 
 ```python
->>> browser.close()
->>> driver.stop()
 >>> app.stop()
 
 ```
+
+The browser needs no line here: it shut itself down when it started.
 
 ## What this page does not cover
 

@@ -178,6 +178,37 @@ refuses('unknown module type refused',
     { format: 'carlos.patch', version: 1, modules: [{ id: 'z', type: 'theremin' }] }, 'theremin');
 refuses('a list is not a patch', [], 'JSON object');
 
+// The internal-consistency rules the contract states. The browser used to
+// accept all of these and the server refuses them, so a document the API would
+// reject loaded here into a rack quietly missing a device - and reported
+// success, which is the worst way for an import to fail.
+const vcoModule = (id) =>
+    ({ id, type: 'carlos.vco', view: 'front', parameters: {} });
+const doc = (extra) => ({
+    format: 'carlos.patch', version: 3, name: 'bad', modules: [], connections: [],
+    groups: [], ...extra,
+});
+
+refuses('two modules with one id are refused',
+    doc({ modules: [vcoModule('a'), vcoModule('a')] }), 'Duplicate module id');
+refuses('a cable to a module this document does not carry is refused',
+    doc({
+        modules: [vcoModule('a')],
+        connections: [{ source: { module: 'a', jack: 'audio_out' },
+                        target: { module: 'ghost', jack: 'audio_in' } }],
+    }), 'not in this patch');
+refuses('two groups with one id are refused',
+    doc({
+        modules: [vcoModule('a')],
+        groups: [{ id: 'row-1', kind: 'row', label: 'One', members: [] },
+                 { id: 'row-1', kind: 'row', label: 'Two', members: [] }],
+    }), 'Duplicate group id');
+refuses('a group naming a module this document does not carry is refused',
+    doc({
+        modules: [vcoModule('a')],
+        groups: [{ id: 'row-1', kind: 'row', label: 'One', members: ['ghost'] }],
+    }), 'not in this patch');
+
 // a refused import must leave the rack alone
 check('rack survived the refusals', system.modules.size, 2);
 check('turned device survived the round trip',
