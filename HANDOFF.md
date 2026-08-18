@@ -31,6 +31,8 @@ session (the README rewrite, the TinyDB cleanup, the community files) is
 committed here too rather than left loose.
 
 ```text
+Declare what asking this seam costs, and how often to ask
+Record the stability pass in the handoff
 Chase stability: stop leaking servers, stop sleeping, stop drifting
 Stop the onboarding docs disagreeing with each other
 Make every drawn thing a thing that does something
@@ -135,7 +137,9 @@ A browser workspace for sketching rigs of real gear.
   something: a pad sends MIDI down the real path, screens read a declared
   source, and every fader on a desk moves.
 - **An interop seam** — callable over REST+JSON+OpenAPI, five transforms, and
-  outbound calls that are *planned* and never sent.
+  outbound calls that are *planned* and never sent. `GET /api/cadence` tells
+  another application what each call costs it and how often to ask; every
+  endpoint declared a read is called twice by a test that measures the disk.
 
 Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 `docs/rad-integration.md`, `docs/midi-and-display.md`.
@@ -144,7 +148,7 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 
 | Check | Result |
 | --- | --- |
-| `uv run pytest tests walkthrough --doctest-glob=*.md` | 252 passed, 796 subtests |
+| `uv run pytest tests walkthrough --doctest-glob=*.md` | 267 passed, 848 subtests |
 | `node tests/palette.js` | 39/39 |
 | `node tests/view_toggle.js` | 83/83 |
 | `node tests/rack_behaviour.js` | 95/95 |
@@ -238,8 +242,11 @@ Ordered by what unblocks the most.
 4. **Add `walkthrough/`**, which every QM repository owes and this one lacks.
    Note it implies pytest, which is a second open conflict.
 5. **Give `/healthz` a real identity** — resolved database path, bound port,
-   start time — so a collector can attribute a measurement. The monitoring-seam
-   record names the current state as a defect.
+   start time — so a collector can attribute a measurement. Still open, and now
+   stated rather than implied: `/api/cadence` says this build cannot say which
+   instance answered, and `GOVERNANCE.md` carries the row. The record's own
+   mechanism (bind port 0, write a run-file) is declined there with its reason,
+   which is not the same as declining the requirement.
 6. **Settle the frontend conflict.** `static/` is now five modules with no build
    step; the house-stack set names mithril with parcel. Neither the blessed
    answer nor a recorded exception.
