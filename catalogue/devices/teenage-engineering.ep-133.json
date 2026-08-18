@@ -3,7 +3,7 @@
   "maker": "Teenage Engineering",
   "model": "EP-133 K.O. II",
   "category": "sampler",
-  "summary": "A pocket sampler and composer with a built-in microphone, twelve pads across nine groups, and a punch-in effects section. Every socket is along its top edge, so it has a face you play and a top you patch, and no back at all. Drawn looking down at it: the pad grid, the number keys and the display are the surface, and the five sockets run along its back edge - the top edge as you look down at it, which is what the entry used to call it. The key and pad counts are the arrangement rather than a census.",
+  "summary": "A pocket sampler and composer with a built-in microphone, twelve pads across nine groups, and a punch-in effects section. Every socket is along its top edge, so it has a face you play and a top you patch, and no back at all. Drawn looking down at it: the pad grid, the number keys and the display are the surface, and the five sockets run along its back edge - the top edge as you look down at it, which is what the entry used to call it. The key and pad counts are the arrangement rather than a census. Its twelve sample pads send notes from 36 on channel 10.",
   "fidelity": "detailed",
   "jacks": [
     {
@@ -179,7 +179,8 @@
         "y": 0.19,
         "w": 0.23,
         "h": 0.22,
-        "side": "top"
+        "side": "top",
+        "source": "last-event"
       },
       {
         "kind": "pads",
@@ -190,7 +191,10 @@
         "w": 0.33,
         "h": 0.62,
         "side": "top",
-        "label": "Sample pads"
+        "label": "Sample pads",
+        "emits": "midi-note",
+        "channel": 10,
+        "note": 36
       },
       {
         "kind": "buttons",
@@ -201,7 +205,8 @@
         "w": 0.31,
         "h": 0.62,
         "side": "top",
-        "label": "Numeric keys"
+        "label": "Numeric keys",
+        "emits": "event"
       },
       {
         "kind": "grille",

@@ -474,7 +474,8 @@
         "y": 0.115,
         "w": 0.09,
         "h": 0.135,
-        "side": "top"
+        "side": "top",
+        "source": "parameter"
       },
       {
         "kind": "screen",
@@ -483,7 +484,8 @@
         "y": 0.115,
         "w": 0.09,
         "h": 0.135,
-        "side": "top"
+        "side": "top",
+        "source": "device"
       },
       {
         "kind": "screen",
@@ -492,7 +494,8 @@
         "y": 0.115,
         "w": 0.105,
         "h": 0.15,
-        "side": "top"
+        "side": "top",
+        "source": "patch"
       },
       {
         "kind": "screen",
@@ -501,7 +504,8 @@
         "y": 0.115,
         "w": 0.09,
         "h": 0.135,
-        "side": "top"
+        "side": "top",
+        "source": "last-event"
       },
       {
         "kind": "buttons",
@@ -512,7 +516,8 @@
         "w": 0.055,
         "h": 0.2,
         "side": "top",
-        "label": "Piano type"
+        "label": "Piano type",
+        "emits": "event"
       },
       {
         "kind": "buttons",
@@ -523,7 +528,8 @@
         "w": 0.095,
         "h": 0.2,
         "side": "top",
-        "label": "Program bank"
+        "label": "Program bank",
+        "emits": "event"
       },
       {
         "kind": "buttons",
@@ -534,7 +540,8 @@
         "w": 0.09,
         "h": 0.2,
         "side": "top",
-        "label": "Oscillator"
+        "label": "Oscillator",
+        "emits": "event"
       }
     ]
   }

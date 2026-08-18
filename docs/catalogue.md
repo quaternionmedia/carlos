@@ -197,7 +197,7 @@ areas, not points.
 | `keybed` | `keys`, `from_note` | naturals with the sharps hung between them |
 | `pads` | `rows`, `cols` | a grid of performance pads |
 | `buttons` | `rows`, `cols` | a grid of small buttons |
-| `screen` | `text` (optional) | a lit display |
+| `screen` | `source` | a lit display, showing what that source reads |
 | `wheel` | | a pitch or modulation wheel, seen edge-on |
 | `grille` | | a speaker |
 | `vent` | | a slot or a fan |
@@ -209,15 +209,64 @@ areas, not points.
 under every hand position. 88 keys from A is 52 naturals and 36 sharps, which is
 what `tests/view_toggle.js` asserts.
 
-Every feature is `aria-hidden`. A keybed this app cannot play and a screen it
-cannot read are decoration to a screen reader, and announcing 88 keys ahead of
-the controls would bury the controls.
+Decoration is `aria-hidden`: a keybed this app cannot play, a logo, a plate.
+Announcing 88 keys ahead of the controls would bury the controls. A grid that
+emits is not decoration — it is announced, and so is every cell in it.
+
+#### What a grid sends
+
+A grid of pads or buttons may declare what a press sends, and then every cell
+in it is a real button — focusable, pressable by pointer or keyboard.
+
+```json
+{ "kind": "pads", "rows": 8, "cols": 8, "emits": "midi-note",
+  "channel": 10, "note": 36, "x": 0.465, "y": 0.575, "w": 0.79, "h": 0.72 }
+```
+
+| `emits` | Also needs | A press sends |
+| --- | --- | --- |
+| `midi-note` | `channel`, `note` | a note, through `MidiInput` |
+| `midi-cc` | `channel`, `controller` | a controller change |
+| `event` | | a named device event, no MIDI |
+
+**Cells are numbered across then down, and what they send climbs with them.**
+The first cell sends what the entry declares; each one after it sends the next.
+An 8×8 grid is two numbers rather than sixty-four, and a Launchpad X's grid
+starting at note 36 on channel 10 is where a drum machine has always listened.
+
+`midi-note` and `midi-cc` go down the same path a real port uses, so a device
+bound to that note lights up. That is the difference between a pad that looks
+like one and a pad that is one. A grid with no `emits` is still drawn — the
+shape of a device is worth drawing — it just answers to nobody.
+
+#### What a screen shows
+
+Every screen names one source, and none of it is stored: a screen showing a
+remembered message would disagree with the panel the moment anything moved,
+which is the reason knob rotation is derived too.
+
+| `source` | Shows |
+| --- | --- |
+| `device` | the maker and model — what an idle panel shows |
+| `last-event` | the most recent thing that happened on this device |
+| `parameter` | the control being moved, and its value |
+| `patch` | the name of the rack being worked on |
+| `transport` | tempo, for a device that has one |
+| `static` | only ever its own `text` |
 
 #### Control `kind` — a fader is not a knob turned sideways
 
 A `controls` entry may say what shape it is: `knob` (the default), `fader`,
 `drawbar`, `encoder` or `switch`. A mixer drawn as a field of circles is
 recognisable as nothing at all.
+
+**Everything drawn as a control is a control.** There was briefly a `faders`
+feature kind, for a bank drawn as the shape of a device rather than as things
+to move — a desk has twenty-five and this catalogue described four channels. It
+is gone: a desk you cannot move a fader on is a photograph. The Qu-24's
+twenty-four channel faders and the DFAM's two eight-step rows are parameters,
+and the fidelity question they were dodging is a claim about *sockets*, which
+is a different claim.
 
 `fader` and `drawbar` also take `orient` (`vertical` or `horizontal`) and
 `length`, the travel as a fraction of the panel. Every kind is driven by the one

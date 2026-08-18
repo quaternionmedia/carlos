@@ -287,10 +287,18 @@ check('the organ has its nine drawbars', drawn('.irl-drawbar').length, 9);
 check('and the drawbars are controls, not decoration',
     drawn('.irl-drawbar').every(d => d.getAttribute('role') === 'slider'), true);
 
-// Decoration is decoration. Announcing 88 keys before the controls would bury
-// the controls, and none of it is anything this app can play.
-check('the panel furniture is hidden from a screen reader',
-    drawn('.irl-feature').every(f => f.getAttribute('aria-hidden') === 'true'), true);
+// Decoration is decoration: a keybed this app cannot play, a logo, a plate.
+// Announcing 88 keys before the controls would bury the controls.
+const decoration = drawn('.irl-feature').filter(f => !f.getAttribute('role'));
+check('there is decoration to hide', decoration.length > 0, true);
+check('and all of it is hidden from a screen reader',
+    decoration.every(f => f.getAttribute('aria-hidden') === 'true'), true);
+
+// A grid that sends is not decoration. It is announced, and so is every cell.
+const live = drawn('.irl-feature[role="group"]');
+check('a grid that emits is announced rather than hidden',
+    live.every(f => f.getAttribute('aria-hidden') === null
+        && (f.getAttribute('aria-label') || '').length > 0), true);
 
 // The face's own proportion, and the measurement it was compressed from.
 const activePanel = drawn('.irl-panel').find(
@@ -313,6 +321,89 @@ check('minimal draws no panel furniture',
     bare.element.querySelectorAll('.irl-feature').length, 0);
 check('and claims no proportion',
     bare.element.style.getPropertyValue('--panel-width'), '');
+
+// --- every drawn thing does something ---
+// A panel of pictures is a photograph. These assert the tree and the wiring:
+// a grid that says it sends is a grid of buttons that are wired to send, and a
+// screen shows what its entry says it reads rather than a message baked into
+// the markup.
+system.clearRack();
+system.setMode('irl');
+const pad = system.addModule('novation.launchpad-x');
+const listeners = (el) => new Set(el.listeners.map(l => l.type));
+
+const cells = pad.element.querySelectorAll('.irl-cell');
+check('a controller draws every cell it has', cells.length, 64 + 8 + 8);
+check('and every one of them is a button',
+    cells.every(c => c.tagName === 'BUTTON'), true);
+check('wired to a press and to the keyboard',
+    cells.every(c => listeners(c).has('pointerdown') && listeners(c).has('keydown')),
+    true);
+check('each naming where it is, so they are not 80 identical controls',
+    new Set(cells.map(c => c.getAttribute('aria-label'))).size, cells.length);
+
+// The note a cell sends climbs with the grid: an entry declares two numbers
+// rather than sixty-four.
+const gridCells = pad.element
+    .querySelectorAll('.irl-pads')[0].querySelectorAll('.irl-cell');
+check('the first pad sends what the entry declares',
+    gridCells[0].getAttribute('title'), 'note 36 ch 10');
+check('and the last sends sixty-three notes up',
+    gridCells[63].getAttribute('title'), 'note 99 ch 10');
+
+// A press reaches the device, and would reach the host if there were one.
+let sent = null;
+pad.element.querySelectorAll('.irl-pads')[0]
+    .querySelectorAll('.irl-cell')[3]
+    .listeners.filter(l => l.type === 'pointerdown')
+    .forEach(l => l.fn({ preventDefault() {}, stopPropagation() {} }));
+check('pressing a pad tells the device what it sent', pad.lastEvent, 'note 39 ch 10');
+
+// Screens read their declared source, and carry no text of their own.
+const screenOf = (module) => module.element.querySelectorAll('.irl-screen')[0];
+check('a screen names what it reads',
+    screenOf(pad).getAttribute('data-source'), 'last-event');
+check('and shows the event that just happened',
+    screenOf(pad).querySelectorAll('.irl-screen-text')[0].textContent,
+    'NOTE 39 CH 10');
+
+// A different source reads something else entirely.
+const stage = system.addModule('nord.stage-3');
+const sources = stage.element.querySelectorAll('.irl-screen')
+    .map(s => s.getAttribute('data-source'));
+check('a device may read several different things', new Set(sources).size, 4);
+const byId = {};
+stage.element.querySelectorAll('.irl-screen').forEach(s => {
+    byId[s.getAttribute('data-source')] =
+        s.querySelectorAll('.irl-screen-text')[0].textContent;
+});
+check('the device screen shows the device', byId.device, 'NORD STAGE 3');
+check('and none of them is empty',
+    Object.values(byId).every(text => text.length > 0), true);
+
+// Moving a control is an event too, and a `parameter` screen is what reads it.
+const drawbar = stage.element.querySelectorAll('.irl-drawbar')[0];
+const moved = stage.parameters.get(drawbar.getAttribute('data-param'));
+drawbar.listeners.filter(l => l.type === 'keydown').forEach(l => l.fn({
+    key: 'ArrowUp', shiftKey: false, ctrlKey: false, altKey: false,
+    metaKey: false, preventDefault() {}, stopPropagation() {},
+}));
+const after = {};
+stage.element.querySelectorAll('.irl-screen').forEach(s => {
+    after[s.getAttribute('data-source')] =
+        s.querySelectorAll('.irl-screen-text')[0].textContent;
+});
+check('moving a control reaches the parameter screen',
+    after.parameter.startsWith(moved.label), true);
+check('and the device screen is unmoved by it', after.device, 'NORD STAGE 3');
+
+// A desk's faders are controls, not scenery.
+const desk = system.addModule('allen-heath.qu24');
+check('every channel fader on a desk moves',
+    desk.element.querySelectorAll('.irl-fader').length, 25);
+check('and each is a slider a screen reader can read',
+    desk.element.querySelectorAll('.irl-fader')
+        .every(f => f.getAttribute('role') === 'slider'), true);
 
 let failed = 0;
 for (const r of results) {

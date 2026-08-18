@@ -3,7 +3,7 @@
   "maker": "Novation",
   "model": "Launchpad X",
   "category": "controller",
-  "summary": "An 8x8 RGB velocity-sensitive pad grid with eight function buttons along the top and eight scene launches down the right side. It makes no sound: it sends MIDI, over USB-C or the 3.5mm TRS output, which is what makes it the surface a modular drum rig is played from. Pair it with `carlos.drum` and bind a pad to the voice. Its playing surface is its top and its two sockets are on the back edge, so it opens facing the grid rather than the thin front lip.",
+  "summary": "An 8x8 RGB velocity-sensitive pad grid with eight function buttons along the top and eight scene launches down the right side. It makes no sound: it sends MIDI, over USB-C or the 3.5mm TRS output, which is what makes it the surface a modular drum rig is played from. Pair it with `carlos.drum` and bind a pad to the voice: pressing a pad on the drawn grid sends a note down the same path a real port uses, so the bound device lights up. The grid starts at note 36 on channel 10, which is where a drum machine has always listened. Its playing surface is its top and its two sockets are on the back edge, so it opens facing the grid rather than the thin front lip.",
   "fidelity": "detailed",
   "jacks": [
     {
@@ -82,7 +82,10 @@
         "w": 0.79,
         "h": 0.075,
         "side": "top",
-        "label": "Function"
+        "label": "Function",
+        "emits": "midi-cc",
+        "channel": 1,
+        "controller": 91
       },
       {
         "kind": "buttons",
@@ -93,7 +96,10 @@
         "w": 0.075,
         "h": 0.72,
         "side": "top",
-        "label": "Scene launch"
+        "label": "Scene launch",
+        "emits": "midi-cc",
+        "channel": 1,
+        "controller": 19
       },
       {
         "kind": "pads",
@@ -104,7 +110,20 @@
         "w": 0.79,
         "h": 0.72,
         "side": "top",
-        "label": "8x8 RGB velocity pads"
+        "label": "8x8 RGB velocity pads",
+        "emits": "midi-note",
+        "channel": 10,
+        "note": 36
+      },
+      {
+        "kind": "screen",
+        "source": "last-event",
+        "x": 0.64,
+        "y": 0.075,
+        "w": 0.23,
+        "h": 0.055,
+        "side": "top",
+        "label": "What it just sent"
       }
     ]
   }

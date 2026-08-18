@@ -3,7 +3,7 @@
   "maker": "Moog",
   "model": "DFAM",
   "category": "semi-modular",
-  "summary": "Drummer From Another Mother: a semi-modular percussion synthesiser with two oscillators, a noise source, two 8-step sequencers for pitch and velocity, and a 24-point patch bay. Normalled, so it makes sound with nothing patched. This entry sketches the patch bay rather than reproducing all 24 points. The panel is drawn at the arrangement - patch bay over the right, voice on the left, the two eight-step sequencer rows along the bottom. The sequencer sliders are the shape of the device rather than controls here, because this entry sketches the patch bay rather than reproducing all twenty-four points.",
+  "summary": "Drummer From Another Mother: a semi-modular percussion synthesiser with two oscillators, a noise source, two 8-step sequencers for pitch and velocity, and a 24-point patch bay. Normalled, so it makes sound with nothing patched. This entry sketches the patch bay rather than reproducing all 24 points. The panel is drawn at the arrangement - patch bay over the right, voice on the left, the two eight-step sequencer rows along the bottom. Both eight-step rows move: pitch and velocity, sixteen sliders. The entry still sketches the patch bay rather than reproducing all twenty-four points, which is a claim about sockets and not about controls.",
   "fidelity": "sketch",
   "jacks": [
     {
@@ -248,6 +248,118 @@
       "min": 0,
       "max": 127,
       "default": 35
+    },
+    {
+      "name": "pitch_1",
+      "label": "P1",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "pitch_2",
+      "label": "P2",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "pitch_3",
+      "label": "P3",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "pitch_4",
+      "label": "P4",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "pitch_5",
+      "label": "P5",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "pitch_6",
+      "label": "P6",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "pitch_7",
+      "label": "P7",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "pitch_8",
+      "label": "P8",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "velocity_1",
+      "label": "V1",
+      "min": 0,
+      "max": 127,
+      "default": 96
+    },
+    {
+      "name": "velocity_2",
+      "label": "V2",
+      "min": 0,
+      "max": 127,
+      "default": 96
+    },
+    {
+      "name": "velocity_3",
+      "label": "V3",
+      "min": 0,
+      "max": 127,
+      "default": 96
+    },
+    {
+      "name": "velocity_4",
+      "label": "V4",
+      "min": 0,
+      "max": 127,
+      "default": 96
+    },
+    {
+      "name": "velocity_5",
+      "label": "V5",
+      "min": 0,
+      "max": 127,
+      "default": 96
+    },
+    {
+      "name": "velocity_6",
+      "label": "V6",
+      "min": 0,
+      "max": 127,
+      "default": 96
+    },
+    {
+      "name": "velocity_7",
+      "label": "V7",
+      "min": 0,
+      "max": 127,
+      "default": 96
+    },
+    {
+      "name": "velocity_8",
+      "label": "V8",
+      "min": 0,
+      "max": 127,
+      "default": 96
     }
   ],
   "layout": {
@@ -299,6 +411,150 @@
         "y": 0.4,
         "side": "front",
         "size": 1.1
+      },
+      "pitch_1": {
+        "x": 0.055,
+        "y": 0.7,
+        "side": "front",
+        "size": 0.9,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.16
+      },
+      "pitch_2": {
+        "x": 0.1136,
+        "y": 0.7,
+        "side": "front",
+        "size": 0.9,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.16
+      },
+      "pitch_3": {
+        "x": 0.1721,
+        "y": 0.7,
+        "side": "front",
+        "size": 0.9,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.16
+      },
+      "pitch_4": {
+        "x": 0.2307,
+        "y": 0.7,
+        "side": "front",
+        "size": 0.9,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.16
+      },
+      "pitch_5": {
+        "x": 0.2893,
+        "y": 0.7,
+        "side": "front",
+        "size": 0.9,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.16
+      },
+      "pitch_6": {
+        "x": 0.3479,
+        "y": 0.7,
+        "side": "front",
+        "size": 0.9,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.16
+      },
+      "pitch_7": {
+        "x": 0.4064,
+        "y": 0.7,
+        "side": "front",
+        "size": 0.9,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.16
+      },
+      "pitch_8": {
+        "x": 0.465,
+        "y": 0.7,
+        "side": "front",
+        "size": 0.9,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.16
+      },
+      "velocity_1": {
+        "x": 0.055,
+        "y": 0.9,
+        "side": "front",
+        "size": 0.8,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.13
+      },
+      "velocity_2": {
+        "x": 0.1136,
+        "y": 0.9,
+        "side": "front",
+        "size": 0.8,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.13
+      },
+      "velocity_3": {
+        "x": 0.1721,
+        "y": 0.9,
+        "side": "front",
+        "size": 0.8,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.13
+      },
+      "velocity_4": {
+        "x": 0.2307,
+        "y": 0.9,
+        "side": "front",
+        "size": 0.8,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.13
+      },
+      "velocity_5": {
+        "x": 0.2893,
+        "y": 0.9,
+        "side": "front",
+        "size": 0.8,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.13
+      },
+      "velocity_6": {
+        "x": 0.3479,
+        "y": 0.9,
+        "side": "front",
+        "size": 0.8,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.13
+      },
+      "velocity_7": {
+        "x": 0.4064,
+        "y": 0.9,
+        "side": "front",
+        "size": 0.8,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.13
+      },
+      "velocity_8": {
+        "x": 0.465,
+        "y": 0.9,
+        "side": "front",
+        "size": 0.8,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.13
       }
     },
     "jacks": {
@@ -476,28 +732,6 @@
         "label": "Voice"
       },
       {
-        "kind": "faders",
-        "rows": 1,
-        "cols": 8,
-        "x": 0.26,
-        "y": 0.7,
-        "w": 0.47,
-        "h": 0.2,
-        "side": "front",
-        "label": "Pitch sequencer"
-      },
-      {
-        "kind": "faders",
-        "rows": 1,
-        "cols": 8,
-        "x": 0.26,
-        "y": 0.9,
-        "w": 0.47,
-        "h": 0.16,
-        "side": "front",
-        "label": "Velocity sequencer"
-      },
-      {
         "kind": "buttons",
         "rows": 1,
         "cols": 8,
@@ -506,7 +740,8 @@
         "w": 0.47,
         "h": 0.06,
         "side": "front",
-        "label": "Step select"
+        "label": "Step select",
+        "emits": "event"
       },
       {
         "kind": "vent",

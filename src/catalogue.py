@@ -127,7 +127,6 @@ FeatureKind = Literal[
     "keybed",   # a piano keyboard; `keys` long, starting at `from_note`
     "pads",     # a grid of `rows` x `cols` performance pads
     "buttons",  # a grid of `rows` x `cols` small buttons
-    "faders",   # a bank of `cols` faders, none of them a parameter here
     "screen",   # a display, showing `text` if it has anything to say
     "wheel",    # pitch or modulation, upright
     "grille",   # a speaker
@@ -135,6 +134,29 @@ FeatureKind = Literal[
     "logo",     # the maker's mark, drawn as `text`
     "label",    # a panel legend or a section name
     "plate",    # a section boundary: the thing that makes a panel read as parts
+]
+
+
+# What a screen reads. Every one of these is derived from state the app already
+# holds, and none of it is stored: a screen showing a remembered message would
+# be a second copy of something, disagreeing with the first the moment anything
+# moved. Same reasoning as knob rotation.
+ScreenSource = Literal[
+    "device",       # the maker and model, which is what an idle panel shows
+    "last-event",   # the most recent thing that happened on this device
+    "parameter",    # the control being moved, and its value
+    "patch",        # the name of the rack being worked on
+    "transport",    # tempo and running state, for devices that have them
+    "static",       # only ever its own `text`
+]
+
+# What pressing a cell sends. A grid on a controller sends MIDI down the same
+# path a real port uses, so a device bound to that note lights up - which is the
+# difference between a pad that looks like a pad and one that is one.
+EmitKind = Literal[
+    "midi-note",  # `note` for the first cell, +1 across the grid
+    "midi-cc",    # `controller` for the first cell, +1 across the grid
+    "event",      # a named device event: no MIDI, but the panel still reacts
 ]
 
 
@@ -188,6 +210,14 @@ class Feature(BaseModel):
     # What a screen shows, or a logo or label reads.
     text: str | None = None
     label: str | None = None
+    # A screen reads one source. Required for `screen` and meaningless
+    # elsewhere, which the validator enforces rather than trusting.
+    source: ScreenSource | None = None
+    # What a press sends, for the grids that are controls rather than shape.
+    emits: EmitKind | None = None
+    channel: int | None = Field(default=None, ge=1, le=16)
+    note: int | None = Field(default=None, ge=0, le=127)
+    controller: int | None = Field(default=None, ge=0, le=127)
 
     @model_validator(mode="after")
     def _kind_carries_what_it_needs(self) -> "Feature":
@@ -195,12 +225,19 @@ class Feature(BaseModel):
             raise ValueError("a keybed needs `keys`")
         if self.kind in ("pads", "buttons") and not (self.rows and self.cols):
             raise ValueError(f"a {self.kind} grid needs `rows` and `cols`")
-        # A fader bank is a feature rather than a control because a desk has
-        # twenty-five of them and this catalogue describes four channels. They
-        # are the shape of the device, not things to turn here; a `controls`
-        # entry of kind `fader` is the other case, for one that is.
-        if self.kind == "faders" and not self.cols:
-            raise ValueError("a fader bank needs `cols`, the number of faders")
+        if self.kind == "screen" and self.source is None:
+            raise ValueError(
+                "a screen needs a `source` - what it shows. Use `static` for one "
+                "that only ever shows its own `text`"
+            )
+        if self.source == "static" and not self.text:
+            raise ValueError("a static screen needs the `text` it shows")
+        if self.emits in ("midi-note", "midi-cc") and self.channel is None:
+            raise ValueError(f"{self.emits} needs the `channel` it sends on")
+        if self.emits == "midi-note" and self.note is None:
+            raise ValueError("midi-note needs the `note` its first cell sends")
+        if self.emits == "midi-cc" and self.controller is None:
+            raise ValueError("midi-cc needs the `controller` its first cell sends")
         if self.kind == "logo" and not self.text:
             raise ValueError("a logo needs the `text` it reads")
         return self

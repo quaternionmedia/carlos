@@ -181,6 +181,44 @@ function learnFrom(message) {
 // The device waiting to be bound to whatever arrives next, if any.
 let midiLearnTarget = null;
 
+// A pad on a drawn device sends down the same path a real port uses.
+//
+// This is the whole point of the grids being controls rather than pictures: a
+// press on a Launchpad X's pad reaches `MidiInput` as a note, matches whatever
+// binding names it, and lights the device that binding points at. Nothing here
+// knows about pads and nothing in `models.js` knows about MIDI ports.
+system.onEmit = (detail) => {
+    if (detail.emits === 'midi-note') {
+        midiInput.setBindings(system.midi);
+        const matched = midiInput.simulate({
+            channel: detail.channel,
+            note: detail.note,
+            value: 100,
+        });
+        if (!matched.length) {
+            system.status.update(
+                `${detail.legend} - nothing is bound to it. `
+                + 'Use MIDI > Bind next message on a device.'
+            );
+        }
+        return matched;
+    }
+
+    if (detail.emits === 'midi-cc') {
+        midiInput.setBindings(system.midi);
+        return midiInput.simulate({
+            channel: detail.channel,
+            controller: detail.controller,
+            value: 100,
+        });
+    }
+
+    // A named event. It reached the device's own screens on the way here, and
+    // the status line has already said what it was; there is nothing further
+    // for it to do until something asks for one.
+    return null;
+};
+
 // What is patched, keyed the way the menu addresses it. Built per open rather
 // than kept in step: a cache of this would be a second copy of the patch bay,
 // and the resolver is called once per menu, not once per frame.
@@ -428,6 +466,14 @@ function currentPatchName() {
     const value = field?.value.trim();
     return value || 'Untitled Patch';
 }
+
+// A device with a `patch` screen is showing the rack's name, so typing in the
+// field has to reach it. Cheap enough to do per keystroke: it is a text write
+// per screen, and there are single digits of them.
+document.getElementById('patch-name')?.addEventListener('input', () => {
+    system.name = currentPatchName();
+    system.refreshScreens();
+});
 
 function exportPatch() {
     system.name = currentPatchName();

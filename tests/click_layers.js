@@ -277,6 +277,21 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         [...system.modules.values()].map(m => m.view).join(',') !== viewsBeforeTab,
         'Tab stopped turning the rack from the body');
 
+    // ---- COLLISION 7: a pad press is not also a selection ----
+    // Grids are buttons on top of a module, and the module selects itself on
+    // click. Stopping the pointerdown does not stop the click that follows, so
+    // the status line naming what the pad sent was overwritten by "selected"
+    // one frame later. Found in a browser, kept here.
+    const cellEl = makeEl({ className: 'irl-cell', parent: moduleEl });
+    let selected = false;
+    cellEl._listeners.push({ t: 'click', fn: (e) => e.stopPropagation() });
+    moduleEl._listeners.push({ t: 'click', fn: () => { selected = true; } });
+
+    fire('click', cellEl);
+    check('C7: clicking a pad does not also select the device',
+        selected === false,
+        'the click reached the module and selected it');
+
     let failed = 0;
     for (const r of results) {
         if (!r.ok) failed++;

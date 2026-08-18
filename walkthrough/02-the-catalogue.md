@@ -102,8 +102,8 @@ covers the rest:
 >>> from collections import Counter
 >>> kinds = Counter(f.kind for d in devices.values() for f in d.layout.features)
 >>> sorted(kinds)
-['buttons', 'faders', 'grille', 'keybed', 'label', 'logo', 'pads', 'plate',
- 'screen', 'vent', 'wheel']
+['buttons', 'grille', 'keybed', 'label', 'logo', 'pads', 'plate', 'screen',
+ 'vent', 'wheel']
 
 ```
 

@@ -3,7 +3,7 @@
   "maker": "Squarp Instruments",
   "model": "Hapax",
   "category": "sequencer",
-  "summary": "A two-project hardware sequencer with eight tracks per project, driving MIDI and CV/gate at once. Its output is time: notes, gates and clock. All connections are on the rear. The panel is drawn as a desktop sequencer: two displays over a step matrix, with the encoders between them. The matrix is drawn at the arrangement rather than counted off the product, so treat the grid as a caricature; the sockets and their sides are the part this entry is detailed about.",
+  "summary": "A two-project hardware sequencer with eight tracks per project, driving MIDI and CV/gate at once. Its output is time: notes, gates and clock. All connections are on the rear. The panel is drawn as a desktop sequencer: two displays over a step matrix, with the encoders between them. The matrix is drawn at the arrangement rather than counted off the product, so treat the grid as a caricature; the sockets and their sides are the part this entry is detailed about. The eight encoders under the displays move, and the track pads send MIDI.",
   "fidelity": "detailed",
   "jacks": [
     {
@@ -160,6 +160,62 @@
       "min": 0,
       "max": 127,
       "default": 64
+    },
+    {
+      "name": "encoder_1",
+      "label": "E1",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_2",
+      "label": "E2",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_3",
+      "label": "E3",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_4",
+      "label": "E4",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_5",
+      "label": "E5",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_6",
+      "label": "E6",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_7",
+      "label": "E7",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_8",
+      "label": "E8",
+      "min": 0,
+      "max": 127,
+      "default": 64
     }
   ],
   "layout": {
@@ -189,6 +245,62 @@
         "y": 0.61,
         "side": "top",
         "size": 1.0,
+        "kind": "encoder"
+      },
+      "encoder_1": {
+        "x": 0.215,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_2": {
+        "x": 0.2764,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_3": {
+        "x": 0.3379,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_4": {
+        "x": 0.3993,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_5": {
+        "x": 0.4607,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_6": {
+        "x": 0.5221,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_7": {
+        "x": 0.5836,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_8": {
+        "x": 0.645,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
         "kind": "encoder"
       }
     },
@@ -307,7 +419,8 @@
         "y": 0.18,
         "w": 0.23,
         "h": 0.23,
-        "side": "top"
+        "side": "top",
+        "source": "last-event"
       },
       {
         "kind": "screen",
@@ -316,18 +429,8 @@
         "y": 0.18,
         "w": 0.23,
         "h": 0.23,
-        "side": "top"
-      },
-      {
-        "kind": "buttons",
-        "rows": 1,
-        "cols": 8,
-        "x": 0.43,
-        "y": 0.36,
-        "w": 0.49,
-        "h": 0.07,
         "side": "top",
-        "label": "Encoders"
+        "source": "transport"
       },
       {
         "kind": "pads",
@@ -338,7 +441,10 @@
         "w": 0.49,
         "h": 0.18,
         "side": "top",
-        "label": "Track select"
+        "label": "Track select",
+        "emits": "midi-note",
+        "channel": 1,
+        "note": 60
       },
       {
         "kind": "pads",
@@ -349,7 +455,8 @@
         "w": 0.9,
         "h": 0.23,
         "side": "top",
-        "label": "Step matrix"
+        "label": "Step matrix",
+        "emits": "event"
       },
       {
         "kind": "buttons",
@@ -360,7 +467,8 @@
         "w": 0.13,
         "h": 0.36,
         "side": "top",
-        "label": "Transport"
+        "label": "Transport",
+        "emits": "event"
       },
       {
         "kind": "label",

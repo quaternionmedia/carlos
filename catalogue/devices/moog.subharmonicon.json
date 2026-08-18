@@ -3,7 +3,7 @@
   "maker": "Moog",
   "model": "Subharmonicon",
   "category": "semi-modular",
-  "summary": "A semi-modular polyrhythmic analogue synthesiser: two VCOs each with two subharmonic oscillators, two 4-step sequencers, four rhythm generators, and a 32-point patch bay. Normalled, so it plays without patching. This entry sketches the patch bay rather than reproducing all 32 points. Drawn at the arrangement: oscillators and their subharmonics at the top left, the two polyrhythm sequencers below them, the patch bay down the right.",
+  "summary": "A semi-modular polyrhythmic analogue synthesiser: two VCOs each with two subharmonic oscillators, two 4-step sequencers, four rhythm generators, and a 32-point patch bay. Normalled, so it plays without patching. This entry sketches the patch bay rather than reproducing all 32 points. Drawn at the arrangement: oscillators and their subharmonics at the top left, the two polyrhythm sequencers below them, the patch bay down the right. Both four-step sequencers move, which is where its polyrhythms come from.",
   "fidelity": "sketch",
   "jacks": [
     {
@@ -278,6 +278,62 @@
       "min": 1,
       "max": 16,
       "default": 3
+    },
+    {
+      "name": "seq1_1",
+      "label": "S1.1",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "seq1_2",
+      "label": "S1.2",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "seq1_3",
+      "label": "S1.3",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "seq1_4",
+      "label": "S1.4",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "seq2_1",
+      "label": "S2.1",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "seq2_2",
+      "label": "S2.2",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "seq2_3",
+      "label": "S2.3",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "seq2_4",
+      "label": "S2.4",
+      "min": 0,
+      "max": 127,
+      "default": 64
     }
   ],
   "layout": {
@@ -335,6 +391,54 @@
         "y": 0.44,
         "side": "front",
         "size": 1.1
+      },
+      "seq1_1": {
+        "x": 0.075,
+        "y": 0.7,
+        "side": "front",
+        "size": 1.0
+      },
+      "seq1_2": {
+        "x": 0.15,
+        "y": 0.7,
+        "side": "front",
+        "size": 1.0
+      },
+      "seq1_3": {
+        "x": 0.225,
+        "y": 0.7,
+        "side": "front",
+        "size": 1.0
+      },
+      "seq1_4": {
+        "x": 0.3,
+        "y": 0.7,
+        "side": "front",
+        "size": 1.0
+      },
+      "seq2_1": {
+        "x": 0.075,
+        "y": 0.86,
+        "side": "front",
+        "size": 1.0
+      },
+      "seq2_2": {
+        "x": 0.15,
+        "y": 0.86,
+        "side": "front",
+        "size": 1.0
+      },
+      "seq2_3": {
+        "x": 0.225,
+        "y": 0.86,
+        "side": "front",
+        "size": 1.0
+      },
+      "seq2_4": {
+        "x": 0.3,
+        "y": 0.86,
+        "side": "front",
+        "size": 1.0
       }
     },
     "jacks": {
@@ -547,7 +651,8 @@
         "w": 0.4,
         "h": 0.3,
         "side": "front",
-        "label": "Rhythm select"
+        "label": "Rhythm select",
+        "emits": "event"
       },
       {
         "kind": "vent",
@@ -565,6 +670,16 @@
         "w": 0.4,
         "h": 0.1,
         "side": "back"
+      },
+      {
+        "kind": "screen",
+        "source": "last-event",
+        "x": 0.265,
+        "y": 0.1,
+        "w": 0.18,
+        "h": 0.07,
+        "side": "front",
+        "label": "Sequencer readout"
       }
     ]
   }

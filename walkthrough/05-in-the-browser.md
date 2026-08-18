@@ -206,6 +206,86 @@ True
 
 ![The drum rig, drawn as laid out](media/05-in-the-browser-irl-drum-rig.png)
 
+## Pressing a pad does something
+
+The rig loaded above binds three pads to three drum voices on channel 10. The
+grid on screen is not a picture of a grid: each cell is a button, and pressing
+one sends a note down the same path a real MIDI port uses.
+
+```python
+>>> pads = launchpad.locator('.irl-pads button.irl-cell')
+>>> pads.count()
+64
+>>> pads.first.get_attribute('title')
+'note 36 ch 10'
+
+```
+
+Note 36 on channel 10 is what `kick` is bound to. Press it:
+
+```python
+>>> pads.first.click()
+>>> page.wait_for_timeout(120)
+>>> page.locator('#status').inner_text()
+'Launchpad X: note 36 ch 10'
+
+```
+
+The binding matched, so the device it points at is lit — `is-active` is the
+class the MIDI layer adds, and nothing here reached for it directly:
+
+```python
+>>> page.locator('[data-module-id="kick"]').get_attribute('class')
+'module is-active'
+
+```
+
+That is the whole chain: a button in the browser, through the catalogue's
+declared note, into `MidiInput`, matched against a binding, out to a device's
+class. The drum voice that is *not* bound to that note stays dark:
+
+```python
+>>> page.locator('[data-module-id="clap"]').get_attribute('class')
+'module'
+
+```
+
+A press is momentary, so the light goes out on its own:
+
+```python
+>>> page.wait_for_timeout(400)
+>>> page.locator('[data-module-id="kick"]').get_attribute('class')
+'module'
+
+```
+
+## Screens say what is happening
+
+A screen shows what its catalogue entry says it reads. The Launchpad's reads
+the last event, so it is showing the note that was just sent:
+
+```python
+>>> screen = launchpad.locator('.face.active .irl-screen')
+>>> screen.get_attribute('data-source')
+'last-event'
+>>> screen.locator('.irl-screen-text').inner_text()
+'NOTE 36 CH 10'
+
+```
+
+Move a control and the same screen follows, because moving a control is an
+event too:
+
+```python
+>>> knob = launchpad.locator('.irl-knob').first
+>>> knob.click()
+>>> page.keyboard.press('ArrowUp')
+>>> page.wait_for_timeout(120)
+>>> screen.locator('.irl-screen-text').inner_text().startswith('BRIGHT')
+True
+
+```
+
 ## The two panels with the most on them
 
 A keybed and a fader bank are the two things the vocabulary was extended for,
@@ -234,14 +314,15 @@ drawn from the wrong note, which puts the wrong key under every hand position:
 
 ```
 
-A desk is its fader bank. Twenty-one drawn as the shape of the device, plus the
-three the entry describes as controls you can actually move:
+A desk is its fader bank, and every one of the twenty-four channel faders moves
+— plus the master. They were drawn as the shape of the device once; a desk you
+cannot move a fader on is a photograph.
 
 ```python
->>> page.locator('.irl-bank-fader').count()
-21
 >>> page.locator('.irl-fader:not(.irl-drawbar)').count()
-3
+25
+>>> page.locator('.irl-fader[role="slider"]').count()
+34
 
 ```
 

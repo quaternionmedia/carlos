@@ -178,8 +178,8 @@ class CatalogueRejectionTests(unittest.TestCase):
         self.valid["layout"] = {
             "face": "top",
             "features": [
-                {"kind": "screen", "x": 0.5, "y": 0.5, "w": 0.3, "h": 0.2,
-                 "side": "top", "text": "HELLO"}
+                {"kind": "screen", "source": "static", "x": 0.5, "y": 0.5,
+                 "w": 0.3, "h": 0.2, "side": "top", "text": "HELLO"}
             ],
         }
         device = catalogue.load_device(self._write(self.valid))

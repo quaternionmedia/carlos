@@ -230,25 +230,65 @@ const SEMITONE_IS_WHITE = {
     6: false, 7: true, 8: false, 9: true, 10: false, 11: true,
 };
 
-// A bank of faders. Not controls: a desk has twenty-five and this catalogue
-// describes four channels, so they are the shape of the device rather than
-// things to move here. Each is a slot with a cap part way up - at a fixed
-// place, because a position that meant nothing would still look like it meant
-// something.
-function faderBank(count) {
-    const n = Math.max(1, Math.min(32, Number(count) || 1));
-    return `<div class="irl-fader-bank" style="--cols:${n}">`
-        + '<span class="irl-bank-fader"></span>'.repeat(n)
-        + '</div>';
+// A grid of pads or buttons.
+//
+// A cell that emits is a real button: focusable, pressable by pointer or key,
+// and named for where it is. A grid that emits nothing is still drawn, because
+// the shape of a device is worth drawing - it just answers to nobody.
+//
+// Cells are numbered across then down, and the note or controller they send
+// climbs with them: the first cell sends what the entry declares and each one
+// after it sends the next. That is how a grid controller is laid out, and it
+// means an entry declares two numbers rather than sixty-four.
+function grid(feature) {
+    const rows = Math.max(1, Math.min(32, Number(feature.rows) || 1));
+    const cols = Math.max(1, Math.min(32, Number(feature.cols) || 1));
+    const cells = [];
+
+    for (let index = 0; index < rows * cols; index++) {
+        const row = Math.floor(index / cols) + 1;
+        const column = (index % cols) + 1;
+        const where = rows > 1 && cols > 1
+            ? `row ${row}, column ${column}`
+            : `${index + 1}`;
+
+        if (!feature.emits) {
+            cells.push('<span class="irl-cell" aria-hidden="true"></span>');
+            continue;
+        }
+
+        cells.push(
+            `<button type="button" class="irl-cell" data-cell="${index}"`
+            + ` aria-label="${attr(`${feature.label || 'Pad'} ${where}`)}"`
+            + ` title="${attr(cellLegend(feature, index))}"></button>`
+        );
+    }
+
+    return `<div class="irl-grid" style="--rows:${rows}; --cols:${cols}">`
+        + cells.join('') + '</div>';
 }
 
-// A grid of pads or buttons, as a plain CSS grid.
-function grid(rows, cols) {
-    const r = Math.max(1, Math.min(32, Number(rows) || 1));
-    const c = Math.max(1, Math.min(32, Number(cols) || 1));
-    return `<div class="irl-grid" style="--rows:${r}; --cols:${c}">`
-        + '<span class="irl-cell"></span>'.repeat(r * c)
-        + '</div>';
+// What one cell sends, in words. Shown on hover and used by the status line, so
+// the answer to "what did that do" is the same in both places.
+function cellLegend(feature, index) {
+    if (feature.emits === 'midi-note') {
+        return `note ${feature.note + index} ch ${feature.channel}`;
+    }
+    if (feature.emits === 'midi-cc') {
+        return `CC ${feature.controller + index} ch ${feature.channel}`;
+    }
+    return `${feature.label || 'button'} ${index + 1}`;
+}
+
+// The host, if there is one yet.
+//
+// `main.js` declares `const system` and this file is loaded before it, so a
+// screen filled during the very first render runs while that binding does not
+// exist. An undeclared identifier throws on read - optional chaining guards a
+// null value, not a missing name - so every reach for the host goes through
+// here.
+function hostSystem() {
+    return typeof system === 'undefined' ? null : system;
 }
 
 // A knob is a slider that happens to be round. Saying so is what makes it
@@ -551,6 +591,26 @@ class EurorackModule {
         return `<div class="irl-panel" style="${style}">${panel}${knobs}${sockets}</div>`;
     }
 
+    // Which layout feature a rendered group came from. Matched on the label,
+    // which is what the markup carries and what the entry names it by.
+    featureFor(group) {
+        const label = group.getAttribute?.('aria-label');
+        return (this.layout?.features || []).find(
+            feature => (feature.label || feature.kind) === label
+        ) || null;
+    }
+
+    // A cell was pressed. The device says what it sent; the system decides what
+    // that means, which is what keeps a pad from knowing about MIDI ports.
+    press(feature, index, cell) {
+        const legend = cellLegend(feature, index);
+        cell?.classList?.add('is-struck');
+        setTimeout(() => cell?.classList?.remove('is-struck'), 160);
+
+        this.note(legend);
+        return hostSystem()?.emit?.(this, feature, index, legend) ?? null;
+    }
+
     // One parameter-backed control, drawn as whatever it actually is. A fader
     // is not a knob turned sideways: a mixer drawn as a field of circles is
     // recognisable as nothing, and the arrangement is the whole point of this
@@ -596,14 +656,20 @@ class EurorackModule {
     // device recognisable: a Stage 3 with its knobs and sockets and no keybed
     // is not a Stage 3, and this mode exists to be recognisable at a glance.
     //
-    // Everything here is `aria-hidden`. A keybed this app cannot play and a
-    // screen it cannot read are decoration to a screen reader, and announcing
-    // 88 keys before the controls would bury the controls.
+    // What is decoration stays hidden from a screen reader: a keybed this app
+    // cannot play, a grille, a logo. What is a control is not decoration - a
+    // grid of pads that sends MIDI is announced and reachable, and each cell
+    // says which one it is.
     renderFeature(feature) {
         const seat = `left:${feature.x * 100}%; top:${feature.y * 100}%;`
             + ` width:${feature.w * 100}%; height:${feature.h * 100}%`;
+        const interactive = Boolean(feature.emits);
         const open = `<div class="irl-feature irl-${attr(feature.kind)}"`
-            + ` style="${seat}" aria-hidden="true"`
+            + ` style="${seat}"`
+            + (interactive
+                ? ` role="group" aria-label="${attr(feature.label || feature.kind)}"`
+                : ' aria-hidden="true"')
+            + (feature.source ? ` data-source="${attr(feature.source)}"` : '')
             + (feature.label ? ` title="${attr(feature.label)}"` : '')
             + '>';
 
@@ -612,11 +678,12 @@ class EurorackModule {
                 return `${open}${keybed(feature.keys, feature.from_note || 'C')}</div>`;
             case 'pads':
             case 'buttons':
-                return `${open}${grid(feature.rows, feature.cols)}</div>`;
-            case 'faders':
-                return `${open}${faderBank(feature.cols)}</div>`;
+                return `${open}${grid(feature)}</div>`;
             case 'screen':
-                return `${open}<span class="irl-screen-text">${feature.text || ''}</span></div>`;
+                // Filled by `refreshScreens`, from the source the entry names.
+                // The markup carries no text: a screen with a message baked
+                // into it is a screen that is wrong the moment anything moves.
+                return `${open}<span class="irl-screen-text"></span></div>`;
             case 'logo':
             case 'label':
                 return `${open}<span class="irl-legend">${feature.text || feature.label || ''}</span></div>`;
@@ -684,7 +751,7 @@ class EurorackModule {
                 jack.element = jackEl;
                 jackEl.addEventListener('click', (event) => {
                     event.stopPropagation(); // patching a jack is not selecting the module
-                    system.patchBay.handleJackClick(jack);
+                    hostSystem()?.patchBay.handleJackClick(jack);
                 });
                 // Enter and Space are what a button answers to. Patching was
                 // pointer-only, which made the whole point of the app so.
@@ -692,7 +759,7 @@ class EurorackModule {
                     if (event.key !== 'Enter' && event.key !== ' ') return;
                     event.preventDefault();
                     event.stopPropagation();
-                    system.patchBay.handleJackClick(jack);
+                    hostSystem()?.patchBay.handleJackClick(jack);
                 });
             }
         });
@@ -700,12 +767,44 @@ class EurorackModule {
         // Turn just this device to its next side.
         this.element.querySelector('.module-flip')?.addEventListener('click', (event) => {
             event.stopPropagation();
-            system.turnModule(this.id);
+            hostSystem()?.turnModule(this.id);
         });
+
+        // Grids that emit. A cell is a button, so it already answers to Enter
+        // and Space; the pointer path is separate only because a press should
+        // fire on the way down, the way a pad does, rather than on release.
+        this.element.querySelectorAll('.irl-feature[role="group"]').forEach(group => {
+            const feature = this.featureFor(group);
+            if (!feature) return;
+            group.querySelectorAll('.irl-cell').forEach(cell => {
+                const index = Number(cell.dataset.cell);
+                const fire = (event) => {
+                    event.stopPropagation();
+                    this.press(feature, index, cell);
+                };
+                cell.addEventListener('pointerdown', (event) => {
+                    event.preventDefault();
+                    fire(event);
+                });
+                // The click that follows the press has to be swallowed too.
+                // Stopping the pointerdown does not stop it, and the module's
+                // own click handler selects the device - which overwrote the
+                // status line naming what the pad had just sent, one frame
+                // after it appeared.
+                cell.addEventListener('click', (event) => event.stopPropagation());
+                cell.addEventListener('keydown', (event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    fire(event);
+                });
+            });
+        });
+
+        this.refreshScreens();
 
         // Clicking anywhere else on the module selects it, so Tab can act on
         // one device instead of the whole rack.
-        this.element.addEventListener('click', () => system.selectModule(this.id));
+        this.element.addEventListener('click', () => hostSystem()?.selectModule(this.id));
     }
 
     // A knob answers to a drag, a wheel and the keyboard. It was a mouse drag
@@ -739,8 +838,14 @@ class EurorackModule {
             knobEl.style?.setProperty?.('--value', String(parameter.fraction));
             // The value a screen reader reads has to be the value on screen.
             knobEl.setAttribute('aria-valuenow', String(Math.round(parameter.value)));
+            // What a `parameter` screen shows, and what a `last-event` screen
+            // shows when a control rather than a pad was the last thing to
+            // move. Set here because this is the one path every kind of
+            // control's movement goes through.
+            this.lastParameter = `${parameter.label} ${Math.round(parameter.value)}`;
+            this.note(this.lastParameter);
             if (announce) {
-                system.status.update(`${parameter.label}: ${Math.round(parameter.value)}`);
+                hostSystem()?.status.update(`${parameter.label}: ${Math.round(parameter.value)}`);
             }
         };
 
@@ -777,7 +882,7 @@ class EurorackModule {
                 knobEl.removeEventListener('pointermove', onMove);
                 knobEl.removeEventListener('pointerup', onUp);
                 knobEl.removeEventListener('pointercancel', onUp);
-                system.status.update('Ready');
+                hostSystem()?.status.update('Ready');
             };
 
             knobEl.addEventListener('pointermove', onMove);
@@ -839,10 +944,55 @@ class EurorackModule {
             event.stopPropagation();
             parameter.setValue(parameter.defaultValue);
             paint(false);
-            system.status.update(
+            hostSystem()?.status.update(
                 `${parameter.label} back to ${Math.round(parameter.value)}`
             );
         });
+    }
+
+    // ===============================
+    // WHAT JUST HAPPENED
+    // ===============================
+    // Screens read this. It is not stored and never exported: a message a
+    // document remembered would disagree with the panel the moment anything
+    // moved, which is the same reason knob rotation is derived.
+    note(message) {
+        this.lastEvent = message;
+        this.refreshScreens();
+        return message;
+    }
+
+    // Every screen on this device, filled from the source its entry names.
+    refreshScreens() {
+        const screens = this.element?.querySelectorAll?.('.irl-screen') || [];
+        screens.forEach(screen => {
+            const text = screen.querySelector('.irl-screen-text');
+            if (text) text.textContent = this.screenText(screen.dataset.source);
+        });
+        return screens.length;
+    }
+
+    screenText(source) {
+        switch (source) {
+            case 'device':
+                return `${this.maker || ''} ${this.name}`.trim().toUpperCase();
+            case 'patch':
+                return (hostSystem()?.name || 'UNTITLED').toUpperCase();
+            case 'parameter':
+                return this.lastParameter || this.name.toUpperCase();
+            case 'transport': {
+                // Whatever this device calls tempo, if it has one at all.
+                const tempo = this.parameters.get('tempo');
+                return tempo
+                    ? `${Math.round(tempo.value)} BPM`
+                    : this.name.toUpperCase();
+            }
+            case 'static':
+                return this.staticText || '';
+            case 'last-event':
+            default:
+                return (this.lastEvent || this.name).toUpperCase();
+        }
     }
 
     // Move a knob to whatever its parameter now says. Three callers used to
@@ -988,7 +1138,7 @@ class PatchBayManager {
     startConnection(jack) {
         this.activeJack = jack;
         jack.element?.classList.add('arming');
-        system.status.update(
+        hostSystem()?.status.update(
             `${jack.name} armed - click any ${jack.type === 'output' ? 'input' : 'output'}, `
             + 'on either side of the rack'
         );
@@ -996,7 +1146,7 @@ class PatchBayManager {
 
     cancelConnection() {
         this.cancelPending();
-        system.status.update('Connection cancelled');
+        hostSystem()?.status.update('Connection cancelled');
     }
 
     // Disarm without narrating it, for callers that set their own status.
@@ -1008,10 +1158,10 @@ class PatchBayManager {
     completeConnection(jack) {
         const refusal = this.activeJack.refusalReason(jack);
         if (refusal) {
-            system.status.update(refusal);
+            hostSystem()?.status.update(refusal);
         } else {
             this.createConnection(this.activeJack, jack);
-            system.status.update('Connected!');
+            hostSystem()?.status.update('Connected!');
         }
         this.activeJack?.element?.classList.remove('arming');
         this.activeJack = null;
@@ -1585,6 +1735,7 @@ class EurorackSystem {
 
         this.patchBay.redrawAll();
         this.refreshViewIndicator();
+        this.refreshScreens();
     }
 
     addModule(type, groupId = null) {
@@ -1758,6 +1909,39 @@ class EurorackSystem {
         this.renderRack();
         this.status.update(`Removed ${module.name}`);
         return module;
+    }
+
+    // ===============================
+    // WHAT A PRESS MEANS
+    // ===============================
+    // A pad knows what it sends; it does not know there is a MIDI layer. This
+    // is the one place that joins them, which is what lets a grid be drawn by
+    // a catalogue entry and still reach a real port's code path.
+    //
+    // `onEmit` is handed in by main.js. Without it a press still lights the
+    // cell, still reaches the device's own screens and still reports itself -
+    // it just has nowhere to send.
+    emit(module, feature, index, legend) {
+        const detail = {
+            module: module.id,
+            emits: feature.emits,
+            index,
+            legend,
+            channel: feature.channel ?? null,
+            note: feature.emits === 'midi-note' ? feature.note + index : null,
+            controller: feature.emits === 'midi-cc' ? feature.controller + index : null,
+        };
+
+        this.status.update(`${module.name}: ${legend}`);
+        this.onEmit?.(detail);
+        return detail;
+    }
+
+    // Every screen in the rack. Called where the thing a screen reads can have
+    // changed but the screen's own device did nothing - a renamed patch, a
+    // different selection.
+    refreshScreens() {
+        this.modules.forEach(module => module.refreshScreens());
     }
 
     // ===============================

@@ -116,6 +116,11 @@ uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
 - **Unpatch a single lead.** Open the menu on a cable and it offers to pull it
   out; open it on a device and it offers to pull out every lead running to it.
   An output feeding three inputs loses the one you picked, not all three.
+- **Everything drawn does something.** A pad on a drawn Launchpad X sends a
+  note down the same path a real MIDI port uses, so a device bound to it lights
+  up. Screens show what their catalogue entry says they read — the last event,
+  the control being moved, the patch name, the tempo — and never a message
+  baked into the markup. Every fader on a desk moves.
 - **Every control answers to the keyboard.** Knobs are sliders: `Tab` to one and
   the arrow keys turn it, `Shift` for fine, `PageUp`/`PageDown` for a tenth of
   the range, `Home`/`End` for the ends, double-click to put it back where the
