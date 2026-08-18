@@ -73,6 +73,8 @@ Enumerating a conflict is not waiving it.
 | No dependency-manifest licence gate | open-license §4 | Required per package ecosystem shipped |
 | No service inventory | open-license §6 | No scanner can produce it, which is why it is written down |
 | No control-plane record | build-the-seam §4 | Names what the seam owns and what it refuses to own |
+| `/healthz` cannot say which instance answered | monitoring-seam §5 | A package constant, identical across every clone and process, so a collector cannot attribute a measurement. The cadence declaration says so at `/api/cadence` rather than implying otherwise |
+| Port-0 discovery and a run-file are declined | monitoring-seam §4 | That clause governs services a monitor watches in the internal control plane. Carlos is a browser application whose whole point is a predictable address, and binding port 0 would stop it being a thing you open at `localhost:8000`. **Declining the mechanism is not declining §5**: the identity defect above stays open |
 
 ## What Grew Since Adoption Started
 

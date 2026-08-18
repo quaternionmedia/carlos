@@ -13,6 +13,74 @@ Those are two different pieces of work, and this build has finished one of them.
 
 The last row is deliberate and is explained under *Why outbound stops short*.
 
+## Cadence — what asking costs, and how often to ask
+
+Two questions another application has before it writes a loop: **does calling
+this change anything**, and **how long is the answer good for**. Neither is
+answerable from an OpenAPI description, and guessing at both is how a peer ends
+up polling a write endpoint every second.
+
+```
+GET /api/cadence
+```
+
+Every endpoint this build serves, with a `side_effect`, a
+`staleness_budget_seconds` and a `min_interval_seconds`, plus the reason for
+each. The declaration is stamped with `generated_at`, because a live read that
+cannot be aged cannot be budgeted or quoted.
+
+| Field | Means |
+| --- | --- |
+| `side_effect` | `none` a read, `persists` writes existing state, `creates` makes something |
+| `staleness_budget_seconds` | how long the answer stays quotable; `null` means no shelf life |
+| `min_interval_seconds` | the shortest interval worth calling at; `null` means ask when you have a document |
+
+**`side_effect` is a reviewed fact rather than a comment.** The record this
+follows —
+`governance/qm/records/DRAFT-monitoring-seam-and-instance-identity.md` — exists
+because another service's detail endpoint expired the request it was asked
+about: reading the queue wrote to it, so a dashboard that polled detail URLs
+destroyed the decisions it was displaying, and its document reported everything
+fine. `tests/test_cadence.py` calls every endpoint declared `none` twice and
+measures the disk rather than believing the declaration.
+
+The declaration is checked against the application's real routes **in both
+directions**. An endpoint that exists and is undeclared fails; an entry for a
+route that no longer exists fails. A cadence document that quietly stopped
+covering half the API would be worse than none, because a caller would read it
+and believe it.
+
+**The budgets live in `src/cadence.py` rather than in a committed data file.**
+That is the record's clause: a staleness budget stays in the tool, so two
+machines cannot disagree about when a figure stops being quotable. What is
+committed as policy is the allowlist, the side effects, and the per-call
+timeout.
+
+### Outbound
+
+`catalogue/peers.json` carries the same vocabulary — a peer reading both should
+not have to learn two words for one idea — and one number that is policy rather
+than a caller's choice:
+
+```json
+"timeout_seconds": 5
+```
+
+A plan reports the timeout it would use, because a plan that omitted it would
+be a plan of a different call. No address is ever committed: each peer names an
+environment variable, and the tests refuse an IP, a hostname, a URL, a port or
+a Windows path anywhere in that file.
+
+### What this build still cannot tell you
+
+**Which instance answered.** `/healthz` returns a package constant, byte
+identical across every clone and every process. A collector cannot attribute a
+measurement to a run, which the monitoring-seam record names as the defect it
+was written about. Recorded in [../GOVERNANCE.md](../GOVERNANCE.md) rather than
+fixed here: the record's mechanism is a service that binds port 0 and writes a
+run-file, and that would stop Carlos being a thing you open at
+`localhost:8000`.
+
 ## Inbound: Carlos is callable
 
 Every route is REST over JSON, described by an OpenAPI document FastAPI

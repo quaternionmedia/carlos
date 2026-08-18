@@ -234,6 +234,31 @@ class Peer(BaseModel):
         return next((e for e in self.endpoints if e.name == name), None)
 
 
+# How long any one outbound call may take, in seconds.
+#
+# Committed policy rather than a caller's choice, per the monitoring-seam
+# record: a per-call timeout is one of the things that is identical on every
+# machine, so two callers cannot disagree about how long is too long. It is
+# read from `peers.json` rather than hard-coded here so that the number a
+# reviewer sees in the policy is the number a call would use.
+DEFAULT_TIMEOUT_SECONDS = 5
+
+
+@lru_cache(maxsize=1)
+def peer_timeout(path: Path | None = None) -> float:
+    """The committed per-call timeout."""
+    source = path or PEERS_FILE
+    if not source.is_file():
+        return DEFAULT_TIMEOUT_SECONDS
+    raw = json.loads(source.read_text(encoding="utf-8"))
+    declared = raw.get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
+    if not isinstance(declared, (int, float)) or declared <= 0:
+        raise InteropError(
+            f"timeout_seconds must be a positive number, got {declared!r}"
+        )
+    return float(declared)
+
+
 @lru_cache(maxsize=1)
 def load_peers(path: Path | None = None) -> dict[str, Peer]:
     source = path or PEERS_FILE
@@ -313,6 +338,9 @@ def plan(peer_id: str, endpoint_name: str, patch: patch_format.Patch) -> dict:
         "resolved": base is not None,
         "unresolved_hint": None if base else f"set {peer.base_url_env}",
         "side_effect": endpoint.side_effect,
+        # The timeout a caller would use, reported rather than left to them.
+        # A plan that omitted it would be a plan of a different call.
+        "timeout_seconds": peer_timeout(),
         "transform": endpoint.transform,
         "headers": {"content-type": "application/json"},
         "body": body,

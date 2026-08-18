@@ -50,6 +50,7 @@ Every device owes a simple and a complex example:
 >>> routes = sorted(r.path for r in app.routes if getattr(r, 'path', '').startswith('/api'))
 >>> for route in routes:
 ...     print(route)
+/api/cadence
 /api/catalogue
 /api/catalogue/categories
 /api/catalogue/devices/{device_id}
@@ -65,6 +66,30 @@ Every device owes a simple and a complex example:
 /api/transforms/{name}
 
 ```
+
+## Telling another application how often to ask
+
+```python
+>>> from src import cadence
+>>> policy = cadence.declaration()
+>>> len(policy['endpoints']) == len(cadence.CADENCE)
+True
+
+```
+
+Every endpoint declares what calling it costs and how long the answer is good
+for. Nothing this build serves writes:
+
+```python
+>>> sorted({e['side_effect'] for e in policy['endpoints']})
+['none']
+
+```
+
+That is a claim, and `tests/test_cadence.py` is where it is held to — it calls
+every endpoint declared `none` twice and measures the disk. The budgets live in
+`src/cadence.py` rather than a data file, so two machines cannot disagree about
+when a figure stops being quotable.
 
 ## Reshaping a patch for somebody else
 

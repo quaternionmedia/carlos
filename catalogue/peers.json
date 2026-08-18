@@ -6,9 +6,13 @@
     "configured reports as unresolved rather than being guessed at.",
     "side_effect is required per endpoint and is a reviewed fact, not a comment:",
     "none = a read, persists = writes to existing state, creates = makes something.",
+    "timeout_seconds is committed policy rather than a caller's choice, per the",
+    "monitoring-seam record: a per-call timeout belongs to what is identical on",
+    "every machine, so two callers cannot disagree about how long is too long.",
     "These entries are stubs describing intended integrations. Nothing here sends",
     "a request in this build - see src/interop.py."
   ],
+  "timeout_seconds": 5,
   "peers": [
     {
       "id": "patch-archive",

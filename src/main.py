@@ -9,9 +9,10 @@ from pydantic import BaseModel
 
 try:
     from .db import DatabaseManager
-    from . import catalogue, interop, midi, patch_format
+    from . import cadence, catalogue, interop, midi, patch_format
 except ImportError:
     from db import DatabaseManager
+    import cadence
     import catalogue
     import interop
     import midi
@@ -108,6 +109,20 @@ async def home(request: Request):
 @app.get("/healthz")
 async def healthz():
     return {"ok": True, "app": settings.app_name, "version": settings.version}
+
+
+@app.get("/api/cadence")
+async def cadence_policy():
+    """How often another application may ask, and what asking costs it.
+
+    Two questions a peer has before it writes a loop - does calling this change
+    anything, and how long is the answer good for - and neither is answerable
+    from an OpenAPI description. Declared rather than guessed, because the
+    guess is how a peer ends up polling a write endpoint every second.
+
+    See `src/cadence.py`, and the monitoring-seam record behind it.
+    """
+    return cadence.declaration()
 
 
 @app.get("/api/catalogue")
