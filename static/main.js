@@ -65,15 +65,27 @@ function openingRack() {
     const grid = system.addModule('novation.launchpad-x');
     const sampler = system.addModule('teenage-engineering.ep-133');
 
-    // Four groups on four channels. This is what the cable splits into: the
-    // bindings are the channel assignments, and the strands are drawn from
+    // Four groups, and the drums on ten. This is what the cable splits into:
+    // the bindings are the channel assignments, and the strands are drawn from
     // them, so rebinding a group moves the picture without anything being kept
     // in step by hand.
-    system.midi = ['A', 'B', 'C', 'D'].map((group, index) => ({
+    //
+    // Three melodic groups on 1-3 and the kit on 10, which is where a kit goes
+    // by a convention nothing enforces and everything obeys. It is the whole
+    // reason the strands are worth telling apart: the question you have when
+    // you look at a lead is which of these is the drums, and here it is the
+    // thick yellow one.
+    const opening = [
+        { group: 'A', channel: 1 },
+        { group: 'B', channel: 2 },
+        { group: 'C', channel: 3 },
+        { group: 'D', channel: 10, label: 'Drums' },
+    ];
+    system.midi = opening.map(({ group, channel, label }) => ({
         id: `opening-${group.toLowerCase()}`,
-        source: { type: 'channel', channel: index + 1 },
+        source: { type: 'channel', channel },
         module: sampler.id,
-        label: `Group ${group}`,
+        label: label || `Group ${group}`,
     }));
 
     // Both sockets are round the back, which is where USB lives on both of

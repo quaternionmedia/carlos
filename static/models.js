@@ -38,7 +38,13 @@ const CABLE_SAG_MAX = 90;
 const CABLE_SAG_SPREAD = 14;
 // How far apart the strands of a split cable hang. One cable carrying several
 // channels is drawn as several strands, and this is the gap between them.
-const LANE_SPREAD = 9;
+const LANE_SPREAD = 11;
+
+// The General MIDI percussion channel. Nothing enforces it and everything
+// obeys it, which is why it is worth drawing differently: a lane on channel 10
+// is the drums, and finding the drums is most of what anyone is doing when
+// they look at a lead and ask what is on it.
+const DRUM_CHANNEL = 10;
 
 // Signals that are a bus rather than a direction.
 //
@@ -204,7 +210,11 @@ function cableSpread(source, target) {
     for (let i = 0; i < key.length; i++) {
         hash = (hash * 31 + key.charCodeAt(i)) | 0;
     }
-    return ((hash >>> 0) % 1000) / 1000;
+    // Centred on zero, so a cable hangs a little more or a little less than
+    // its neighbour. This used to return 0 to 1, which only ever *added* sag:
+    // every cable drifted the same way and a bundle of them leaned downhill
+    // together instead of scattering. Same spread, no bias.
+    return ((hash >>> 0) % 1000) / 1000 - 0.5;
 }
 
 // A keyboard, as a run of white keys with the blacks sitting between them.
@@ -1541,6 +1551,8 @@ class PatchBayManager {
         const spread = lanes.length > 1 ? lanes : [null];
 
         const shared = ['cable'];
+        // Rear wiring reads as rear wiring wherever the device is pointing.
+        if (source.side === 'back') shared.push('is-rear');
         // A cable with an end out of sight is dashed: it is still one line you
         // can follow, and the dashes say part of its run is behind something.
         if (from.hidden || to.hidden) shared.push('is-occluded');
@@ -1559,25 +1571,58 @@ class PatchBayManager {
             // Launchpad X can drive a K.O. II with nothing in between.
             + (link ? ' - through a host' : '');
 
+        // Across the run rather than under it. The offset goes along the
+        // normal of the line between the two sockets, so a lead climbing a
+        // rack separates sideways and one running flat separates vertically -
+        // spreading only in Y put every strand of a vertical run on top of the
+        // one before it.
+        const runX = to.x - from.x;
+        const runY = to.y - from.y;
+        const run = Math.hypot(runX, runY) || 1;
+        const normalX = -runY / run;
+        const normalY = runX / run;
+
         const strands = spread.map((lane, index) => {
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            const offset = (index - (spread.length - 1) / 2) * LANE_SPREAD;
-            const curve =
-                `M ${from.x} ${from.y} Q ${midX} ${midY + offset} ${to.x} ${to.y}`;
+            // Doubled, because a quadratic passes half way to its control
+            // point: moving the handle by n moves the curve's midpoint by n/2,
+            // so the gap on screen was half the gap in the code and four
+            // strands read as one thick cable.
+            const step = (index - (spread.length - 1) / 2) * LANE_SPREAD * 2;
+            const curve = `M ${from.x} ${from.y} `
+                + `Q ${midX + normalX * step} ${midY + normalY * step} `
+                + `${to.x} ${to.y}`;
             path.setAttribute('d', curve);
-            // Rear wiring reads as rear wiring wherever the device is pointing.
-            path.setAttribute('stroke', source.side === 'back' ? '#ff9f43' : '#00ff88');
             path.setAttribute('stroke-width', '2');
             path.setAttribute('fill', 'none');
-            path.setAttribute('class', shared.join(' '));
+
+            // Colour is a class and a position, never a value. The stroke
+            // itself is a palette token in the stylesheet: hard-coding
+            // `#00ff88` here is how a theme ends up with one cable that does
+            // not follow it.
+            const classes = [...shared];
+            if (lane) {
+                classes.push('is-lane');
+                if (lane.channel === DRUM_CHANNEL) classes.push('is-drums');
+            }
+            path.setAttribute('class', classes.join(' '));
+
             if (lane) {
                 path.setAttribute('data-channel', String(lane.channel));
-                path.dataset && (path.dataset.channel = String(lane.channel));
+                // Where this strand sits along the run, 0 to 1, for the
+                // stylesheet to mix a tint from. One lane is at 0 rather than
+                // at the middle: a single strand should read as the start of
+                // the scale, not as an arbitrary point in it.
+                const along = spread.length > 1 ? index / (spread.length - 1) : 0;
+                path.setAttribute('data-lane', String(index));
+                path.style?.setProperty?.('--lane-mix', String(along));
             }
 
             const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
             title.textContent = lane
-                ? `${ends} - channel ${lane.channel}: ${lane.label}`
+                ? `${ends} - channel ${lane.channel}`
+                    + `${lane.channel === DRUM_CHANNEL ? ' (drums)' : ''}`
+                    + `: ${lane.label}`
                 : ends;
             path.appendChild(title);
             return path;

@@ -93,18 +93,61 @@ class TestTheWorkspace:
         assert page.locator("path.cable").count() >= 1
 
     def test_the_lead_is_split_into_the_channels_it_carries(self, page):
-        # Four groups bound to four channels, so the lead is drawn as four
-        # strands. Derived from the bindings rather than stored on the cable:
-        # nothing has to be kept in step when a group is rebound.
+        # Three melodic groups and a kit, so the lead is drawn as four strands.
+        # Derived from the bindings rather than stored on the cable: nothing has
+        # to be kept in step when a group is rebound.
         channels = page.locator("path.cable[data-channel]").evaluate_all(
-            "paths => paths.map(p => p.dataset.channel)")
-        assert sorted(channels) == ["1", "2", "3", "4"]
+            "paths => paths.map(p => Number(p.dataset.channel))")
+        assert sorted(channels) == [1, 2, 3, 10]
 
     def test_every_strand_says_what_it_carries(self, page):
         titles = page.locator("path.cable[data-channel] title").all_text_contents()
         assert len(titles) == 4
         assert all("channel" in t for t in titles)
         assert any("Group A" in t for t in titles)
+
+    def test_the_drums_are_on_ten_and_say_so(self, page):
+        drums = page.locator("path.cable.is-drums")
+        assert drums.count() == 1
+        assert drums.get_attribute("data-channel") == "10"
+        assert "(drums)" in drums.locator("title").text_content()
+
+    def test_the_drums_are_the_one_you_find_first(self, page):
+        # Off the gradient and thicker than the rest: channel 10 is not a point
+        # on a scale, it is the strand people are looking for.
+        widths = page.locator("path.cable[data-channel]").evaluate_all(
+            """paths => paths.map(p => ({
+                channel: Number(p.dataset.channel),
+                width: parseFloat(getComputedStyle(p).strokeWidth),
+                stroke: getComputedStyle(p).stroke,
+            }))"""
+        )
+        drums = [w for w in widths if w["channel"] == 10]
+        rest = [w for w in widths if w["channel"] != 10]
+        assert len(drums) == 1
+        assert all(drums[0]["width"] > other["width"] for other in rest)
+        assert all(drums[0]["stroke"] != other["stroke"] for other in rest)
+
+    def test_the_other_strands_walk_a_gradient(self, page):
+        # Every strand a different colour, so "which channel is that" is
+        # answerable before anything is hovered.
+        strokes = page.locator("path.cable[data-channel]").evaluate_all(
+            "paths => paths.map(p => getComputedStyle(p).stroke)")
+        assert len(set(strokes)) == len(strokes)
+
+    def test_the_gradient_is_a_position_not_a_colour(self, page):
+        # The strand carries where it sits on the scale; the scale itself lives
+        # in the stylesheet with the rest of the palette.
+        mixes = page.locator("path.cable[data-channel]").evaluate_all(
+            "paths => paths.map(p => p.style.getPropertyValue('--lane-mix'))")
+        assert sorted(float(m) for m in mixes) == [0.0, 1 / 3, 2 / 3, 1.0]
+
+    def test_no_cable_paints_a_colour_of_its_own(self, page):
+        # A stroke written into the SVG attribute is a colour outside the
+        # palette and outside any theme that follows it.
+        painted = page.locator("path.cable").evaluate_all(
+            "paths => paths.filter(p => p.hasAttribute('stroke')).length")
+        assert painted == 0
 
     def test_the_lead_is_marked_as_split(self, page):
         assert page.locator("path.cable.is-split").count() == 4

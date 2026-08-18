@@ -100,14 +100,44 @@ True
 
 ```
 
-One lead, four channels. Four groups on the sampler are bound to channels 1
-through 4, so the cable is drawn as four strands: the picture answers "which
-group is that going to" without anything being clicked.
+One lead, four channels. Three melodic groups on 1 to 3 and the kit on 10, so
+the cable is drawn as four strands: the picture answers "which group is that
+going to" without anything being clicked.
 
 ```python
 >>> strands = page.locator('path.cable[data-channel]')
->>> sorted(strands.evaluate_all('paths => paths.map(p => p.dataset.channel)'))
-['1', '2', '3', '4']
+>>> sorted(strands.evaluate_all(
+...     'paths => paths.map(p => Number(p.dataset.channel))'))
+[1, 2, 3, 10]
+
+```
+
+Each strand is tinted by where it sits along the run, so telling them apart does
+not need a hover. The strand carries a **position**; the scale itself lives in
+the stylesheet with the rest of the palette, which is why no cable writes a
+colour of its own:
+
+```python
+>>> sorted(strands.evaluate_all(
+...     "paths => paths.map(p => p.style.getPropertyValue('--lane-mix'))"))
+['0', '0.3333333333333333', '0.6666666666666666', '1']
+>>> page.locator('path.cable').evaluate_all(
+...     "paths => paths.filter(p => p.hasAttribute('stroke')).length")
+0
+
+```
+
+Channel 10 is the drums, by a convention nothing enforces and everything obeys.
+It is off the gradient rather than further along it — thicker, and its own
+colour — because it is not a point on a scale, it is the strand you are looking
+for:
+
+```python
+>>> drums = page.locator('path.cable.is-drums')
+>>> drums.count(), drums.get_attribute('data-channel')
+(1, '10')
+>>> '(drums)' in drums.locator('title').text_content()
+True
 
 ```
 
@@ -122,6 +152,11 @@ jack's side out of the document.
 'Launchpad X USB-C (back) <-> EP-133 K.O. II USB-C (back) - through a host - channel 1: Group A'
 
 ```
+
+The strands spread across the run rather than under it, and each whole cable
+drifts a little either side of where gravity would put it — under as often as
+over. That drift used only ever to *add* sag, so a bundle of leads leaned
+downhill together instead of scattering.
 
 Two USB device ports do not reach each other on a real desk: a computer or a
 host adapter sits between them. The cable says so, because a rig sketch that

@@ -474,6 +474,22 @@ kbd {
     --rad-ink-dim: #6c7a68;
     --rad-signal: #00ff88;
     --rad-rear: #ff9f43;
+
+    /* The ends of the lane gradient. A split cable tints each strand along
+       this scale, so "which channel is that" is answerable by colour before
+       anything is hovered - four strands in one green are four strands, and
+       four strands walking a scale are four channels.
+
+       Both ends are signal colours rather than an arbitrary pair: the low end
+       is the green everything else on this layer uses, and the high end is a
+       cooler version of it, so a bundle still reads as one cable. */
+    --rad-lane-low: #00ff88;
+    --rad-lane-high: #35b6ff;
+
+    /* Channel 10, which is the drums by a convention nothing enforces and
+       everything obeys. Off the scale on purpose: it is not "further along"
+       than channel 9, it is the one you are looking for. */
+    --rad-lane-drums: #ffd23f;
     --rad-danger: #ff6b6b;
     --rad-hub: #0b0d09;
     /* What a panel lifted off the rack casts. A token like any other colour:
@@ -668,6 +684,46 @@ kbd {
    followed to both of the devices it joins. */
 .cable {
     pointer-events: none;
+    /* Tokens, not values. Every colour on this layer used to be written into
+       the SVG attribute by hand, which put two hex literals outside the
+       palette and outside any theme that follows it. */
+    stroke: var(--rad-signal);
+}
+
+/* Wiring that leaves round the back reads as rear wiring wherever the device
+   happens to be pointing. */
+.cable.is-rear {
+    stroke: var(--rad-rear);
+}
+
+/* One strand of a split cable, tinted by where it sits along the run.
+   `--lane-mix` is set per strand by `createCable` as a number from 0 to 1: a
+   position, never a colour. The scale lives here with the rest of the
+   palette. */
+.cable.is-lane {
+    stroke: color-mix(
+        in oklab,
+        var(--rad-lane-high) calc(var(--lane-mix, 0) * 100%),
+        var(--rad-lane-low)
+    );
+}
+
+.cable.is-rear.is-lane {
+    stroke: color-mix(
+        in oklab,
+        var(--rad-lane-high) calc(var(--lane-mix, 0) * 100%),
+        var(--rad-rear)
+    );
+}
+
+/* The drums. Thicker and off the gradient, because channel 10 is not a point
+   on a scale - it is the one people are looking for. The `is-rear` rule above
+   is overridden deliberately: which side the socket is on matters less than
+   which channel this is. */
+.cable.is-drums,
+.cable.is-rear.is-drums {
+    stroke: var(--rad-lane-drums);
+    stroke-width: 3;
 }
 
 /* The fat invisible copy of each cable that `cableAt` probes with

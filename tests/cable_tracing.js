@@ -69,6 +69,7 @@ const load = (f) => fs.readFileSync(path.join(REPO, f), 'utf8');
     + '\nglobalThis.EurorackSystem = EurorackSystem;'
     + '\nglobalThis.ModuleFactory = ModuleFactory;' +
     '\nglobalThis.SIDE_ORDER = SIDE_ORDER;'
+    + '\nglobalThis.cableSpread = cableSpread;'
 );
 const devDir = path.join(REPO, 'catalogue/devices');
 ModuleFactory.load({
@@ -421,6 +422,33 @@ check('a binding naming another device is not on this lead',
 
 system.midi = [];
 system.clearRack();
+
+
+// ---------------------------------------------------------------------------
+// The drift goes both ways
+// ---------------------------------------------------------------------------
+// Each cable hangs a little more or a little less than its neighbour, so two
+// leads between the same two devices can be told apart. That used to return 0
+// to 1, which only ever *added* sag: every cable drifted the same way, and a
+// bundle of them leaned downhill together instead of scattering.
+const drifts = [];
+for (let i = 0; i < 400; i++) {
+    drifts.push(cableSpread(
+        { module: { id: `m${i}` }, name: 'out' },
+        { module: { id: `n${i}` }, name: 'in' }));
+}
+const under = drifts.filter(d => d < 0).length;
+const over = drifts.filter(d => d > 0).length;
+check('cables drift under as often as over', Math.abs(under - over) < 60, true);
+check('and none drifts further than the spread allows',
+    drifts.every(d => d >= -0.5 && d <= 0.5), true);
+check('the drift averages out to nothing',
+    Math.abs(drifts.reduce((a, b) => a + b, 0) / drifts.length) < 0.05, true);
+
+// Keyed on the two jacks, so unpatching one lead does not shuffle the others.
+check('one cable always drifts the same way',
+    cableSpread({ module: { id: 'a' }, name: 'out' }, { module: { id: 'b' }, name: 'in' }),
+    cableSpread({ module: { id: 'a' }, name: 'out' }, { module: { id: 'b' }, name: 'in' }));
 
 let failed = 0;
 for (const r of results) {
