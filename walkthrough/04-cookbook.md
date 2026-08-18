@@ -5,23 +5,68 @@
 For somebody already set up. `01-onboarding.md` is the other document and they
 stay separate on purpose: one page trying to be both serves neither.
 
-## Commands
+## The rounds
 
-| What | Command |
+One entry point. Every command below runs a command you could type yourself,
+and `--dry-run` prints it:
+
+```python
+>>> from click.testing import CliRunner
+>>> from tools import cli
+>>> print(CliRunner().invoke(cli.main, ['--dry-run', 'check']).output.strip())
+uv run pytest tests walkthrough --doctest-glob=*.md
+
+```
+
+| Round | What it does |
 | --- | --- |
-| Everything | `uv run pytest tests walkthrough --doctest-glob=*.md` |
-| Python tests only | `uv run pytest tests -q` |
-| The walkthrough only | `uv run pytest walkthrough --doctest-glob=*.md` |
-| One page | `uv run pytest walkthrough/02-the-catalogue.md --doctest-glob=*.md` |
-| The frontend harnesses | `node tests/rack_behaviour.js` (and `view_toggle`, `cable_tracing`, `click_layers`, `palette`) |
-| Run the app | `uv run python src/main.py` |
-| Pick the port | `uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000` |
-| Governance gates | `python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they` |
-| Signatures, locally | `python governance/qm/project-seed/ci/check_signatures.py --base-ref they --head-ref HEAD --source git` |
+| `carlos check` | The suite **and** the walkthrough. Run this before a pull request |
+| `carlos harness` | The five frontend harnesses, under Node. Name one to run just it |
+| `carlos serve` | Run the app, on a predictable port |
+| `carlos stop` | Free the port, and prove it is free |
+| `carlos shots` | Regenerate the walkthrough screenshots |
+| `carlos gates` | The governance gates, as CI runs them |
+| `carlos signatures` | Verify commit signatures locally, where the key is |
+| `carlos status` | What state this checkout is in |
 
-Both paths are named in the first command deliberately. `testpaths` is ignored
+That list is not written twice — the page and the CLI are checked against each
+other, so a round the CLI grows and this page does not name is a failing test:
+
+```python
+>>> sorted(cli.main.commands)
+['check', 'gates', 'harness', 'serve', 'shots', 'signatures', 'status', 'stop']
+
+```
+
+**The CLI dispatches and implements nothing.** No verdict is formed in it, no
+exit code is prettified, and `carlos gates` exits non-zero today because the
+runner does. A command that recomputed any of that would be a second definition
+of a rule, and two definitions drift the first time one is fixed.
+
+So these still work, and CI types them directly rather than installing anything:
+
+| Instead of | You can type |
+| --- | --- |
+| `carlos check` | `uv run pytest tests walkthrough --doctest-glob=*.md` |
+| `carlos harness palette` | `node tests/palette.js` |
+| one page | `uv run pytest walkthrough/02-the-catalogue.md --doctest-glob=*.md` |
+
+Both paths are named in that first command deliberately. `testpaths` is ignored
 the moment pytest is handed a path argument, so a walkthrough wired that way
 runs for nobody.
+
+## Two things about running it here
+
+**Reload does not work, and the log says otherwise.** uvicorn reports a reload
+it never performed, so restart by hand after any change under `src/`. Templates
+and static files are a browser refresh.
+
+**Stopping the server is its own round.** `netstat` attributes the listening
+socket to the parent that bound it, and that parent has exited by the time you
+look — so it names a process `taskkill` says does not exist while the
+reloader's spawned child answers happily. `carlos stop` asks the server which
+process it is, via `/healthz`, kills that, and then verifies by probing the
+port rather than by counting rows in a process table.
 
 ## Adding a device
 

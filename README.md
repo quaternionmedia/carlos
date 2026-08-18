@@ -35,17 +35,28 @@ Check first, then run. The server stays up while you work.
 **1. Run the checks.**
 
 ```bash
-uv run pytest tests walkthrough --doctest-glob=*.md
+uv run carlos check
 ```
 
-That runs the test suite *and* the walkthrough, whose pages are executable —
-the examples a reader reads are the examples that ran. Both paths are named
+Every durable round in this repository is a `carlos` command, and each one runs
+a command you could type yourself — `carlos --dry-run check` prints exactly
+that, and `carlos --help` lists them all.
+
+| Round | What it does |
+| --- | --- |
+| `carlos check` | The suite **and** the walkthrough. What to run before a pull request |
+| `carlos harness` | The five frontend harnesses, under Node |
+| `carlos serve` | Run the app |
+| `carlos stop` | Free the port, and prove it is free |
+| `carlos shots` | Regenerate the walkthrough screenshots |
+| `carlos gates` | The governance gates, as CI runs them |
+| `carlos signatures` | Verify commit signatures locally |
+| `carlos status` | What state this checkout is in |
+
+`check` runs the tests *and* the walkthrough, whose pages are executable — the
+examples a reader reads are the examples that ran. Both paths are named
 deliberately: `testpaths` is ignored the moment pytest is handed a path
 argument, so a walkthrough wired that way is collected by nobody.
-
-`uv run` is required, not a convenience — the checks import FastAPI, and a bare
-`pytest` fails with `ModuleNotFoundError: No module named 'fastapi'` unless you
-have the project environment activated yourself.
 
 The last page drives the real app in a real browser and records what it saw
 into `walkthrough/media/`. It does not skip when the browser is missing; it
@@ -54,10 +65,23 @@ fails. On a fresh checkout, `uv run playwright install chromium` once.
 **2. Start the server.**
 
 ```bash
-uv run python src/main.py
+uv run carlos serve
 ```
 
-Open `http://localhost:8000`. It binds `0.0.0.0:8000`.
+Open `http://localhost:8000`. The address is predictable on purpose — this is a
+thing you open in a browser — and `CARLOS_HOST`, `CARLOS_PORT` and `CARLOS_DB`
+move a process without editing anything committed.
+
+`/healthz` says which instance answered: its id, the process serving, the port
+actually bound and the resolved database path. That is the fastest way to catch
+this environment's favourite failure, a server from an earlier session still
+holding the port.
+
+Stopping it is its own round, because the obvious way does not work here:
+
+```bash
+uv run carlos stop
+```
 
 **3. Edit.** What needs what, measured on Windows on 2026-08-17:
 
@@ -88,10 +112,10 @@ Regeneration rides that same command, so a screenshot that no longer matches
 what the app draws turns up as an uncommitted diff in `git status` rather than
 as staleness nobody sees.
 
-To pick the port explicitly:
+To pick the port:
 
 ```bash
-uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
+uv run carlos serve --port 8123
 ```
 
 ## Current Features

@@ -191,9 +191,18 @@ your change.
 **Check, then run, then check again.**
 
 ```sh
-uv run pytest tests walkthrough --doctest-glob=*.md   # 1. check
-uv run python src/main.py                             # 2. run, on :8000
+uv run carlos check      # 1. the suite and the walkthrough
+uv run carlos serve      # 2. run it, on :8000
+uv run carlos stop       # 3. and stop it, which is its own round here
 ```
+
+`carlos --help` lists every durable round; `carlos --dry-run <round>` prints the
+command it runs, because each is a command you could type yourself. It
+dispatches and implements nothing: no verdict is formed in it and no exit code
+is prettified, so if a round reads wrongly the fix is in what it runs. The
+underlying command for the check is
+`uv run pytest tests walkthrough --doctest-glob=*.md`, and CI types that
+directly rather than installing anything.
 
 Use `uv run`. A bare `pytest` fails with `ModuleNotFoundError: No module named
 'fastapi'` — the system interpreter does not have the project's dependencies.

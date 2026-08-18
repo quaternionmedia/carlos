@@ -209,13 +209,27 @@ class RegistryTests(unittest.TestCase):
         )
         self.assertNotRegex(settings, r"(?m)^\s*testpaths\s*=")
 
+        # Every surface has to get a reader to that command, and there are two
+        # honest ways: spell it, or name the round that runs it. `carlos check`
+        # is checked in `tests/test_cli.py` for resolving to exactly this, so
+        # naming the round is naming the command by one indirection rather than
+        # a second definition of it.
         for surface in (Path("README.md"), Path("AGENTS.md"),
                         Path("CONTRIBUTING.md"),
                         WALKTHROUGH / "04-cookbook.md"):
             with self.subTest(surface.name):
                 body = surface.read_text(encoding="utf-8")
-                self.assertIn("pytest tests walkthrough", body)
-                self.assertIn("--doctest-glob=*.md", body)
+                spelled = "pytest tests walkthrough" in body and "--doctest-glob=*.md" in body
+                named = "carlos check" in body
+                self.assertTrue(
+                    spelled or named,
+                    f"{surface.name} neither spells the check command nor names "
+                    "the round that runs it",
+                )
+
+        # And it is spelled somewhere, verbatim, so the indirection bottoms out.
+        cookbook = (WALKTHROUGH / "04-cookbook.md").read_text(encoding="utf-8")
+        self.assertIn("pytest tests walkthrough --doctest-glob=*.md", cookbook)
 
 
 class CollectionTests(unittest.TestCase):

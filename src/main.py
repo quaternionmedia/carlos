@@ -172,6 +172,14 @@ async def healthz(request: Request):
         "version": settings.version,
         # Which instance answered.
         "instance": INSTANCE,
+        # The process actually serving, which on Windows is the one thing the
+        # operating system will not tell you reliably. `netstat` attributes a
+        # uvicorn reload socket to the parent that bound it, and that parent is
+        # gone - so the port shows a LISTENING owner that `taskkill` reports
+        # does not exist, while the reloader's spawned child answers happily.
+        # Asking the server which process it is beats inferring it, and it is
+        # what `carlos stop` uses.
+        "pid": os.getpid(),
         "started_at": STARTED_AT,
         "port": bound[1],
         "host": bound[0],

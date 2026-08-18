@@ -34,9 +34,18 @@ class AppSmokeTests(unittest.TestCase):
         # not tell which one it had reached. These are what tell them apart.
         answered = asyncio.run(healthz(_arrived_on(("127.0.0.1", 8123))))
 
-        for named in ("instance", "started_at", "port", "host", "database"):
+        for named in ("instance", "pid", "started_at", "port", "host", "database"):
             with self.subTest(named):
                 self.assertIsNotNone(answered.get(named))
+
+    def test_it_reports_the_process_that_is_serving(self):
+        # The one thing the operating system will not reliably say on Windows:
+        # `netstat` blames the parent that bound the socket, which by then has
+        # exited, while the reloader's spawned child is the one answering.
+        import os
+
+        answered = asyncio.run(healthz(_arrived_on(("127.0.0.1", 8123))))
+        self.assertEqual(answered["pid"], os.getpid())
 
     def test_the_port_is_the_one_that_answered_not_the_one_configured(self):
         # The case worth catching is a process serving somewhere other than

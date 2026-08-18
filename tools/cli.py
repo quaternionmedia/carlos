@@ -1,0 +1,423 @@
+"""`carlos` — one entry point for every durable round in this repository.
+
+    uv run carlos --help
+
+WHAT THIS IS, AND WHAT IT REFUSES TO BE.
+
+This dispatches. Every command runs the canonical command for that round and
+exits with exactly the status it returned. Nothing here forms a verdict,
+prettifies an exit code, or defaults a flag that the underlying tool would have
+defaulted differently — a command that did any of those would be a second
+definition of a rule, and two definitions drift the first time one is fixed.
+The doctrine is `governance/qm/ci/cli.py`'s, which says the same about itself.
+
+So if `carlos check` reads wrongly, the fix is in pytest's invocation, not
+here; and `carlos gates` exits non-zero for the three gates that fail today
+because that is what the runner returns.
+
+WHY THE COMMANDS STILL RUN WITHOUT IT. Every round below is a command you can
+type yourself, and `--dry-run` prints exactly that command without running it.
+CI does type them: `.github/workflows/tests.yml` invokes pytest and node
+directly, so a gate cannot fail for want of an installed package. One
+definition, two entry points.
+
+WHERE IT RUNS. Every path in this repository resolves against the working
+directory — `Settings` resolves `data/db.json`, the harnesses read
+`catalogue/devices/`, the walkthrough writes `walkthrough/media/`. Starting
+from `src/` therefore writes a second database at `src/data/` and reads no
+catalogue at all. So this locates the repository root by marker, walking up,
+and runs everything from there rather than from wherever you happened to be.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+import click
+
+# A directory is this repository if it holds the application and the catalogue.
+# Checking one would match a stray copy of either.
+MARKERS = ("src/main.py", "catalogue/devices", "walkthrough")
+
+# The five frontend harnesses, in the order they are named everywhere else.
+# The model is not the screen: two of this project's real bugs were invisible
+# to every model-level test and were caught only by these.
+HARNESSES = (
+    "view_toggle",
+    "rack_behaviour",
+    "cable_tracing",
+    "click_layers",
+    "palette",
+)
+
+# The one check command, spelled once. Both paths are named deliberately:
+# `testpaths` is ignored the moment pytest is handed a path argument, so a
+# walkthrough wired that way is collected by nobody and stays green forever.
+CHECK = ("pytest", "tests", "walkthrough", "--doctest-glob=*.md")
+
+# The runtime-bound page, which is also what regenerates the screenshots.
+BROWSER_PAGE = "walkthrough/05-in-the-browser.md"
+
+# The seed scripts run on a plain interpreter by design: a fork executes them
+# in place without installing anything, and the workflows invoke them directly
+# so a gate cannot fail for want of a venv. So they are run with the `python`
+# on PATH and not with this process's interpreter — inside `uv run carlos` that
+# is the project's environment, which has no pyyaml and no reason to.
+#
+# Found by running it: `--dry-run` printed the command that works while the
+# command that ran was a different one. Printing something other than what you
+# execute is how that hides.
+SEED = ["python"]
+
+GATES = "governance/qm/project-seed/ci/run_workflows_locally.py"
+SIGNATURES = "governance/qm/project-seed/ci/check_signatures.py"
+
+# This repository's default branch is `they`, and the seed runner defaults to
+# `main` — which fails two gates for a reason that is about the flag rather
+# than the code.
+BASE_REF = "they"
+
+
+def repository_root(start: Path | None = None) -> Path:
+    """The repository, found by marker rather than assumed to be `.`."""
+    here = (start or Path.cwd()).resolve()
+    for candidate in (here, *here.parents):
+        if all((candidate / marker).exists() for marker in MARKERS):
+            return candidate
+    raise click.ClickException(
+        "not inside the Carlos repository — no directory above "
+        f"{here} holds all of {', '.join(MARKERS)}"
+    )
+
+
+def run(
+    argv: list[str],
+    *,
+    dry_run: bool,
+    root: Path,
+    canonical: list[str] | None = None,
+    env: dict | None = None,
+) -> int:
+    """Run one command from the repository root, or print it.
+
+    Its exit status is this command's exit status. Nothing is interpreted.
+
+    What is printed is `canonical` — the command as the documentation spells
+    it — rather than what is executed, which inside an active environment is
+    the resolved interpreter. Those are the same command, and only one of them
+    is worth typing. A `--dry-run` that emitted an absolute path into a venv
+    would be teaching something nobody can use.
+    """
+    shown = " ".join(canonical or argv)
+    if dry_run:
+        click.echo(shown)
+        return 0
+
+    click.secho(f"$ {shown}", fg="cyan")
+    completed = subprocess.run(argv, cwd=root, env={**os.environ, **(env or {})})
+    return completed.returncode
+
+
+def uv(argv: list[str]) -> list[str]:
+    """How the documentation spells this command: `uv run <it>`."""
+    return ["uv", "run", *argv]
+
+
+def here(argv: list[str]) -> list[str]:
+    """How to execute it in whatever environment is already active.
+
+    Inside `uv run carlos` the environment is the project's already, so calling
+    `uv run` again would resolve a second one for no reason. Outside it, the
+    prefix is what makes the dependencies resolve at all.
+    """
+    inside = bool(os.environ.get("VIRTUAL_ENV") or os.environ.get("UV_PROJECT_ENVIRONMENT"))
+    if not inside:
+        return ["uv", "run", *argv]
+    if argv[0] == "pytest":
+        return [sys.executable, "-m", *argv]
+    if argv[0] == "python":
+        return [sys.executable, *argv[1:]]
+    return argv
+
+
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option(
+    "--dry-run", is_flag=True,
+    help="Print the command this would run, and run nothing.",
+)
+@click.pass_context
+def main(ctx: click.Context, dry_run: bool) -> None:
+    """Every durable round in this repository, in one place.
+
+    Each command runs the canonical command for that round and exits with its
+    status. `--dry-run` prints it instead, because you should be able to type
+    any of these yourself.
+    """
+    ctx.ensure_object(dict)
+    ctx.obj["dry_run"] = dry_run
+    ctx.obj["root"] = repository_root()
+
+
+@main.command()
+@click.pass_context
+def check(ctx: click.Context) -> None:
+    """The suite and the walkthrough. The command to run before a pull request.
+
+    Runs the tests *and* the executable documentation, because the pages are
+    where the examples a reader copies are proved.
+    """
+    ctx.exit(run(here(list(CHECK)), canonical=uv(list(CHECK)), **_opts(ctx)))
+
+
+@main.command()
+@click.argument("only", required=False,
+                type=click.Choice(HARNESSES, case_sensitive=False))
+@click.pass_context
+def harness(ctx: click.Context, only: str | None) -> None:
+    """The frontend harnesses, under Node.
+
+    They assert the tree rather than the model. Naming one runs just that one.
+    """
+    chosen = [only] if only else list(HARNESSES)
+    status = 0
+    for name in chosen:
+        status = run(["node", f"tests/{name}.js"], **_opts(ctx)) or status
+    ctx.exit(status)
+
+
+@main.command()
+@click.pass_context
+def shots(ctx: click.Context) -> None:
+    """Regenerate the walkthrough screenshots.
+
+    They are byproducts of the run that asserts the behaviour they show, so
+    this is the browser page and nothing else. Drift arrives as an uncommitted
+    diff — commit what changes.
+    """
+    ctx.exit(run(here(["pytest", BROWSER_PAGE, "--doctest-glob=*.md"]), canonical=uv(["pytest", BROWSER_PAGE, "--doctest-glob=*.md"]), **_opts(ctx)))
+
+
+@main.command()
+@click.pass_context
+def gates(ctx: click.Context) -> None:
+    """The governance gates, as CI runs them.
+
+    Three fail today for reasons recorded in GOVERNANCE.md, so a non-zero exit
+    is expected. The runner cannot reproduce `uses:` steps, the runner image or
+    secrets: a local pass is not a remote pass.
+    """
+    ctx.exit(run(SEED + [GATES, "--base-ref", BASE_REF], **_opts(ctx)))
+
+
+@main.command()
+@click.pass_context
+def signatures(ctx: click.Context) -> None:
+    """Verify commit signatures locally, where the key is.
+
+    The CI gate asks the forge about commits it has never seen and reports that
+    it could not check them, which is not the same as a bad signature.
+    """
+    ctx.exit(run(
+        SEED + [SIGNATURES, "--base-ref", BASE_REF,
+                "--head-ref", "HEAD", "--source", "git"],
+        **_opts(ctx),
+    ))
+
+
+@main.command()
+@click.option("--port", type=int, help="Bind somewhere other than the default.")
+@click.pass_context
+def serve(ctx: click.Context, port: int | None) -> None:
+    """Run the app.
+
+    Auto-reload does not work in this environment and its log says otherwise:
+    uvicorn reports a reload it never performed. Restart by hand after changing
+    anything under `src/`; templates and static files are a browser refresh.
+    """
+    env = {"CARLOS_PORT": str(port)} if port else None
+    click.secho(
+        "reload is broken here and the log claims otherwise — restart by hand "
+        "after any src/ change",
+        fg="yellow",
+    )
+    ctx.exit(run(
+        here(["python", "src/main.py"]),
+        canonical=uv(["python", "src/main.py"]),
+        env=env, **_opts(ctx),
+    ))
+
+
+@main.command()
+@click.option("--port", default=8000, show_default=True)
+@click.pass_context
+def stop(ctx: click.Context, port: int) -> None:
+    """Stop every server holding the port, and prove the port is free.
+
+    A round in its own right because it is not one command and the obvious one
+    is wrong. Windows leaves several uvicorn processes bound at once; killing a
+    reloader's child makes it respawn; and `/healthz` answers from whichever
+    stale process is still listening, so a restarted server looks healthy while
+    serving code from an hour ago.
+    """
+    root, dry_run = ctx.obj["root"], ctx.obj["dry_run"]
+    if dry_run:
+        click.echo(f"curl -s http://127.0.0.1:{port}/healthz   # it names its own pid")
+        ctx.exit(0)
+
+    for attempt in range(1, 5):
+        serving = _who_is_serving(port)
+        if serving is None and not _answers(port):
+            break
+
+        if serving is not None:
+            click.echo(
+                f"attempt {attempt}: instance {serving['instance']} "
+                f"is serving as pid {serving['pid']}"
+            )
+            _kill(str(serving["pid"]))
+        else:
+            # Something answers and it is not Carlos, so fall back to asking
+            # the operating system - and kill only the pids that exist, since
+            # the one it names may already be gone.
+            holders = {pid for pid in _listeners(port, root) if _exists(pid)}
+            click.echo(f"attempt {attempt}: {len(holders)} process(es) on :{port}")
+            for pid in holders:
+                _kill(pid)
+            if not holders:
+                break
+        time.sleep(1.0)
+
+    # The port answering is the only thing that settles this. A process table
+    # that has stopped naming an owner is not the same as a port that has
+    # stopped serving, and on Windows the two disagree routinely.
+    if _answers(port):
+        click.secho(f"something is still serving on :{port}", fg="red")
+        orphans = _listeners(port, root)
+        if orphans and not any(_exists(pid) for pid in orphans):
+            click.echo(
+                f"  netstat blames {', '.join(sorted(orphans))}, which no longer "
+                "exists - the socket outlived the process that bound it"
+            )
+        ctx.exit(1)
+
+    click.secho(f":{port} is free", fg="green")
+
+
+@main.command()
+@click.pass_context
+def status(ctx: click.Context) -> None:
+    """What state this checkout is in.
+
+    Reads; changes nothing. Every figure is measured here rather than quoted
+    from a document, because a document is only as fresh as its last write.
+    """
+    root = ctx.obj["root"]
+    click.secho("Carlos", bold=True)
+
+    def line(label: str, value: str) -> None:
+        click.echo(f"  {label:<22}{value}")
+
+    branch = _git(["rev-parse", "--abbrev-ref", "HEAD"], root)
+    ahead = _git(["rev-list", "--count", f"{BASE_REF}..HEAD"], root)
+    dirty = _git(["status", "--porcelain"], root)
+
+    line("branch", branch)
+    line("unpushed commits", ahead)
+    line("working tree", "clean" if not dirty else f"{len(dirty.splitlines())} changed")
+    line("devices", str(len(list((root / "catalogue/devices").glob("*.json")))))
+    line("walkthrough pages", str(len(list((root / "walkthrough").glob("*.md")))))
+    line("screenshots", str(len(list((root / "walkthrough/media").glob("*.png")))))
+    line("servers on :8000", str(len(_listeners(8000, root))))
+
+    click.echo()
+    click.echo("  next: carlos check, carlos harness, carlos gates")
+
+
+def _opts(ctx: click.Context) -> dict:
+    return {"dry_run": ctx.obj["dry_run"], "root": ctx.obj["root"]}
+
+
+def _git(argv: list[str], root: Path) -> str:
+    try:
+        done = subprocess.run(
+            ["git", *argv], cwd=root, capture_output=True, text=True, timeout=20
+        )
+        return done.stdout.strip() or "?"
+    except (OSError, subprocess.SubprocessError):
+        return "?"
+
+
+def _answers(port: int) -> bool:
+    """Does anything serve HTTP here? The only question that settles it."""
+    try:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/healthz", timeout=2
+        ):
+            return True
+    except urllib.error.HTTPError:
+        return True  # it answered, just not with a 200
+    except (urllib.error.URLError, OSError, TimeoutError):
+        return False
+
+
+def _who_is_serving(port: int) -> dict | None:
+    """Ask the server which process it is, per `/healthz`."""
+    try:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/healthz", timeout=2
+        ) as answer:
+            body = json.load(answer)
+    except Exception:
+        return None
+    if "pid" in body and "instance" in body:
+        return body
+    return None
+
+
+def _exists(pid: str) -> bool:
+    if os.name != "nt":
+        return True
+    done = subprocess.run(
+        ["tasklist", "/FI", f"PID eq {pid}"], capture_output=True, text=True
+    )
+    return pid in done.stdout
+
+
+def _listeners(port: int, root: Path) -> set[str]:
+    """PIDs listening on a port. Empty when the tooling cannot tell us."""
+    if not shutil.which("netstat"):
+        return set()
+    try:
+        done = subprocess.run(
+            ["netstat", "-ano"], cwd=root, capture_output=True, text=True, timeout=30
+        )
+    except (OSError, subprocess.SubprocessError):
+        return set()
+
+    found = set()
+    for row in done.stdout.splitlines():
+        parts = row.split()
+        if len(parts) < 5 or "LISTENING" not in row:
+            continue
+        if parts[1].endswith(f":{port}"):
+            found.add(parts[-1])
+    return found
+
+
+def _kill(pid: str) -> None:
+    command = (
+        ["taskkill", "/F", "/PID", pid] if os.name == "nt" else ["kill", "-9", pid]
+    )
+    subprocess.run(command, capture_output=True)
+
+
+if __name__ == "__main__":
+    main()

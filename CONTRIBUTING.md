@@ -16,22 +16,21 @@ Start there. Come back here when you have something to change.
 ## Before you open a pull request
 
 ```bash
-uv run pytest tests walkthrough --doctest-glob=*.md
+uv run carlos check      # the suite and the walkthrough
+uv run carlos harness    # the five frontend harnesses, under Node
 ```
 
-One command. It runs the test suite **and** the walkthrough, and both paths are
-named deliberately — `testpaths` is ignored the moment pytest is handed a path
+`carlos --help` lists every round; `carlos --dry-run <round>` prints the command
+it would run, because you should be able to type any of them yourself. The CLI
+dispatches and implements nothing — if a round reads wrongly, the fix is in what
+it runs rather than in the CLI.
+
+`check` runs the suite **and** the walkthrough, and both paths are named
+deliberately: `testpaths` is ignored the moment pytest is handed a path
 argument, so a walkthrough wired that way would be collected by nobody and stay
 green forever.
 
-The frontend harnesses are separate, and run under Node:
-
-```bash
-node tests/rack_behaviour.js    # and view_toggle, cable_tracing,
-                                # click_layers, palette
-```
-
-Say in the pull request which commands you ran.
+Say in the pull request which rounds you ran.
 
 ### The walkthrough is documentation, a demo and a test at once
 
@@ -41,10 +40,11 @@ That is not a slogan; it changes what a behaviour change costs you.
   reader reads is the example that ran, so there is no separate copy to update
   and no authority question about which one is right.
 - **`walkthrough/05-in-the-browser.md` drives the real app in real Chromium**
-  and rewrites the screenshots under `walkthrough/media/` every run. If your
-  change alters what the app draws, those files turn up as an uncommitted diff
-  in `git status` — **commit them**. That is the whole mechanism: drift arrives
-  as a diff nobody can miss rather than as staleness nobody sees.
+  and rewrites the screenshots under `walkthrough/media/` every run —
+  `carlos shots` runs just that page. If your change alters what the app draws,
+  those files turn up as an uncommitted diff in `git status` — **commit them**.
+  That is the whole mechanism: drift arrives as a diff nobody can miss rather
+  than as staleness nobody sees.
 - It needs a browser once per clone: `uv run playwright install chromium`.
 - **It does not skip when the browser is missing — it fails.** A skip is not a
   pass, and a demonstration nobody can run is a claim.
@@ -60,12 +60,13 @@ could reasonably have believed the suite had passed.
 The gates run locally too:
 
 ```bash
-python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they
+uv run carlos gates
 ```
 
-`--base-ref they` because this repository's default branch is `they` and the
-runner defaults to `main`. This executes the workflows' actual steps rather
-than an approximation of them.
+It passes `--base-ref they`, because this repository's default branch is `they`
+and the runner defaults to `main` — which fails two gates for a reason that is
+about the flag rather than the code. This executes the workflows' actual steps
+rather than an approximation of them.
 
 Three failures are expected today, all recorded in [GOVERNANCE.md](GOVERNANCE.md):
 
@@ -75,8 +76,7 @@ Three failures are expected today, all recorded in [GOVERNANCE.md](GOVERNANCE.md
   Check this one locally instead, where the key is available:
 
   ```bash
-  python governance/qm/project-seed/ci/check_signatures.py \
-    --base-ref they --head-ref HEAD --source git
+  uv run carlos signatures
   ```
 
 Anything else failing is yours.
