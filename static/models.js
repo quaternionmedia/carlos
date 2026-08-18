@@ -14,6 +14,21 @@ const PATCH_READS = [1, 2, 3];
 // has a face and a top edge and no back at all.
 const SIDE_ORDER = ['front', 'back', 'top', 'bottom', 'left', 'right'];
 
+// How wide a cable is to aim at, as against the 2px it is drawn at. Roughly a
+// fingertip, so a cable can be picked on a touchscreen and not only with a
+// mouse.
+const CABLE_HIT_WIDTH = 16;
+
+// Device text comes from `catalogue/devices/*.json` and is interpolated into
+// attributes. A label holding a quote would otherwise end the attribute early
+// and swallow the rest of the tag - a rendering bug that would look like a
+// broken device rather than a broken string.
+function attr(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 // ===================================
 // CORE COMPONENT: Parameter
 // ===================================
@@ -24,6 +39,10 @@ class Parameter {
         this.minValue = minValue;
         this.maxValue = maxValue;
         this.value = defaultValue !== null ? defaultValue : (minValue + maxValue) / 2;
+        // Kept so a knob can be put back. Not exported: the catalogue is where
+        // a device's defaults live, and a document carrying its own copy could
+        // only ever disagree with the definition it was built from.
+        this.defaultValue = this.value;
         this.rotation = this.valueToRotation(this.value);
     }
 
@@ -56,6 +75,25 @@ class Parameter {
     setState(state) {
         this.setValue(state.value);
     }
+}
+
+// A socket is a button: press one, press its partner, and a cable exists. Says
+// which side it is on, because with devices turning independently that is the
+// difference between a lead you can see and one that runs round the back.
+function jackAria(jack, side) {
+    const label = `${jack.label || jack.name} (${jack.signal} ${jack.type}, ${side})`;
+    return `tabindex="0" role="button" title="${attr(label)}" aria-label="${attr(label)}"`;
+}
+
+// A knob is a slider that happens to be round. Saying so is what makes it
+// reachable by keyboard and legible to a screen reader; the two arrangements
+// draw it differently and mean exactly the same control.
+function knobAria(param) {
+    return `tabindex="0" role="slider" title="${attr(param.label)}"`
+        + ` aria-label="${attr(param.label)}"`
+        + ` aria-valuemin="${attr(param.minValue)}"`
+        + ` aria-valuemax="${attr(param.maxValue)}"`
+        + ` aria-valuenow="${attr(Math.round(param.value))}"`;
 }
 
 // ===================================
@@ -228,7 +266,7 @@ class EurorackModule {
 
     renderParameters() {
         return Array.from(this.parameters.entries()).map(([name, param]) => `
-            <div class="knob" data-param="${name}">
+            <div class="knob" data-param="${attr(name)}" ${knobAria(param)}>
                 <div class="knob-base">
                     <div class="knob-indicator"></div>
                 </div>
@@ -268,10 +306,10 @@ class EurorackModule {
             const parameter = this.parameters.get(name);
             if (!parameter) return '';
             return `
-                <div class="irl-knob" data-param="${name}"
+                <div class="irl-knob" data-param="${attr(name)}"
                      style="left:${place.x * 100}%; top:${place.y * 100}%;
                             --size:${place.size || 1}"
-                     title="${parameter.label}">
+                     ${knobAria(parameter)}>
                     <div class="knob-base"><div class="knob-indicator"></div></div>
                     <span class="irl-knob-label">${parameter.label}</span>
                 </div>`;
@@ -284,9 +322,9 @@ class EurorackModule {
                 <div class="irl-jack-slot"
                      style="left:${place.x * 100}%; top:${place.y * 100}%;
                             --size:${place.size || 1}">
-                    <div class="jack" data-jack="${name}" data-type="${jack.type}"
-                         data-signal="${jack.signal}" data-side="${side}"
-                         title="${jack.label} (${jack.signal})"></div>
+                    <div class="jack" data-jack="${attr(name)}" data-type="${attr(jack.type)}"
+                         data-signal="${attr(jack.signal)}" data-side="${attr(side)}"
+                         ${jackAria(jack, side)}></div>
                 </div>`;
         }).join('');
 
@@ -320,17 +358,19 @@ class EurorackModule {
             .filter(([_, jack]) => jack.type === type && jack.side === side)
             .map(([name, jack]) => `
                 <div class="jack-slot">
-                    <div class="jack" data-jack="${name}" data-type="${type}"
-                         data-signal="${jack.signal}" data-side="${side}"
-                         title="${jack.label || name} (${jack.signal})"></div>
+                    <div class="jack" data-jack="${attr(name)}" data-type="${attr(type)}"
+                         data-signal="${attr(jack.signal)}" data-side="${attr(side)}"
+                         ${jackAria(jack, side)}></div>
                     <span class="jack-label">${jack.label || name}</span>
                 </div>
             `).join('');
     }
 
     setupInteractions() {
-        // Setup parameter knobs
-        this.element.querySelectorAll('.knob').forEach(knobEl => {
+        // Setup parameter knobs. Both classes: `irl` draws a knob as
+        // `.irl-knob` at its measured position, and a selector naming only
+        // `.knob` left every knob in that mode rendered and dead.
+        this.element.querySelectorAll('.knob, .irl-knob').forEach(knobEl => {
             const paramName = knobEl.dataset.param;
             const parameter = this.parameters.get(paramName);
             if (parameter) {
@@ -348,6 +388,14 @@ class EurorackModule {
                     event.stopPropagation(); // patching a jack is not selecting the module
                     system.patchBay.handleJackClick(jack);
                 });
+                // Enter and Space are what a button answers to. Patching was
+                // pointer-only, which made the whole point of the app so.
+                jackEl.addEventListener('keydown', (event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    system.patchBay.handleJackClick(jack);
+                });
             }
         });
 
@@ -362,38 +410,148 @@ class EurorackModule {
         this.element.addEventListener('click', () => system.selectModule(this.id));
     }
 
+    // A knob answers to a drag, a wheel and the keyboard. It was a mouse drag
+    // and nothing else, which left it unusable by touch and unreachable without
+    // a pointer - on a control that is most of what this app is for.
     setupKnob(knobEl, parameter) {
         const indicator = knobEl.querySelector('.knob-indicator');
+        if (!indicator) return;
         indicator.style.transform = `translateX(-50%) rotate(${parameter.rotation}deg)`;
 
-        knobEl.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            const startY = e.clientY;
-            const startRotation = parameter.rotation;
+        // A step is a fraction of the range, not a constant: a 0..1 parameter
+        // and a 0..127 one are the same gesture at different scales.
+        const span = parameter.maxValue - parameter.minValue;
+        const step = (fine) => span / (fine ? 1000 : 100);
 
-            const onMouseMove = (e) => {
-                const deltaY = startY - e.clientY;
-                parameter.setRotation(startRotation + deltaY * 2);
-
-                anime({
-                    targets: indicator,
-                    rotate: parameter.rotation,
-                    duration: 50,
-                    easing: 'linear'
-                });
-
+        const paint = (announce = true) => {
+            anime({
+                targets: indicator,
+                rotate: parameter.rotation,
+                duration: 50,
+                easing: 'linear',
+            });
+            // The value a screen reader reads has to be the value on screen.
+            knobEl.setAttribute('aria-valuenow', String(Math.round(parameter.value)));
+            if (announce) {
                 system.status.update(`${parameter.label}: ${Math.round(parameter.value)}`);
+            }
+        };
+
+        const nudge = (delta) => {
+            parameter.setValue(parameter.value + delta);
+            paint();
+        };
+
+        // ---- drag ----
+        // Pointer events rather than mouse events, so a finger and a pen turn
+        // knobs too. Capture keeps the drag attached to this knob once the
+        // cursor leaves it, which is most of a 40px target's life.
+        knobEl.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            knobEl.focus?.();
+            knobEl.setPointerCapture?.(event.pointerId);
+
+            // Measured from the last position rather than from the first, so
+            // Shift can be pressed and released mid-drag and mean fine from
+            // that moment on rather than rescaling the whole gesture.
+            let lastY = event.clientY;
+
+            const onMove = (moveEvent) => {
+                const deltaY = lastY - moveEvent.clientY;
+                lastY = moveEvent.clientY;
+                parameter.setRotation(
+                    parameter.rotation + deltaY * (moveEvent.shiftKey ? 0.5 : 2)
+                );
+                paint();
             };
 
-            const onMouseUp = () => {
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
+            const onUp = () => {
+                knobEl.removeEventListener('pointermove', onMove);
+                knobEl.removeEventListener('pointerup', onUp);
+                knobEl.removeEventListener('pointercancel', onUp);
                 system.status.update('Ready');
             };
 
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
+            knobEl.addEventListener('pointermove', onMove);
+            knobEl.addEventListener('pointerup', onUp);
+            knobEl.addEventListener('pointercancel', onUp);
         });
+
+        // ---- wheel ----
+        // Passive is off deliberately: without preventDefault the page scrolls
+        // out from under the knob being turned.
+        knobEl.addEventListener('wheel', (event) => {
+            event.preventDefault();
+            const direction = event.deltaY < 0 ? 1 : -1;
+            nudge(direction * step(event.shiftKey));
+        }, { passive: false });
+
+        // ---- keyboard ----
+        knobEl.addEventListener('keydown', (event) => {
+            if (event.ctrlKey || event.altKey || event.metaKey) return;
+            const fine = event.shiftKey;
+
+            switch (event.key) {
+                case 'ArrowUp':
+                case 'ArrowRight':
+                    nudge(step(fine));
+                    break;
+                case 'ArrowDown':
+                case 'ArrowLeft':
+                    nudge(-step(fine));
+                    break;
+                case 'PageUp':
+                    nudge(span / 10);
+                    break;
+                case 'PageDown':
+                    nudge(-span / 10);
+                    break;
+                case 'Home':
+                    parameter.setValue(parameter.minValue);
+                    paint();
+                    break;
+                case 'End':
+                    parameter.setValue(parameter.maxValue);
+                    paint();
+                    break;
+                default:
+                    return;
+            }
+            // Only once a key has been handled, so Tab, Escape and `m` still
+            // reach the rack from a focused knob.
+            event.preventDefault();
+            event.stopPropagation();
+        });
+
+        // ---- reset ----
+        // Double-click puts a knob back where the catalogue had it. Undo is a
+        // larger question; putting one control back is not.
+        knobEl.addEventListener('dblclick', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            parameter.setValue(parameter.defaultValue);
+            paint(false);
+            system.status.update(
+                `${parameter.label} back to ${Math.round(parameter.value)}`
+            );
+        });
+    }
+
+    // Move a knob to whatever its parameter now says. Three callers used to
+    // each find the element and animate the indicator themselves, and none of
+    // them updated `aria-valuenow` - so an imported or randomized rack was
+    // announced at its old values while showing its new ones.
+    paintKnob(param, { duration = 500, easing = 'easeOutCubic', delay = 0 } = {}) {
+        const knobEl = this.element?.querySelector(`[data-param="${param.name}"]`);
+        if (!knobEl) return null;
+
+        knobEl.setAttribute?.('aria-valuenow', String(Math.round(param.value)));
+        const indicator = knobEl.querySelector('.knob-indicator');
+        if (indicator) {
+            anime({ targets: indicator, rotate: param.rotation, duration, easing, delay });
+        }
+        return knobEl;
     }
 
     // State management
@@ -415,19 +573,9 @@ class EurorackModule {
         this.setView(state.view || 'front');
         Object.entries(state.parameters || {}).forEach(([name, value]) => {
             const parameter = this.parameters.get(name);
-            if (parameter) {
-                parameter.setState({ value });
-                const knobEl = this.element.querySelector(`[data-param="${name}"]`);
-                const indicator = knobEl?.querySelector('.knob-indicator');
-                if (indicator) {
-                    anime({
-                        targets: indicator,
-                        rotate: parameter.rotation,
-                        duration: 500,
-                        easing: 'easeOutCubic'
-                    });
-                }
-            }
+            if (!parameter) return;
+            parameter.setState({ value });
+            this.paintKnob(parameter);
         });
     }
 }
@@ -552,6 +700,54 @@ class PatchBayManager {
         this.activeJack = null;
     }
 
+    // A cable is identified by the two sockets it joins, computed rather than
+    // stored - the same reasoning that keeps a jack's side out of the exported
+    // document. A stored id would be a second answer to "which cable is this",
+    // and the two could disagree the moment a device were renamed.
+    static keyOf(source, target) {
+        return `${source.module.id}:${source.name}->${target.module.id}:${target.name}`;
+    }
+
+    // The connection a key names, or null. Callers get the record, not an index,
+    // because an index goes stale the moment anything else is unpatched.
+    find(key) {
+        return this.connections.find(
+            conn => PatchBayManager.keyOf(conn.source, conn.target) === key
+        ) || null;
+    }
+
+    // Pull one lead out. The jacks either end keep whatever else is plugged
+    // into them: an output feeding three inputs loses one cable, not three.
+    remove(key) {
+        const conn = this.find(key);
+        if (!conn) return null;
+
+        const { source, target } = conn;
+        source.connections = source.connections.filter(j => j !== target);
+        target.connections = target.connections.filter(j => j !== source);
+        this.connections = this.connections.filter(c => c !== conn);
+
+        // `connected` and `through` describe a jack's remaining cables, so both
+        // are recomputed from what is left rather than simply cleared.
+        [source, target].forEach(jack => {
+            jack.element?.classList.toggle('connected', jack.connections.length > 0);
+            jack.element?.classList.toggle(
+                'through', jack.connections.some(other => other.side !== jack.side)
+            );
+        });
+
+        this.redrawAll();
+        return conn;
+    }
+
+    // Every cable running to one device, for unpatching it in a single act.
+    cablesOf(moduleId) {
+        return this.connections.filter(
+            ({ source, target }) =>
+                source.module?.id === moduleId || target.module?.id === moduleId
+        );
+    }
+
     createConnection(jack1, jack2) {
         if (jack1.connect(jack2)) {
             // Normalize so the record always reads output -> input, which is
@@ -598,7 +794,9 @@ class PatchBayManager {
         this.svg.replaceChildren();
 
         this.connections.forEach(conn => {
-            conn.cable = this.createCable(conn.source, conn.target);
+            const drawn = this.createCable(conn.source, conn.target);
+            conn.cable = drawn?.path || null;
+            conn.hit = drawn?.hit || null;
         });
     }
 
@@ -680,7 +878,8 @@ class PatchBayManager {
         const midX = (from.x + to.x) / 2;
         const midY = Math.max(from.y, to.y) + 40; // cables hang below, under gravity
 
-        path.setAttribute('d', `M ${from.x} ${from.y} Q ${midX} ${midY} ${to.x} ${to.y}`);
+        const curve = `M ${from.x} ${from.y} Q ${midX} ${midY} ${to.x} ${to.y}`;
+        path.setAttribute('d', curve);
         // Rear wiring reads as rear wiring wherever the device is pointing.
         path.setAttribute('stroke', source.side === 'back' ? '#ff9f43' : '#00ff88');
         path.setAttribute('stroke-width', '2');
@@ -702,10 +901,80 @@ class PatchBayManager {
             + ` -> ${target.module.name} ${target.label} (${target.side})`;
         path.appendChild(title);
 
+        // A 2px curve is not something anyone can hit. This is the same curve
+        // at a thickness you can aim at, invisible and never painted; it exists
+        // only so `cableAt` has something to ask `isPointInStroke`. It stays
+        // `pointer-events: none` like everything else on this layer, so it
+        // cannot swallow a click meant for a knob the cable happens to cross.
+        const hit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        hit.setAttribute('d', curve);
+        hit.setAttribute('class', 'cable-hit');
+        hit.setAttribute('fill', 'none');
+        // Transparent, not `none`: `isPointInStroke` answers about the stroke's
+        // painting area, and a stroke set to `none` has no painting area to be
+        // inside. Transparent paints nothing and still has geometry.
+        hit.setAttribute('stroke', 'transparent');
+        hit.setAttribute('stroke-width', String(CABLE_HIT_WIDTH));
+
         this.svg.appendChild(path);
+        this.svg.appendChild(hit);
         if (from.hidden) this.createAnchorMark(from, source.side);
         if (to.hidden) this.createAnchorMark(to, target.side);
-        return path;
+        return { path, hit };
+    }
+
+    // Which cable, if any, is under a viewport point. Asked of the geometry
+    // rather than of the event target: the cable layer is `pointer-events:
+    // none` on purpose, and turning that off to make cables clickable would put
+    // an invisible sheet over every knob a cable runs across.
+    //
+    // Nearest wins, not first, so where two cables cross you get the one you
+    // aimed at rather than the one drawn earliest.
+    cableAt(clientX, clientY) {
+        const rackRect = this.rackOrigin();
+        if (!rackRect || !this.svg) return null;
+
+        const x = clientX - rackRect.left;
+        const y = clientY - rackRect.top;
+
+        let best = null;
+        this.connections.forEach(conn => {
+            const hit = conn.hit;
+            // Absent in a harness that stubs SVG, and absent in a browser too
+            // old for it. Either way the answer is "no cable here", never a
+            // thrown error over a right-click.
+            if (typeof hit?.isPointInStroke !== 'function') return;
+            let point;
+            try {
+                point = this.svg.createSVGPoint
+                    ? Object.assign(this.svg.createSVGPoint(), { x, y })
+                    : new DOMPoint(x, y);
+                if (!hit.isPointInStroke(point)) return;
+            } catch {
+                return;
+            }
+            const distance = this.distanceToEnds(conn, x, y);
+            if (!best || distance < best.distance) {
+                best = { key: PatchBayManager.keyOf(conn.source, conn.target), conn, distance };
+            }
+        });
+        return best;
+    }
+
+    // A tie-break, not a measurement: how far the point is from the cable's
+    // nearer end. Two cables can both contain a point and only one of them is
+    // the one being aimed at.
+    distanceToEnds(conn, x, y) {
+        const ends = [this.endpointOf(conn.source), this.endpointOf(conn.target)]
+            .filter(Boolean)
+            .map(end => Math.hypot(end.x - x, end.y - y));
+        return ends.length ? Math.min(...ends) : Infinity;
+    }
+
+    // What a cable is, in words, for a menu title and a status line.
+    describe(conn) {
+        return `${conn.source.module.name} ${conn.source.label}`
+            + ` -> ${conn.target.module.name} ${conn.target.label}`;
     }
 
     // Follow one device's cables: everything touching it is emphasised and the
@@ -745,7 +1014,6 @@ class EurorackSystem {
         this.view = 'front';
         this.selected = null;
         this.name = 'Untitled Patch';
-        this.drawerOpen = true;
         // Groupings, in display order. `row` is the only kind today; the kind
         // is recorded rather than assumed so a second one is not a reshape.
         this.groups = [];
@@ -958,21 +1226,6 @@ class EurorackSystem {
         this.patchBay.redrawAll();
     }
 
-    // ===============================
-    // OPTIONS DRAWER
-    // ===============================
-    // Slides down rather than unmounting: the handle stays reachable, and the
-    // patch name field keeps whatever was typed into it.
-    toggleDrawer(open = !this.drawerOpen) {
-        this.drawerOpen = open;
-        const drawer = document.getElementById('options-drawer');
-        if (drawer) drawer.dataset.open = String(open);
-        // Cable geometry is measured against the viewport, and the drawer
-        // changes how much of it the rack has.
-        this.patchBay.redrawAll();
-        return this.drawerOpen;
-    }
-
     addModule(type, groupId = null) {
         const module = ModuleFactory.create(type);
         // A device arriving into an `irl` rack draws as `irl`. Without this it
@@ -1131,22 +1384,47 @@ class EurorackSystem {
         return module;
     }
 
+    // ===============================
+    // CABLES
+    // ===============================
+    // Patching was one-way: a lead could be run and then only ever cleared with
+    // every other lead in the rack. These are the other direction.
+
+    unpatch(key) {
+        const conn = this.patchBay.find(key);
+        if (!conn) {
+            this.status.update('That cable is no longer patched');
+            return null;
+        }
+        const description = this.patchBay.describe(conn);
+        this.patchBay.remove(key);
+        this.status.update(`Unpatched ${description}`);
+        return conn;
+    }
+
+    unpatchModule(id) {
+        const module = this.modules.get(id);
+        if (!module) return 0;
+
+        const cables = this.patchBay.cablesOf(id);
+        cables.forEach(conn => this.patchBay.remove(
+            PatchBayManager.keyOf(conn.source, conn.target)
+        ));
+        this.status.update(
+            cables.length
+                ? `Unpatched ${cables.length} cable(s) from ${module.name}`
+                : `${module.name} has nothing patched to it`
+        );
+        return cables.length;
+    }
+
     randomizeModule(id) {
         const module = this.modules.get(id);
         if (!module) return null;
 
         module.parameters.forEach(param => {
             param.setValue(Math.random() * (param.maxValue - param.minValue) + param.minValue);
-            const knobEl = module.element?.querySelector(`[data-param="${param.name}"]`);
-            const indicator = knobEl?.querySelector('.knob-indicator');
-            if (indicator) {
-                anime({
-                    targets: indicator,
-                    rotate: param.rotation,
-                    duration: 600,
-                    easing: 'easeOutElastic(1, .8)'
-                });
-            }
+            module.paintKnob(param, { duration: 600, easing: 'easeOutElastic(1, .8)' });
         });
 
         this.status.update(`Randomized ${module.name}`);
@@ -1156,20 +1434,14 @@ class EurorackSystem {
     randomizeAll() {
         this.modules.forEach(module => {
             module.parameters.forEach(param => {
-                const randomValue = Math.random() * (param.maxValue - param.minValue) + param.minValue;
-                param.setValue(randomValue);
-
-                const knobEl = module.element.querySelector(`[data-param="${param.name}"]`);
-                const indicator = knobEl?.querySelector('.knob-indicator');
-                if (indicator) {
-                    anime({
-                        targets: indicator,
-                        rotate: param.rotation,
-                        duration: 1000 + Math.random() * 500,
-                        easing: 'easeOutElastic(1, .8)',
-                        delay: Math.random() * 300
-                    });
-                }
+                param.setValue(
+                    Math.random() * (param.maxValue - param.minValue) + param.minValue
+                );
+                module.paintKnob(param, {
+                    duration: 1000 + Math.random() * 500,
+                    easing: 'easeOutElastic(1, .8)',
+                    delay: Math.random() * 300,
+                });
             });
         });
 

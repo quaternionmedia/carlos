@@ -73,6 +73,16 @@ async function loadExample(kind, deviceId) {
 //
 // Tab must not also move focus to the next control, or the two meanings
 // collide; preventDefault is what keeps them apart.
+// Anything that takes focus in its own right. Tab belongs to whatever the user
+// is already inside; it only means "turn the rack" when they are not inside
+// anything. Without this the rack swallowed every Tab on the page, so the turn
+// buttons, the row controls and now the knobs could be seen and never reached.
+function isFocusable(node) {
+    return Boolean(node?.closest?.(
+        'input, select, textarea, button, a[href], [tabindex]:not([tabindex="-1"])'
+    ));
+}
+
 document.addEventListener('keydown', (event) => {
     // A patch name is a text field; Tab and Escape inside it belong to it.
     if (event.target instanceof HTMLInputElement) return;
@@ -83,7 +93,10 @@ document.addEventListener('keydown', (event) => {
     // turns devices while a menu is sitting on top of them.
     if (radMenu.open) return;
 
+    // Escape is "let go": drop the selection and hand focus back, so a knob
+    // reached by keyboard is not somewhere you have to click your way out of.
     if (event.key === 'Escape') {
+        if (isFocusable(event.target)) event.target.blur?.();
         system.deselect();
         return;
     }
@@ -106,6 +119,9 @@ document.addEventListener('keydown', (event) => {
     }
 
     if (event.key !== 'Tab' || event.ctrlKey || event.altKey || event.metaKey) return;
+
+    // Focus is somewhere that wants Tab. Let it move; Escape gets back out.
+    if (isFocusable(event.target)) return;
 
     // Shift+Tab walks the sides backwards, which matters once a device has
     // more than two of them and cycling forward is a long way round.
@@ -165,11 +181,33 @@ function learnFrom(message) {
 // The device waiting to be bound to whatever arrives next, if any.
 let midiLearnTarget = null;
 
+// What is patched, keyed the way the menu addresses it. Built per open rather
+// than kept in step: a cache of this would be a second copy of the patch bay,
+// and the resolver is called once per menu, not once per frame.
+function cableState() {
+    const cables = new Map();
+    const cableCounts = new Map();
+
+    system.patchBay.connections.forEach(conn => {
+        cables.set(
+            PatchBayManager.keyOf(conn.source, conn.target),
+            { label: system.patchBay.describe(conn) }
+        );
+        // A device patched into itself is one cable, not two. The set is what
+        // keeps "Unpatch (1)" from reading "Unpatch (2)".
+        new Set([conn.source.module?.id, conn.target.module?.id])
+            .forEach(id => { if (id) cableCounts.set(id, (cableCounts.get(id) || 0) + 1); });
+    });
+
+    return { cables, cableCounts };
+}
+
 const radMenu = new RadMenu({
     resolve: (context) => carlosResolve(context, {
         definitions: ModuleFactory.definitions,
         groups: system.groups,
         modules: system.modules,
+        ...cableState(),
     }),
     onIntent: (intent) => routeIntent(intent),
 });
@@ -227,6 +265,22 @@ function routeIntent(intent) {
         case 'rack:clear':
             system.clearRack();
             break;
+
+        case 'cable:remove':
+            system.unpatch(targetId);
+            break;
+
+        case 'cable:remove-node':
+            if (targetId) system.unpatchModule(targetId);
+            break;
+
+        case 'cable:follow': {
+            // Selecting the device at the source end is what tracing keys on,
+            // so following a lead is selecting the thing it comes from.
+            const conn = system.patchBay.find(targetId);
+            if (conn) system.selectModule(conn.source.module.id);
+            break;
+        }
 
         case 'patch:export':
             exportPatch();
@@ -286,16 +340,38 @@ function routeIntent(intent) {
     }
 }
 
-// Open the menu: right-click anywhere, or `m` on a selection.
-document.addEventListener('contextmenu', (event) => {
+// What a point in the rack is pointing at, as rad's MenuContext.
+//
+// Device, then cable, then the rack itself. A device wins over a cable crossing
+// it because that is what you are looking at; cables hang below the gear, so
+// the two rarely compete.
+//
+// The cable is found by asking the geometry, not the event target. The cable
+// layer is `pointer-events: none` and stays that way - making cables clickable
+// the ordinary way would lay an invisible sheet over every knob a lead runs
+// across, and trade one missing gesture for a broken one.
+function contextAt(event) {
     const moduleEl = event.target.closest?.('.module');
     const inRack = event.target.closest?.('#rack');
-    if (!inRack && !moduleEl) return;
+    if (!inRack && !moduleEl) return null;
+
+    const position = { x: event.clientX, y: event.clientY };
+    if (moduleEl) {
+        return { type: 'node', targetIds: [moduleEl.dataset.moduleId], position };
+    }
+
+    const cable = system.patchBay.cableAt(event.clientX, event.clientY);
+    if (cable) return { type: 'edge', targetIds: [cable.key], position };
+
+    return { type: 'canvas', targetIds: [], position };
+}
+
+// Open the menu: right-click anywhere, or `m` on a selection.
+document.addEventListener('contextmenu', (event) => {
+    const context = contextAt(event);
+    if (!context) return;
 
     event.preventDefault();
-    const context = moduleEl
-        ? { type: 'node', targetIds: [moduleEl.dataset.moduleId], position: { x: event.clientX, y: event.clientY } }
-        : { type: 'canvas', targetIds: [], position: { x: event.clientX, y: event.clientY } };
     radMenu.openAt(context, event.clientX, event.clientY, 'tap');
 });
 
@@ -303,14 +379,11 @@ document.addEventListener('contextmenu', (event) => {
 document.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     if (radMenu.open) return;
-    const moduleEl = event.target.closest?.('.module');
-    const inRack = event.target.closest?.('#rack');
-    if (!inRack && !moduleEl) return;
     if (event.target.closest?.('.knob, .jack, button, input, select')) return;
 
-    const context = moduleEl
-        ? { type: 'node', targetIds: [moduleEl.dataset.moduleId], position: { x: event.clientX, y: event.clientY } }
-        : { type: 'canvas', targetIds: [], position: { x: event.clientX, y: event.clientY } };
+    const context = contextAt(event);
+    if (!context) return;
+
     radMenu.armLongPress(context, event);
 });
 

@@ -97,11 +97,18 @@ function place(module) {
 
 const results = [];
 const check = (name, ok, detail) => results.push({ name, ok, detail });
-const paths = () => SVG_CHILDREN.filter(c => c.tag === 'path');
-const anchors = () => SVG_CHILDREN.filter(c => c.tag === 'circle');
 // Tolerant of a missing path: a dropped cable should be reported as a
 // failed expectation, not crash the run before anything is printed.
 const classesOf = (p) => (p && p.getAttribute('class') || '').split(/\s+/);
+// The drawn cables, which is what "one connection is one line" is about. Each
+// one also lays down a `.cable-hit` probe - invisible, never painted, there so
+// a lead can be aimed at - and counting those as cables would say every
+// connection drew two.
+const paths = () => SVG_CHILDREN.filter(
+    c => c.tag === 'path' && classesOf(c).includes('cable'));
+const probes = () => SVG_CHILDREN.filter(
+    c => c.tag === 'path' && classesOf(c).includes('cable-hit'));
+const anchors = () => SVG_CHILDREN.filter(c => c.tag === 'circle');
 
 // ---- a cable between two faces that are not both showing ----
 const vco = place(system.addModule('carlos.vco'));      // front + back
@@ -176,6 +183,15 @@ check('clearing the trace unmarks everything',
 // ---- nothing is silently dropped ----
 check('every connection produced exactly one path',
     paths().length, system.patchBay.connections.length);
+check('every drawn cable has one probe to aim at',
+    probes().length, paths().length);
+check('the probe traces the same curve as the cable it stands for',
+    probes().every((probe, i) => probe.getAttribute('d') === paths()[i].getAttribute('d')),
+    true);
+check('the probe is wider than the line, or it could not be hit',
+    probes().every(probe => Number(probe.getAttribute('stroke-width')) > 2), true);
+check('the probe strokes transparent, not none - `none` has no area to hit',
+    probes().every(probe => probe.getAttribute('stroke') === 'transparent'), true);
 
 let failed = 0;
 for (const r of results) {

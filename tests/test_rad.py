@@ -216,6 +216,57 @@ class ResolverTests(unittest.TestCase):
         """)
         self.assertTrue(outcome["threw"])
 
+    def test_a_cable_resolves_as_an_edge(self):
+        # `edge` is in rad's MenuContext vocabulary and Carlos never resolved
+        # it, which is why a lead could be run and not pulled out again.
+        spec = self.resolve("""
+        const state = {
+            definitions: {}, groups: [], modules: new Map(),
+            cables: new Map([['a:out->b:in', { label: 'A out -> B in' }]]),
+        };
+        const spec = m.carlosResolve(
+            {type:'edge', targetIds:['a:out->b:in'], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+        self.assertEqual(spec["title"], "A out -> B in")
+        actions = [i["action"] for i in spec["items"]]
+        self.assertIn("cable:remove", actions)
+        unpatch = next(i for i in spec["items"] if i["action"] == "cable:remove")
+        self.assertTrue(unpatch["destructive"], "pulling a lead out is destructive")
+        self.assertLessEqual(len(spec["items"]), 8)
+
+    def test_an_edge_menu_survives_a_cable_it_cannot_name(self):
+        # The menu resolves against state gathered when it opened. A cable
+        # removed in between must give a menu, not a thrown resolver.
+        spec = self.resolve("""
+        const state = { definitions: {}, groups: [], modules: new Map(), cables: new Map() };
+        const spec = m.carlosResolve(
+            {type:'edge', targetIds:['gone'], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+        self.assertEqual(spec["title"], "Cable")
+
+    def test_unpatch_is_offered_only_when_something_is_patched(self):
+        spec = self.resolve("""
+        const module = { id: 'm1', name: 'VCO', type: 'carlos.vco',
+                         sides: ['front', 'back'], view: 'front' };
+        const base = { definitions: {}, groups: [], modules: new Map([['m1', module]]) };
+        const context = {type:'node', targetIds:['m1'], position:{x:0,y:0}};
+        const bare = m.carlosResolve(context, base);
+        const patched = m.carlosResolve(
+            context, { ...base, cableCounts: new Map([['m1', 3]]) });
+        const pick = (spec) => spec.items.find(i => i.action === 'cable:remove-node');
+        console.log(JSON.stringify({
+            bare: pick(bare), patched: pick(patched),
+            ring: [bare.items.length, patched.items.length],
+        }));
+        """)
+        self.assertFalse(spec["bare"]["enabled"])
+        self.assertTrue(spec["patched"]["enabled"])
+        self.assertIn("3", spec["patched"]["label"])
+        for size in spec["ring"]:
+            self.assertLessEqual(size, 8, "the node ring outgrew the ceiling")
+
     def test_intents_carry_no_colour_literals(self):
         # The contract: `color:*` names a palette token, never a hex. A hex in
         # an intent cannot survive a theme change.
@@ -386,8 +437,14 @@ class DeprecatedMenuTests(unittest.TestCase):
                 self.assertNotIn(gone, markup)
 
     def test_the_frontend_no_longer_builds_a_palette_or_row_picker(self):
-        main = Path("static/main.js").read_text(encoding="utf-8")
-        for gone in ("renderPalette", "refreshRowTargets", "toggleDrawer"):
+        # Both files. `toggleDrawer` survived this check for a release by
+        # living in models.js while the check only read main.js - dead code
+        # addressing an element no template renders.
+        main = "".join(
+            Path(f).read_text(encoding="utf-8")
+            for f in ("static/main.js", "static/models.js")
+        )
+        for gone in ("renderPalette", "refreshRowTargets", "toggleDrawer", "drawerOpen"):
             with self.subTest(gone):
                 self.assertNotIn(gone, main)
 

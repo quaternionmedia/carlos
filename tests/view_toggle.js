@@ -197,6 +197,66 @@ check('removing a device removes exactly one node', moduleNodes().length, before
 check('and its node is gone',
     moduleNodes().some(n => n.getAttribute('data-module-id') === victim), false);
 
+// --- controls reach the screen as controls ---
+// The model is not the screen, and "a knob exists" is not "a knob can be
+// turned". These assert the tree, which is the only thing that caught the
+// `irl` knobs being rendered and dead.
+system.clearRack();
+system.setMode('minimal');
+const controlled = system.addModule('carlos.vco');
+
+const knobs = () => controlled.element.querySelectorAll('.knob, .irl-knob');
+const jacks = () => controlled.element.querySelectorAll('.jack');
+
+check('minimal draws a knob per parameter',
+    knobs().length, controlled.parameters.size);
+check('every knob is reachable by keyboard',
+    knobs().every(k => k.getAttribute('tabindex') === '0'), true);
+check('every knob says what it is and where it stands',
+    knobs().every(k => k.getAttribute('role') === 'slider'
+        && k.getAttribute('aria-valuenow') !== null
+        && k.getAttribute('aria-valuemax') !== null), true);
+check('every socket is reachable by keyboard',
+    jacks().every(j => j.getAttribute('tabindex') === '0'), true);
+check('every socket carries a label naming its signal and side',
+    jacks().every(j => /\((cv|audio|gate|midi|clock|trigger)/.test(
+        j.getAttribute('aria-label') || '')), true);
+
+// The same device drawn the other way. `irl` names its knobs `.irl-knob`, and
+// a selector reading only `.knob` left every one of them inert.
+system.setMode('irl');
+const laidOut = controlled.element.querySelectorAll('.irl-knob');
+check('as-laid-out draws its knobs as irl-knobs', laidOut.length > 0, true);
+check('and those knobs are reachable too',
+    laidOut.every(k => k.getAttribute('tabindex') === '0'), true);
+check('and carry the value they are showing',
+    laidOut.every(k => k.getAttribute('aria-valuenow') !== null), true);
+// The one that matters. Attributes are markup; a handler is what makes a knob
+// turn. `irl` knobs were drawn complete and wired to nothing, which no
+// attribute assertion would have noticed.
+const listenerTypes = (el) => new Set(el.listeners.map(l => l.type));
+check('an as-laid-out knob is actually wired to a drag',
+    laidOut.every(k => listenerTypes(k).has('pointerdown')), true);
+check('and to a wheel and the keyboard',
+    laidOut.every(k => listenerTypes(k).has('wheel') && listenerTypes(k).has('keydown')),
+    true);
+check('a minimal knob is wired the same way',
+    controlled.element.querySelectorAll('.knob')
+        .every(k => listenerTypes(k).has('pointerdown')), true);
+check('a socket answers to the keyboard as well as the pointer',
+    jacks().every(j => listenerTypes(j).has('click') && listenerTypes(j).has('keydown')),
+    true);
+
+// A value set from anywhere has to reach the attribute a screen reader reads.
+system.setMode('minimal');
+const param = [...controlled.parameters.values()][0];
+param.setValue(param.maxValue);
+controlled.paintKnob(param);
+check('painting a knob updates the value it announces',
+    controlled.element.querySelector(`[data-param="${param.name}"]`)
+        .getAttribute('aria-valuenow'),
+    String(Math.round(param.maxValue)));
+
 let failed = 0;
 for (const r of results) {
     const pass = JSON.stringify(r.got) === JSON.stringify(r.want);

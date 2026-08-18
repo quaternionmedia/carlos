@@ -39,7 +39,8 @@ const src = fs.readFileSync(
 // Indirect eval: runs in global scope, so the classes are visible here.
 (0, eval)(src + '\nglobalThis.EurorackSystem = EurorackSystem;'
     + '\nglobalThis.ModuleFactory = ModuleFactory;'
-    + '\nglobalThis.PATCH_VERSION = PATCH_VERSION;');
+    + '\nglobalThis.PATCH_VERSION = PATCH_VERSION;'
+    + '\nglobalThis.PatchBayManager = PatchBayManager;');
 global.system = new EurorackSystem();
 
 // The palette now comes from the catalogue, so the harness loads it the same
@@ -263,6 +264,57 @@ check('its view survived', [...system.modules.values()][0].view, 'back');
 const future = PATCH_VERSION + 1;
 refuses('a future version is refused',
     { format: 'carlos.patch', version: future }, `Version ${future}`);
+
+// --- unpatching ---
+// Patching used to be one-way: a lead could be run, and then only ever removed
+// by clearing every other lead in the rack with it. These cover the way back.
+system.clearRack();
+const u1 = system.addModule('carlos.vco');
+const u2 = system.addModule('carlos.vcf');
+const u3 = system.addModule('carlos.vcf');
+
+// One output feeding two inputs, plus an unrelated cable that must survive.
+system.patchBay.createConnection(u1.jacks.get('audio_out'), u2.jacks.get('audio_in'));
+system.patchBay.createConnection(u1.jacks.get('audio_out'), u3.jacks.get('audio_in'));
+system.patchBay.createConnection(u2.jacks.get('env_out'), u3.jacks.get('cutoff_cv_in'));
+check('three cables to unpatch from', system.patchBay.connections.length, 3);
+
+const fanKey = PatchBayManager.keyOf(u1.jacks.get('audio_out'), u2.jacks.get('audio_in'));
+check('a cable is found by the sockets it joins',
+    system.patchBay.find(fanKey) !== null, true);
+check('a key names the two ends and nothing else',
+    fanKey, `${u1.id}:audio_out->${u2.id}:audio_in`);
+
+system.unpatch(fanKey);
+check('unpatching removes exactly one cable', system.patchBay.connections.length, 2);
+check('and that cable specifically', system.patchBay.find(fanKey), null);
+// The one that matters: an output feeding two inputs loses one lead, not both.
+check('the fan-out keeps its other lead',
+    u1.jacks.get('audio_out').connections.length, 1);
+check('the far end of the removed cable is free',
+    u2.jacks.get('audio_in').connections.length, 0);
+check('the unrelated cable is untouched',
+    system.patchBay.find(
+        PatchBayManager.keyOf(u2.jacks.get('env_out'), u3.jacks.get('cutoff_cv_in'))
+    ) !== null, true);
+
+check('unpatching a cable that is not there is not an error',
+    system.unpatch('nothing:at->all:here'), null);
+
+check('an unpatched cable is not exported',
+    system.exportState().connections.length, 2);
+
+// Every lead on one device, in a single act.
+check('cablesOf counts both directions',
+    system.patchBay.cablesOf(u3.id).length, 2);
+check('unpatching a device reports how many went',
+    system.unpatchModule(u3.id), 2);
+check('and leaves the rest of the rack patched',
+    system.patchBay.connections.length, 0);
+check('unpatching a device is not the same as deleting it',
+    system.modules.has(u3.id), true);
+check('a device with nothing patched to it unpatches to zero',
+    system.unpatchModule(u3.id), 0);
 
 let failed = 0;
 for (const r of results) {
