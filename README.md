@@ -68,7 +68,12 @@ fails. On a fresh checkout, `uv run playwright install chromium` once.
 uv run carlos serve
 ```
 
-Open `http://localhost:8000`. The address is predictable on purpose — this is a
+Open `http://localhost:8000`. It lands on a splash that says what this is, with
+one link into the workspace at `/rack` — opening a rack is a thing you choose,
+and a tool that drops you into an editable document has decided for you what
+you came for.
+
+The address is predictable on purpose — this is a
 thing you open in a browser — and `CARLOS_HOST`, `CARLOS_PORT` and `CARLOS_DB`
 move a process without editing anything committed.
 

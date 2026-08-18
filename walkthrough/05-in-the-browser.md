@@ -14,7 +14,7 @@ sitting beside it. The regression protection is the assertions.
 ## Provisioning
 
 ```python
->>> from walkthrough.support import LiveApp, Shots, chromium, open_rack
+>>> from walkthrough.support import LiveApp, Shots, chromium, open_rack, release
 >>> from walkthrough.support import open_menu, pick, until
 >>> app = LiveApp().start()
 >>> shots = Shots('05-in-the-browser')
@@ -31,6 +31,40 @@ doctest stops at the first failing example, so a page that dies half way
 through never reaches the teardown at the bottom of it — and a server that
 outlives its run holds a port until somebody notices. One session left seven of
 them.
+
+## The bare port lands on the splash
+
+Opening a rack is a thing you choose. Arriving at the address gets you a page
+that says what this is and one way in:
+
+```python
+>>> landing = browser.new_page()
+>>> _ = landing.goto(app.base, wait_until='networkidle')
+>>> landing.url.endswith('/splash')
+True
+>>> landing.inner_text('.splash-name')
+'CARLOS'
+
+```
+
+Its figures are measured rather than typed, so a device added to the catalogue
+is a device the splash counts:
+
+```python
+>>> from src import catalogue
+>>> str(len(catalogue.load_all())) in landing.inner_text('.splash-facts')
+True
+
+```
+
+The way in is a link, so it works before any JavaScript does:
+
+```python
+>>> landing.get_attribute('.splash-enter', 'href')
+'/rack'
+>>> landing.close()
+
+```
 
 ## Boot
 
@@ -454,11 +488,16 @@ into a red build.
 ```
 
 ```python
+>>> release(browser)
 >>> app.stop()
 
 ```
 
-The browser needs no line here: it shut itself down when it started.
+Both registered their own shutdown as they started, so a page that dies part
+way through still leaves nothing behind. Releasing here is for the run that
+*succeeds*: Playwright's sync driver holds a running event loop in this thread,
+and anything using `asyncio.run` afterwards fails on it — which is what
+happened to forty-four tests when these pages were collected first.
 
 ## What this page does not cover
 

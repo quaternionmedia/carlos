@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carlos</title>
+    <link rel="stylesheet" href="{{ asset('demo.css') }}">
+    <link rel="stylesheet" href="{{ asset('splash.css') }}">
+</head>
+<body class="splash">
+    {# The bare port lands here rather than in the workspace. Opening a rack is
+       a thing you choose, and a tool that drops you straight into an editable
+       document has decided for you what you came for. This page says what this
+       is, and gets out of the way in one click. #}
+    <main class="splash-card">
+        <h1 class="splash-name">Carlos</h1>
+        <p class="splash-line">A browser workspace for sketching rigs of real gear.</p>
+
+        <a class="splash-enter" href="/rack">Open the workspace</a>
+
+        <p class="splash-note">
+            Drop in devices from a catalogue of real gear, adjust their knobs,
+            and patch cables between them on whichever face the sockets are
+            actually on. Devices turn individually, so you can work on the back
+            of one while the rest face forward.
+        </p>
+
+        <dl class="splash-facts">
+            <dt>Devices</dt>
+            <dd>{{ device_count }} across {{ category_count }} categories</dd>
+            <dt>Format</dt>
+            <dd>{{ format_name }} v{{ format_version }}</dd>
+            <dt>Build</dt>
+            <dd>{{ version }}</dd>
+        </dl>
+
+        <nav class="splash-links">
+            <a href="/docs">API</a>
+            <a href="/api/cadence">Cadence</a>
+            <a href="/api/catalogue">Catalogue</a>
+            <a href="/healthz">Health</a>
+        </nav>
+
+        <p class="splash-status">
+            Pre-release. Patch persistence is not built, and
+            <a href="/api/cadence">the seam says what calling it costs</a>.
+        </p>
+    </main>
+</body>
+</html>

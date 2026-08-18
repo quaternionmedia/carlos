@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -132,9 +132,47 @@ async def no_store_static(request: Request, call_next):
     return response
 
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    """Render the Carlos patch workspace."""
+@app.get("/")
+async def home():
+    """The bare port lands on the splash, not in the workspace.
+
+    Opening a rack is a thing you choose. A tool that drops you straight into
+    an editable document has decided for you what you came for, and the first
+    thing anyone arriving at an unfamiliar address needs is to be told what
+    this is.
+
+    A redirect rather than serving the splash here, so the splash has one
+    address a reader can link to and come back to.
+    """
+    return RedirectResponse(url="/splash", status_code=307)
+
+
+@app.get("/splash", response_class=HTMLResponse)
+async def splash(request: Request):
+    """What this is, and the way in.
+
+    Every figure is measured here rather than written into the template: a
+    device count typed into a page is wrong the first time somebody adds a
+    device, and nothing would notice.
+    """
+    devices = catalogue.load_all()
+    return templates.TemplateResponse(
+        "splash.html",
+        {
+            "request": request,
+            "title": settings.app_name,
+            "version": settings.version,
+            "device_count": len(devices),
+            "category_count": len(catalogue.CATEGORIES),
+            "format_name": patch_format.FORMAT_NAME,
+            "format_version": patch_format.FORMAT_VERSION,
+        },
+    )
+
+
+@app.get("/rack", response_class=HTMLResponse)
+async def rack(request: Request):
+    """The patch workspace itself."""
     return templates.TemplateResponse(
         "demo.html",
         {"request": request, "title": settings.app_name},

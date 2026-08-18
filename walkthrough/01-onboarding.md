@@ -71,7 +71,8 @@ that way is collected by nobody and stays green forever.
 uv run python src/main.py
 ```
 
-`http://localhost:8000`, bound on `0.0.0.0:8000`. Two things to know before you
+`http://localhost:8000`, bound on `0.0.0.0:8000`. The bare address redirects to
+`/splash`; the workspace is at `/rack`. Two things to know before you
 debug anything:
 
 **Auto-reload does not work here, and its log lies.** uvicorn prints

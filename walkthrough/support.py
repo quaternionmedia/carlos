@@ -195,7 +195,21 @@ def chromium():
     _LEAVING.append(driver.stop)
     browser = driver.chromium.launch()
     _LEAVING.append(browser.close)
+    # Handed back so a page can release it when it is done rather than at
+    # interpreter exit. Playwright's sync driver keeps a running event loop in
+    # this thread, and anything calling `asyncio.run` afterwards fails with
+    # "cannot be called from a running event loop" - which is what happened to
+    # forty-four unittest tests when the pages were collected before them. The
+    # registration above is still the failure path; this is the success one.
+    browser._release = lambda: (browser.close(), driver.stop())
     return browser
+
+
+def release(browser) -> None:
+    """Shut a browser and its driver down now, not at exit."""
+    closer = getattr(browser, "_release", None)
+    if closer is not None:
+        closer()
 
 
 def open_rack(app: LiveApp, browser, width: int = 1280, height: int = 860):
@@ -213,7 +227,8 @@ def open_rack(app: LiveApp, browser, width: int = 1280, height: int = 860):
             page.errors.append(f"console.{message.type}: {message.text}")
             if message.type == "error" else None)
 
-    page.goto(app.base, wait_until="networkidle")
+    # The workspace, not the bare port: that redirects to the splash now.
+    page.goto(f"{app.base}/rack", wait_until="networkidle")
     # The palette is the last thing the page builds, so its presence is the
     # signal that every script ran.
     page.wait_for_selector("#tool-palette", timeout=10_000)
