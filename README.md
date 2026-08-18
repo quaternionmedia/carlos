@@ -144,6 +144,11 @@ uv run carlos serve --port 8123
   rack itself, and each gives you its own ring. A row can be turned, emptied or
   deleted — and deleting one never deletes gear, because a grouping is a way of
   looking at a rack rather than a container the gear lives inside.
+- **Cables route behind the gear when they run behind it.** Two cable layers,
+  one over the devices and one under: a lead across a front panel runs over the
+  rack, and one going round the back is drawn under it, dashed. Which layer a
+  lead is on is read off its geometry, so turning a device away moves its lead
+  underneath.
 - **A lead carrying channels is drawn as the channels.** One USB cable, four
   strands, one per channel bound to the device at the far end. The split is
   derived from the MIDI bindings rather than stored on the cable, so rebinding a

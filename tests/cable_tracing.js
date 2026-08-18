@@ -41,15 +41,25 @@ function makeEl(opts = {}) {
     };
 }
 
-// The cable layer records what was drawn on it.
+// Two cable layers, because the rack has two: one over the gear for leads you
+// can see the whole of, one under it for leads that disappear round the back.
+// Each records what was drawn on it, so "which layer did this land on" is a
+// question the model can be asked without a browser.
 const svg = makeEl({ id: 'patch-cables' });
 svg.appendChild = (child) => { SVG_CHILDREN.push(child); };
 svg.replaceChildren = () => { SVG_CHILDREN.length = 0; };
 svg.classList = { add() {}, remove() {}, toggle() {}, contains: () => false };
 
+const BEHIND_CHILDREN = [];
+const behind = makeEl({ id: 'patch-cables-behind' });
+behind.appendChild = (child) => { BEHIND_CHILDREN.push(child); };
+behind.replaceChildren = () => { BEHIND_CHILDREN.length = 0; };
+behind.classList = { add() {}, remove() {}, toggle() {}, contains: () => false };
+
 const rack = makeEl({ id: 'rack', rect: () => rect(0, 0, 1200, 600) });
 const nodes = {
-    rack, 'patch-cables': svg, status: makeEl(), 'view-indicator': makeEl(),
+    rack, 'patch-cables': svg, 'patch-cables-behind': behind,
+    status: makeEl(), 'view-indicator': makeEl(),
     'patch-name': null, 'patch-file': null,
 };
 
@@ -111,9 +121,14 @@ const classesOf = (p) => (p && p.getAttribute('class') || '').split(/\s+/);
 // one also lays down a `.cable-hit` probe - invisible, never painted, there so
 // a lead can be aimed at - and counting those as cables would say every
 // connection drew two.
-const paths = () => SVG_CHILDREN.filter(
+const cablesIn = (children) => children.filter(
     c => c.tag === 'path' && classesOf(c).includes('cable'));
-const probes = () => SVG_CHILDREN.filter(
+// Everything drawn, wherever it landed: most of this harness asks whether a
+// cable exists at all, and which layer it is on is a separate question.
+const paths = () => [...cablesIn(SVG_CHILDREN), ...cablesIn(BEHIND_CHILDREN)];
+const frontPaths = () => cablesIn(SVG_CHILDREN);
+const behindPaths = () => cablesIn(BEHIND_CHILDREN);
+const probes = () => [...SVG_CHILDREN, ...BEHIND_CHILDREN].filter(
     c => c.tag === 'path' && classesOf(c).includes('cable-hit'));
 const anchors = () => SVG_CHILDREN.filter(c => c.tag === 'circle');
 
@@ -421,6 +436,52 @@ check('a binding naming another device is not on this lead',
     system.patchBay.lanesOf(link.source, link.target).length, 0);
 
 system.midi = [];
+system.clearRack();
+
+
+// ---------------------------------------------------------------------------
+// A lead that goes round the back is drawn round the back
+// ---------------------------------------------------------------------------
+// The dashes said "part of this run is behind something" while the cable was
+// painted over the panel it was meant to be behind - the picture contradicting
+// its own annotation. Which layer a lead lands on is the same question as
+// whether it is occluded, asked once.
+system.clearRack();
+const upper = place(system.addModule('carlos.vco'));
+const lower = place(system.addModule('carlos.vcf'));
+
+// Both showing their fronts, and a front-to-front lead: nothing is hidden, so
+// it runs across the gear in plain sight.
+upper.setView('front');
+lower.setView('front');
+system.patchBay.createConnection(
+    upper.jacks.get('audio_out'), lower.jacks.get('audio_in'));
+system.patchBay.redrawAll();
+check('a lead you can see the whole of is drawn over the gear',
+    [frontPaths().length, behindPaths().length], [1, 0]);
+check('and it is not marked occluded',
+    classesOf(frontPaths()[0]).includes('is-occluded'), false);
+
+// Turn one device away and the same lead now leaves out of sight.
+lower.setView('back');
+system.patchBay.redrawAll();
+check('turning a device away moves its lead under the gear',
+    [frontPaths().length, behindPaths().length], [0, 1]);
+check('and the lead says so',
+    classesOf(behindPaths()[0]).includes('is-occluded'), true);
+
+// The probe follows its cable, or `cableAt` stops finding leads that moved.
+check('the probe went with it', probes().length, 1);
+check('the anchor mark stays on top, where it can be seen',
+    anchors().length > 0, true);
+
+// Turning it back brings the lead forward again: the layer is read off the
+// geometry every redraw rather than decided once when the cable was made.
+lower.setView('front');
+system.patchBay.redrawAll();
+check('and turning it back brings the lead forward',
+    [frontPaths().length, behindPaths().length], [1, 0]);
+
 system.clearRack();
 
 

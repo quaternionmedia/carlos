@@ -160,6 +160,69 @@ class TestTheWorkspace:
         title = page.locator("path.cable title").first.text_content()
         assert "through a host" in title
 
+    def test_the_lead_runs_behind_the_gear(self, page):
+        # Both USB sockets are round the back, so the whole run is out of sight
+        # and it belongs under the devices. It used to be drawn over the panel
+        # it was meant to be behind: the dashes said "part of this is hidden"
+        # and the picture showed it in front of everything.
+        behind = page.locator("#patch-cables-behind path.cable").count()
+        front = page.locator("#patch-cables path.cable").count()
+        assert behind == 4
+        assert front == 0
+
+    def test_the_layer_under_the_gear_really_is_under_it(self, page):
+        # The mechanism, not just the parentage. A positioned element paints
+        # above in-flow content at any non-negative z-index, so a cable layer at
+        # 1 is still on top of every device - only a negative one paints in the
+        # step before in-flow boxes.
+        z = page.evaluate(
+            """() => ({
+                behind: getComputedStyle(
+                    document.querySelector('#patch-cables-behind')).zIndex,
+                front: getComputedStyle(
+                    document.querySelector('#patch-cables')).zIndex,
+            })"""
+        )
+        assert int(z["behind"]) < 0
+        assert int(z["front"]) > 0
+
+    def test_the_mark_where_it_disappears_stays_on_top(self, page):
+        # The cable goes under the device; the mark saying where it went under
+        # does not, or it would be a mark you cannot see.
+        assert page.locator("#patch-cables .cable-anchor").count() > 0
+        assert page.locator("#patch-cables-behind .cable-anchor").count() == 0
+
+    def test_a_lead_you_can_see_runs_over_the_gear(self, bench):
+        # The other half of the rule, on two devices patched face to face.
+        modules = bench.locator(".module")
+        modules.nth(0).locator('.face.active .jack[data-type="output"]').first.click()
+        modules.nth(1).locator('.face.active .jack[data-type="input"]').first.click()
+        bench.wait_for_function(
+            "() => document.querySelectorAll('path.cable').length === 1",
+            timeout=5_000)
+
+        assert bench.locator("#patch-cables path.cable").count() == 1
+        assert bench.locator("#patch-cables-behind path.cable").count() == 0
+
+    def test_turning_a_device_away_moves_its_lead_under(self, bench):
+        # Which layer a lead is on is read off the geometry every redraw, not
+        # decided once when the cable was made.
+        modules = bench.locator(".module")
+        modules.nth(0).locator('.face.active .jack[data-type="output"]').first.click()
+        modules.nth(1).locator('.face.active .jack[data-type="input"]').first.click()
+        bench.wait_for_function(
+            "() => document.querySelectorAll('path.cable').length === 1",
+            timeout=5_000)
+        assert bench.locator("#patch-cables path.cable").count() == 1
+
+        modules.nth(1).click()
+        bench.keyboard.press("t")
+        bench.wait_for_function(
+            "() => document.querySelectorAll("
+            "'#patch-cables-behind path.cable').length === 1",
+            timeout=5_000)
+        assert bench.locator("#patch-cables path.cable").count() == 0
+
     def test_the_palette_opens_at_its_default_corner(self, page):
         palette = page.locator("#tool-palette").bounding_box()
         viewport = page.viewport_size

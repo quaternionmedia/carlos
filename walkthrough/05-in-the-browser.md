@@ -92,6 +92,29 @@ runs to the silhouette of each device rather than to a socket you cannot see.
 It is dashed for the part of its run that is behind something — which is true
 of every USB lead on every desk.
 
+And it is drawn *behind* the gear, on a second cable layer under the devices.
+There are two layers because a rack has a front and a back: a lead across a
+front panel runs over the gear, and one going round the back does not. Which
+layer a lead lands on is read off its geometry every redraw, so turning a device
+away moves its lead under.
+
+```python
+>>> page.locator('#patch-cables-behind path.cable').count()
+4
+>>> page.locator('#patch-cables path.cable').count()
+0
+
+```
+
+The mark showing where a lead disappears stays on the front layer, because a
+mark you cannot see marks nothing:
+
+```python
+>>> page.locator('#patch-cables .cable-anchor').count() > 0
+True
+
+```
+
 ```python
 >>> page.locator('path.cable').count() > 0
 True

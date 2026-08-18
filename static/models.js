@@ -1222,6 +1222,10 @@ class PatchBayManager {
         this.connections = [];
         this.activeJack = null;
         this.svg = document.getElementById('patch-cables');
+        // Falls back to the single layer, so a harness that registers one SVG
+        // still draws every cable rather than silently losing the occluded
+        // ones into an element that is not there.
+        this.svgBehind = document.getElementById('patch-cables-behind');
         // Held here rather than read off the global: this manager is built
         // during EurorackSystem's constructor, before that global is bound.
         this.view = 'front';
@@ -1364,9 +1368,20 @@ class PatchBayManager {
     // Previously such a cable became a stub that trailed off, which said a
     // cable existed and refused to say where it went - the one thing you look
     // at a patch to find out.
+    // The layer under the gear, or the only layer there is.
+    //
+    // Resolved on use rather than held from the constructor: a harness that
+    // stubs the DOM assigns `svg` afterwards, so a fallback taken at
+    // construction time captured the null that was there then and the tolerance
+    // it was written for never actually applied.
+    behindLayer() {
+        return this.svgBehind || this.svg;
+    }
+
     redrawAll() {
         if (!this.svg) return;
         this.svg.replaceChildren();
+        if (this.behindLayer() !== this.svg) this.behindLayer().replaceChildren();
 
         this.connections.forEach(conn => {
             const drawn = this.createCable(conn.source, conn.target);
@@ -1517,6 +1532,9 @@ class PatchBayManager {
         const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
         title.textContent = `continues on the ${side}`;
         mark.appendChild(title);
+        // On the front layer even though its cable is on the back one. This
+        // marks the point where a lead disappears behind a device, which is a
+        // thing you have to be able to see for it to say anything.
         this.svg.appendChild(mark);
         return mark;
     }
@@ -1649,8 +1667,15 @@ class PatchBayManager {
         hit.setAttribute('stroke-width', String(
             CABLE_HIT_WIDTH + (strands.length - 1) * LANE_SPREAD));
 
-        strands.forEach(strand => this.svg.appendChild(strand));
-        this.svg.appendChild(hit);
+        // Behind the gear when any part of this run is out of sight, in front
+        // when both ends are on faces you can see. A lead across a front panel
+        // really is in front of it; one going round the back really is not.
+        const layer = (from.hidden || to.hidden) ? this.behindLayer() : this.svg;
+        strands.forEach(strand => layer.appendChild(strand));
+        // The probe follows its cable, so `cableAt` reaches a lead wherever it
+        // was drawn. It is never painted, so which layer it sits in is a
+        // question about geometry and not about what is on top of what.
+        layer.appendChild(hit);
         if (from.hidden) this.createAnchorMark(from, source.side);
         if (to.hidden) this.createAnchorMark(to, target.side);
         return { path, hit, strands };
@@ -1715,6 +1740,7 @@ class PatchBayManager {
     trace(moduleId) {
         this.tracing = moduleId || null;
         this.svg?.classList.toggle('is-tracing', Boolean(this.tracing));
+        this.behindLayer()?.classList.toggle('is-tracing', Boolean(this.tracing));
         this.redrawAll();
         return this.tracing;
     }

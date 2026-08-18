@@ -194,6 +194,19 @@ svg {
     z-index: 5;
 }
 
+/* The layer under the gear.
+   `z-index: -1` rather than a small positive number, and the difference is the
+   whole fix: a positioned element paints above in-flow content at any
+   non-negative z-index, so a cable layer at 1 is still on top of every device.
+   Only a negative one paints in the step before in-flow boxes — above the
+   rack's own background, below the gear standing on it.
+   A dashed lead used to be drawn over the panel it was meant to be running
+   behind, which said "this goes round the back" and then drew it not doing
+   that. */
+#patch-cables-behind {
+    z-index: -1;
+}
+
 /* === DEVICE SIDES === */
 /* A device turns in place. Nothing about the rack's layout changes when one
    module is turned round, so the rack itself carries no view state. */
