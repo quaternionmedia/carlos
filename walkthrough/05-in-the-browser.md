@@ -76,19 +76,45 @@ The way in is a link, so it works before any JavaScript does:
 ```
 
 The catalogue is fetched at startup, and the rack opens on a rig rather than on
-a demonstration: a Launchpad X playing an EP-133 down one USB lead.
+a demonstration: every device this build knows about, in three rows, patched the
+way they would be on a desk — control into voices, voices into the desk, desk
+into the interface.
 
 ```python
 >>> page.locator('.module').count()
-2
->>> names = ' '.join(page.locator('.module .module-title').all_text_contents())
->>> 'Launchpad' in names, 'EP-133' in names
-(True, True)
+11
+>>> page.locator('.rack-group-label').all_text_contents()
+['Control', 'Voices', 'Out']
 
 ```
 
-Both are played from above and both have their USB round the back, so the lead
-runs to the silhouette of each device rather than to a socket you cannot see.
+It is **fetched, not built**. `catalogue/opening.json` is an ordinary patch
+document served from `/api/opening`, so the first thing anyone sees is a file
+they can export, edit and import again. It used to be two `addModule` calls in
+the frontend, which made the opening picture the one part of the app nobody
+could copy.
+
+```python
+>>> import json, urllib.request
+>>> with urllib.request.urlopen(f'{app.base}/api/opening') as response:
+...     document = json.load(response)
+>>> document['format'], len(document['modules']), len(document['connections'])
+('carlos.patch', 11, 17)
+
+```
+
+Seventeen leads, and the picture is drawn from them rather than from a count:
+
+```python
+>>> page.locator('path.cable').evaluate_all(
+...     'paths => new Set(paths.map(p => p.dataset.cable)).size')
+17
+
+```
+
+The grid and the sampler are both played from above and both have their USB
+round the back, so that lead runs to the silhouette of each device rather than
+to a socket you cannot see.
 It is dashed for the part of its run that is behind something — which is true
 of every USB lead on every desk.
 
@@ -114,9 +140,10 @@ which does not create one; the cables went behind the rack's own opaque floor.
 Lifting the gear has no such trap.
 
 ```python
->>> page.locator('#patch-cables-behind path.cable').count()
+>>> usb = 'path.cable[data-cable="grid:usb->sampler:usb_c"]'
+>>> page.locator(f'#patch-cables-behind {usb}').count()
 4
->>> page.locator('#patch-cables path.cable').count()
+>>> page.locator(f'#patch-cables {usb}').count()
 0
 
 ```
@@ -143,10 +170,22 @@ the cable is drawn as four strands: the picture answers "which group is that
 going to" without anything being clicked.
 
 ```python
->>> strands = page.locator('path.cable[data-channel]')
+>>> strands = page.locator(usb)
 >>> sorted(strands.evaluate_all(
 ...     'paths => paths.map(p => Number(p.dataset.channel))'))
 [1, 2, 3, 10]
+
+```
+
+It is not the only one. The keyboard runs into the sequencer on two tracks, so
+that lead is drawn as two — the split is a property of a lead, not something
+this rig does once:
+
+```python
+>>> keys = 'path.cable[data-cable="keys:midi_out->seq:midi_a_in"]'
+>>> sorted(page.locator(keys).evaluate_all(
+...     'paths => paths.map(p => Number(p.dataset.channel))'))
+[5, 6]
 
 ```
 
@@ -224,11 +263,12 @@ thing here ever to check that against a real viewport rather than arithmetic:
 
 ```
 
-And the facing indicator reports the rack it is actually looking at:
+And the facing indicator reports the rack it is actually looking at. A mixed
+rack says so rather than picking a winner:
 
 ```python
 >>> page.locator('#view-indicator').inner_text()
-'ALL TOP'
+'6 front, 5 top'
 
 ```
 
@@ -250,15 +290,25 @@ And the facing indicator reports the rack it is actually looking at:
 Right-click on bare rack — a point found by asking the page what is under it,
 because the palette floats and a computed corner is only empty until it is not.
 The ring holds at most eight, which the resolver enforces rather than a
-reviewer:
+reviewer — and the rack's own ring is six. Six permanent families, every one of
+which opens something:
 
 ```python
 >>> spot = bare_rack(page)
 >>> open_menu(page, *spot)
 >>> page.locator('.rad-wedge').count()
-8
+6
+>>> [text.rstrip(' ›') for text
+...  in page.locator('.rad-label').all_text_contents()]
+['Add', 'Rows', 'View', 'Patch', 'MIDI', 'All Devices']
 
 ```
+
+It used to be eight items of two kinds: four families that opened submenus and
+four actions that fired, and which was which you learned by trying. Six rather
+than eight because the ceiling is eight — a ring at the ceiling has nowhere to
+grow, and the next good idea would have to displace one of these rather than
+join it.
 
 ```python
 >>> shots.take(page, 'menu')
@@ -273,6 +323,7 @@ the menu resolves a position into a wedge and knows nothing about which element
 was under the cursor.
 
 ```python
+>>> pick(page, 'Patch')
 >>> pick(page, 'Examples')
 >>> page.locator('.rad-wedge').count()
 8
@@ -463,11 +514,11 @@ and neither is in the rig above. Add them the way anyone would:
 
 ```python
 >>> open_menu(page, *spot)
->>> pick(page, 'Add Device')
+>>> pick(page, 'Add')
 >>> pick(page, 'keyboard')
 >>> pick(page, 'Stage 3')
 >>> open_menu(page, *spot)
->>> pick(page, 'Add Device')
+>>> pick(page, 'Add')
 >>> pick(page, 'mixer')
 >>> pick(page, 'Qu-24')
 >>> until(page, "document.querySelectorAll('.irl-key').length === 88")

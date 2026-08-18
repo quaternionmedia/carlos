@@ -23,9 +23,21 @@ def ready(page, fragment: str, timeout: int = 8_000) -> None:
 
 
 class TestTheMenu:
-    def test_right_click_opens_a_ring_of_eight(self, page):
+    def test_right_click_opens_a_ring_of_six_families(self, page):
+        # Six rather than eight, and every one of them opens something. The
+        # ring used to mix families with actions, and which was which you
+        # learned by trying.
         open_menu(page, *bare_rack(page))
-        assert page.locator(".rad-wedge").count() == 8
+        assert page.locator(".rad-wedge").count() == 6
+
+        # Each label carries a chevron because each opens a submenu. Asserted
+        # on the whole set: it is the one thing all six have in common, and
+        # the reason the ring is learnable.
+        labels = page.locator(".rad-label").all_text_contents()
+        assert [text.split()[0] if " " not in text.strip(" ›▸>")
+                else text.strip(" ›▸>")
+                for text in labels] == [
+            "Add", "Rows", "View", "Patch", "MIDI", "All Devices"]
 
     def test_the_ring_is_announced(self, page):
         # It handled its own keys from the start, so it was operable and
@@ -49,7 +61,7 @@ class TestTheMenu:
 
     def test_a_submenu_replaces_the_ring(self, page):
         open_menu(page, *bare_rack(page))
-        pick(page, "Display")
+        pick(page, "View")
         labels = page.locator(".rad-label").all_text_contents()
         assert any("Minimal" in text for text in labels)
         assert any("Reset palette" in text for text in labels)
@@ -108,6 +120,9 @@ class TestDrawnAsLaidOut:
     @pytest.fixture
     def drum_rig(self, page):
         open_menu(page, *bare_rack(page))
+        # Under Patch: examples are whole-rig operations, and the rack ring
+        # is six families rather than a mix of families and actions.
+        pick(page, "Patch")
         pick(page, "Examples")
         pick(page, "controller")
         pick(page, "Launchpad X")
@@ -157,7 +172,7 @@ class TestDrawnAsLaidOut:
 
     def test_switching_to_minimal_keeps_the_devices(self, drum_rig):
         open_menu(drum_rig, *bare_rack(drum_rig))
-        pick(drum_rig, "Display")
+        pick(drum_rig, "View")
         pick(drum_rig, "Minimal")
         until(
             drum_rig,
@@ -247,7 +262,7 @@ class TestTheFourThingsYouCanPointAt:
     def test_the_rack_itself_still_answers(self, bench):
         open_menu(bench, *bare_rack(bench))
         labels = bench.locator(".rad-label").all_text_contents()
-        assert any("Add Device" in text for text in labels)
+        assert any(text.startswith("Add") for text in labels)
 
     def test_nothing_throws_through_any_of_it(self, rowed):
         self.right_click(rowed, rowed.locator(".rack-group-header"))
@@ -267,6 +282,9 @@ class TestOnlyTheFacesThatHaveSomething:
     @pytest.fixture
     def drum_rig(self, page):
         open_menu(page, *bare_rack(page))
+        # Under Patch: examples are whole-rig operations, and the rack ring
+        # is six families rather than a mix of families and actions.
+        pick(page, "Patch")
         pick(page, "Examples")
         pick(page, "controller")
         pick(page, "Launchpad X")
@@ -362,7 +380,7 @@ class TestThePalette:
         assert page.locator("#tool-palette").bounding_box() != default
 
         open_menu(page, *bare_rack(page))
-        pick(page, "Display")
+        pick(page, "View")
         pick(page, "Reset palette")
         ready(page, "back to where it starts")
         assert page.locator("#tool-palette").bounding_box() == default

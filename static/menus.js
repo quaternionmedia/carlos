@@ -89,48 +89,81 @@ function carlosResolve(context, state) {
     const definitions = state.definitions || {};
     const groups = state.groups || [];
 
+    // Six families, and always the same six.
+    //
+    // The ring used to be eight items of two kinds: four families that opened
+    // submenus and four actions that fired. Which was which you learned by
+    // trying, and the mix moved as items were added - `Randomize` and `Clear
+    // Rack` were on the ring because there was room, not because they belong
+    // beside `Add Device`.
+    //
+    // Every one of these opens something, none of them fires, and the set does
+    // not change. A ring you can learn is a ring whose north is always the
+    // same thing, and that is worth more than saving one press on whichever
+    // action seemed important the week it was added.
+    //
+    // Six rather than eight because the ceiling is eight: a family at the
+    // ceiling has nowhere to grow, and the next good idea would have to
+    // displace one of these rather than join it.
     if (context.type === 'canvas') {
         return {
             title: 'Rack',
             items: [
-                item('add', 'Add Device', null, {
+                // What is in the rack.
+                item('add', 'Add', null, {
                     children: deviceTree(definitions, 'add-node'),
                 }),
-                // An example is a whole patch document, so loading one
-                // replaces the rack rather than adding to it. That is what it
-                // has always done; it had no way of saying so.
-                item('examples', 'Examples', null, {
-                    destructive: true,
-                    children: deviceTree(definitions, 'example:complex',
-                                         { destructive: true }),
-                }),
+                // How it is arranged.
                 item('rows', 'Rows', null, {
                     children: rowTree(groups, { includeAssign: false }),
                 }),
+                // How it is drawn. Nothing here changes the rig.
+                item('view', 'View', null, {
+                    children: [
+                        item('mode:irl', 'As laid out', 'display:irl'),
+                        item('mode:minimal', 'Minimal', 'display:minimal'),
+                        item('turn-all', 'Turn All', 'turn-all'),
+                        item('palette:reset', 'Reset palette', 'palette:reset'),
+                    ],
+                }),
+                // The rack as a document: whole-rig operations, all of which
+                // replace what is there.
                 item('patch', 'Patch', null, {
                     children: [
                         item('patch:export', 'Export', 'patch:export'),
                         item('patch:import', 'Import', 'patch:import',
                              { destructive: true }),
+                        // An example is a whole patch document, so loading one
+                        // replaces the rack rather than adding to it.
+                        item('patch:examples', 'Examples', null, {
+                            destructive: true,
+                            children: deviceTree(definitions, 'example:complex',
+                                                 { destructive: true }),
+                        }),
                     ],
                 }),
-                item('display', 'Display', null, {
-                    children: [
-                        item('mode:minimal', 'Minimal', 'display:minimal'),
-                        item('mode:irl', 'As laid out', 'display:irl'),
-                        item('turn-all', 'Turn All', 'turn-all'),
-                        item('palette:reset', 'Reset palette', 'palette:reset'),
-                    ],
-                }),
+                // What is coming in and going out.
                 item('midi', 'MIDI', null, {
                     children: [
                         item('midi:connect', 'Connect', 'midi:connect'),
                         item('midi:status', 'Status', 'midi:status'),
                         item('midi:test', 'Send test note', 'midi:test'),
+                        item('midi:learn', 'Learn', 'midi:learn'),
+                        item('midi:clear', 'Clear bindings', 'midi:clear',
+                             { destructive: true }),
                     ],
                 }),
-                item('randomize', 'Randomize', 'randomize'),
-                item('clear', 'Clear Rack', 'rack:clear', { destructive: true }),
+                // Things that act on everything at once. Kept together and one
+                // press further away than the rest, because that is what they
+                // have in common: none of them can be aimed.
+                item('all', 'All Devices', null, {
+                    children: [
+                        item('turn-all:sweep', 'Turn All', 'turn-all'),
+                        item('randomize', 'Randomize', 'randomize'),
+                        item('clear', 'Clear Rack', 'rack:clear',
+                             { destructive: true }),
+                    ],
+                }),
             ],
         };
     }

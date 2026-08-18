@@ -105,6 +105,147 @@ class CatalogueLoadTests(unittest.TestCase):
                 self.assertGreater(len(front), 5)
 
 
+class ShippedPatchTests(unittest.TestCase):
+    """The opening rack and every worked example, checked against the devices.
+
+    A patch document names modules, jacks and parameters by string. Nothing in
+    the loader checks those against the catalogue - it cannot, because a
+    document is readable without one - so a typo is not an error, it is a
+    setting that quietly does nothing.
+
+    Nine of them shipped in the first draft of the opening rack: `volume` on a
+    device whose control is `main_level`, four `fader_N` on a desk whose faders
+    are `chN_fader`. The rack loaded, drew, and every knob sat at its default.
+    """
+
+    def setUp(self):
+        catalogue.load_all.cache_clear()
+        self.devices = catalogue.load_all()
+
+    def shipped(self):
+        """Every patch document in the build, by the file it came from."""
+        found = []
+        opening = catalogue.opening_rack()
+        if opening is not None:
+            found.append(("opening.json", opening))
+        for path in sorted((catalogue.CATALOGUE_ROOT / "examples").glob("*.json")):
+            found.append((path.name, json.loads(path.read_text(encoding="utf-8"))))
+        return found
+
+    def test_there_is_something_to_check(self):
+        # A sweep over nothing passes loudly and proves nothing.
+        self.assertGreater(len(self.shipped()), 10)
+
+    def test_every_shipped_patch_is_a_readable_document(self):
+        for name, document in self.shipped():
+            with self.subTest(name):
+                patch_format.load(document)
+
+    def test_every_module_names_a_device_this_build_has(self):
+        for name, document in self.shipped():
+            patch = patch_format.load(document)
+            for module in patch.modules:
+                with self.subTest(f"{name}:{module.id}"):
+                    self.assertIn(module.type, self.devices)
+
+    def test_every_cable_end_names_a_jack_that_device_has(self):
+        for name, document in self.shipped():
+            patch = patch_format.load(document)
+            by_id = {m.id: self.devices.get(m.type) for m in patch.modules}
+            for cable in patch.connections:
+                for end in (cable.source, cable.target):
+                    with self.subTest(f"{name}:{end.module}.{end.jack}"):
+                        device = by_id.get(end.module)
+                        self.assertIsNotNone(device, f"no module {end.module!r}")
+                        self.assertIsNotNone(
+                            device.jack(end.jack),
+                            f"{device.id} has no jack {end.jack!r}")
+
+    def test_every_parameter_names_a_control_that_device_has(self):
+        for name, document in self.shipped():
+            patch = patch_format.load(document)
+            for module in patch.modules:
+                device = self.devices.get(module.type)
+                if device is None:
+                    continue
+                known = {p.name for p in device.parameters}
+                for parameter in module.parameters:
+                    with self.subTest(f"{name}:{module.id}.{parameter}"):
+                        self.assertIn(
+                            parameter, known,
+                            f"{device.id} has no parameter {parameter!r}")
+
+    def test_every_binding_names_a_module_in_its_own_patch(self):
+        for name, document in self.shipped():
+            patch = patch_format.load(document)
+            ids = {m.id for m in patch.modules}
+            for binding in patch.midi:
+                with self.subTest(f"{name}:{binding.id}"):
+                    self.assertIn(binding.module, ids)
+
+    def test_every_row_names_modules_in_its_own_patch(self):
+        for name, document in self.shipped():
+            patch = patch_format.load(document)
+            ids = {m.id for m in patch.modules}
+            for group in patch.groups:
+                for member in group.members:
+                    with self.subTest(f"{name}:{group.id}:{member}"):
+                        self.assertIn(member, ids)
+
+
+class TheOpeningRackTests(unittest.TestCase):
+    """The rig the workspace opens on.
+
+    It is the first and often only thing anyone sees, so what it demonstrates
+    is what this project appears to be. That makes it worth asserting rather
+    than leaving to whoever edits the file next.
+    """
+
+    def setUp(self):
+        catalogue.load_all.cache_clear()
+        self.devices = catalogue.load_all()
+        document = catalogue.opening_rack()
+        self.assertIsNotNone(document, "this build ships no opening rack")
+        self.patch = patch_format.load(document)
+
+    def test_it_shows_every_device_in_the_catalogue(self):
+        # A device nobody can see in the opening rack is a device nobody knows
+        # is there. Adding one to the catalogue means adding it to the rig.
+        shown = {m.type for m in self.patch.modules}
+        self.assertEqual(shown, set(self.devices))
+
+    def test_every_device_is_patched_to_something(self):
+        # A rig with an unpatched box in it reads as a rig somebody stopped
+        # building half way.
+        wired = set()
+        for cable in self.patch.connections:
+            wired.add(cable.source.module)
+            wired.add(cable.target.module)
+        for module in self.patch.modules:
+            with self.subTest(module.id):
+                self.assertIn(module.id, wired)
+
+    def test_every_device_is_in_a_row(self):
+        claimed = {m for g in self.patch.groups for m in g.members}
+        for module in self.patch.modules:
+            with self.subTest(module.id):
+                self.assertIn(module.id, claimed)
+
+    def test_it_is_drawn_as_laid_out(self):
+        # The point of naming real devices is that they look like themselves.
+        self.assertEqual(self.patch.display.mode, "irl")
+
+    def test_the_drums_are_on_channel_ten(self):
+        channels = {b.source.channel for b in self.patch.midi}
+        self.assertIn(10, channels)
+
+    def test_more_than_one_lead_carries_channels(self):
+        # So the split reads as a property of a lead rather than as a thing the
+        # opening rack happens to do once.
+        driven = {b.module for b in self.patch.midi}
+        self.assertGreater(len(driven), 1)
+
+
 class CatalogueRejectionTests(unittest.TestCase):
     """The loader is a gate, so it is tested by feeding it bad files."""
 

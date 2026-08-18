@@ -24,7 +24,10 @@ async function bootstrap() {
 
     ModuleFactory.load(payload);
 
-    openingRack();
+    // Awaited, and the ready line goes last on purpose. `importState` writes
+    // its own status naming what it loaded; leaving that up would mean the
+    // line saying the app is ready arrives before the rack does, or not at all.
+    await openingRack();
 
     const count = ModuleFactory.ids.length;
     system.status.update(
@@ -36,67 +39,41 @@ async function bootstrap() {
 // ===================================
 // THE OPENING RACK
 // ===================================
-// A grid playing a sampler down one USB lead: the smallest rig that is a rig
-// rather than a demonstration of the drawing code. Two devices people own, one
-// cable, and four channels going down it.
+// A rig rather than a demonstration of the drawing code: every device in the
+// catalogue, in three rows, patched the way they would be on a desk - control
+// into voices, voices into the desk, desk into the interface.
 //
-// It replaced a VCO next to a VCF, which showed the patch bay and nothing else
-// - two boxes of knobs with nothing running between them. What is worth
-// arriving to is a picture with a question in it: four groups are bound to four
-// channels, and you can see which.
-//
-// Guarded on the catalogue rather than assumed: entries are data files, and a
-// build without these two should open on an empty rack, not on an exception.
-function openingRack() {
-    const has = (id) => Boolean(ModuleFactory.definitions[id]);
-    if (!has('novation.launchpad-x') || !has('teenage-engineering.ep-133')) {
-        // Whatever else is there, so an unfamiliar catalogue still opens on
-        // something rather than on nothing.
-        if (has('carlos.vco')) system.addModule('carlos.vco');
-        if (has('carlos.vcf')) system.addModule('carlos.vcf');
-        return;
+// It is fetched, not built. `catalogue/opening.json` is an ordinary
+// `carlos.patch` document, so the first thing anyone sees is a file they can
+// export, edit and import again rather than a rack assembled by frontend code
+// that nothing else can reach. It used to be two `addModule` calls here, which
+// made the opening picture the one thing in the app that could not be copied.
+async function openingRack() {
+    let document_;
+    try {
+        const response = await fetch('/api/opening');
+        // 204 is a build that ships none, which is an empty workspace rather
+        // than a failure.
+        if (response.status === 204) return null;
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        document_ = await response.json();
+    } catch (error) {
+        system.status.update(
+            `Could not load the opening rack (${error.message}) - starting empty`
+        );
+        return null;
     }
 
-    // Laid out, because the whole point of naming two real devices is that they
-    // look like themselves: 64 pads and a sampler panel, at their real sizes
-    // relative to each other.
-    system.setMode('irl');
-
-    const grid = system.addModule('novation.launchpad-x');
-    const sampler = system.addModule('teenage-engineering.ep-133');
-
-    // Four groups, and the drums on ten. This is what the cable splits into:
-    // the bindings are the channel assignments, and the strands are drawn from
-    // them, so rebinding a group moves the picture without anything being kept
-    // in step by hand.
-    //
-    // Three melodic groups on 1-3 and the kit on 10, which is where a kit goes
-    // by a convention nothing enforces and everything obeys. It is the whole
-    // reason the strands are worth telling apart: the question you have when
-    // you look at a lead is which of these is the drums, and here it is the
-    // thick yellow one.
-    const opening = [
-        { group: 'A', channel: 1 },
-        { group: 'B', channel: 2 },
-        { group: 'C', channel: 3 },
-        { group: 'D', channel: 10, label: 'Drums' },
-    ];
-    system.midi = opening.map(({ group, channel, label }) => ({
-        id: `opening-${group.toLowerCase()}`,
-        source: { type: 'channel', channel },
-        module: sampler.id,
-        label: label || `Group ${group}`,
-    }));
-
-    // Both sockets are round the back, which is where USB lives on both of
-    // these. The cable is drawn to the silhouette of each device rather than to
-    // a socket you cannot see, and dashed to say part of its run is behind
-    // something - which is true of every USB lead on every desk.
-    const from = grid.jacks.get('usb');
-    const to = sampler.jacks.get('usb_c');
-    if (from && to) system.patchBay.createConnection(from, to);
-
-    system.patchBay.redrawAll();
+    const { skipped } = system.importState(document_);
+    // `importState` writes its own status line naming what it loaded, which is
+    // the honest one to leave up: it counts what arrived rather than what was
+    // asked for.
+    if (skipped?.length) {
+        system.status.update(
+            `Opened with ${skipped.length} item(s) this build could not place`
+        );
+    }
+    return document_;
 }
 
 // ===================================

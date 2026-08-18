@@ -472,6 +472,29 @@ def load_all(root: Path | None = None) -> dict[str, Device]:
 
 EXAMPLE_KINDS = ("simple", "complex")
 
+OPENING_FILE = "opening.json"
+
+
+def opening_rack(root: Path | None = None) -> dict | None:
+    """The rig the workspace opens on, or `None` if none is shipped.
+
+    A patch document like any other, which is the point: the first thing anyone
+    sees is a file they can read, export, take apart and put back, rather than a
+    rack assembled by frontend code that nothing else can reach. It moved out of
+    `main.js` for that reason - a demonstration built imperatively is a
+    demonstration nobody can copy.
+
+    Absent is not an error. A build with no opening file opens on an empty rack,
+    which is a workspace rather than a failure.
+    """
+    path = (root or CATALOGUE_ROOT) / OPENING_FILE
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise CatalogueError(f"{path.name}: not JSON - {exc}") from exc
+
 
 def examples_for(device_id: str, root: Path | None = None) -> dict[str, dict]:
     """The worked examples shipped for one device.

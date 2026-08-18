@@ -218,6 +218,91 @@ class ResolverTests(unittest.TestCase):
         """)
         self.assertTrue(outcome["threw"])
 
+    def test_the_rack_ring_is_six_families(self):
+        # Six rather than eight because the ceiling is eight: a ring at the
+        # ceiling has nowhere to grow, and the next good idea would have to
+        # displace something rather than join it.
+        for devices in (1, 9, 40):
+            with self.subTest(devices=devices):
+                spec = self.resolve(self.fake_state(devices=devices, groups=2) + """
+                const spec = m.carlosResolve(
+                    {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+                console.log(JSON.stringify(spec));
+                """)
+                self.assertEqual(len(spec["items"]), 6)
+
+    def test_every_family_opens_something_and_none_of_them_fires(self):
+        # The ring used to mix families with actions, and which was which you
+        # learned by trying. A ring you can learn is one where every wedge
+        # behaves the same way.
+        spec = self.resolve(self.fake_state(groups=1) + """
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+        for entry in spec["items"]:
+            with self.subTest(entry["label"]):
+                self.assertTrue(entry.get("children"), "fires instead of opening")
+                self.assertIsNone(entry.get("action"))
+
+    def test_the_families_are_the_same_six_whatever_the_rack_holds(self):
+        # Permanent, so north is always the same thing. The old ring moved as
+        # items were added.
+        wanted = ["Add", "Rows", "View", "Patch", "MIDI", "All Devices"]
+        for devices, groups in ((1, 0), (9, 3), (40, 8)):
+            with self.subTest(devices=devices, groups=groups):
+                spec = self.resolve(
+                    self.fake_state(devices=devices, groups=groups) + """
+                const spec = m.carlosResolve(
+                    {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+                console.log(JSON.stringify(spec));
+                """)
+                self.assertEqual([i["label"] for i in spec["items"]], wanted)
+
+    def test_nothing_was_lost_in_the_regroup(self):
+        # Every action the old eight-item ring could reach is still reachable.
+        # A tidier menu that quietly drops a command is not tidier.
+        spec = self.resolve(self.fake_state(groups=1) + """
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+
+        def actions(items):
+            found = []
+            for entry in items:
+                if entry.get("action"):
+                    found.append(entry["action"])
+                found.extend(actions(entry.get("children") or []))
+            return found
+
+        reachable = set(actions(spec["items"]))
+        for was_there in (
+            "add-node", "example:complex", "row:new", "patch:export",
+            "patch:import", "display:minimal", "display:irl", "turn-all",
+            "palette:reset", "midi:connect", "midi:status", "midi:test",
+            "randomize", "rack:clear",
+        ):
+            with self.subTest(was_there):
+                self.assertIn(was_there, reachable)
+
+    def test_every_family_also_fits_the_ring(self):
+        # A submenu is a ring too, and the ceiling applies at every level.
+        spec = self.resolve(self.fake_state(devices=40, groups=8) + """
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+
+        def walk(items, path="ring"):
+            self.assertLessEqual(len(items), 8, f"{path} overflows the ring")
+            self.assertGreaterEqual(len(items), 1, f"{path} is empty")
+            for entry in items:
+                if entry.get("children"):
+                    walk(entry["children"], f"{path} > {entry['label']}")
+
+        walk(spec["items"])
+
     def test_a_row_resolves_as_its_own_context(self):
         # rad names four context types and this is a fifth. The contract permits
         # extension and forbids repurposing, and a row is not a node: it has no

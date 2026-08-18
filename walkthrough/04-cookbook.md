@@ -113,6 +113,7 @@ Every device owes a simple and a complex example:
 /api/midi
 /api/midi/parse
 /api/midi/route
+/api/opening
 /api/patch/format
 /api/patch/validate
 /api/peers

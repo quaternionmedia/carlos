@@ -164,6 +164,7 @@ class NoneMeansNoneTests(unittest.TestCase):
                 lambda: main.catalogue_device(device),
             ("GET", "/api/catalogue/devices/{device_id}/examples"):
                 lambda: main.catalogue_device_examples(device),
+            ("GET", "/api/opening"): lambda: main.opening_rack(),
             ("GET", "/api/patch/format"): lambda: main.patch_format_info(),
             ("POST", "/api/patch/validate"): lambda: main.validate_patch(document),
             ("GET", "/api/transforms"): lambda: main.list_transforms(),

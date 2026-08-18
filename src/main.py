@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -328,6 +328,21 @@ async def catalogue_device_examples(device_id: str):
             content={"ok": False, "error": f"no device {device_id!r} in this catalogue"},
         )
     return {"device": device_id, "examples": catalogue.examples_for(device_id)}
+
+
+@app.get("/api/opening")
+async def opening_rack():
+    """The rig the workspace opens on.
+
+    An ordinary `carlos.patch` document, served rather than built in the
+    browser, so the first thing anyone sees is a file they can export, edit and
+    import again. 204 when a build ships none: an empty rack is a workspace, not
+    a failure.
+    """
+    document = catalogue.opening_rack()
+    if document is None:
+        return Response(status_code=204)
+    return document
 
 
 @app.get("/api/midi")

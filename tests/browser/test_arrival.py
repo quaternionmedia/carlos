@@ -9,6 +9,13 @@ own address.
 from __future__ import annotations
 
 
+# The two leads in the opening rack that carry channels, named by the key each
+# piece carries. More than one cable splits now, so a selector that just asks
+# for `[data-channel]` collects strands from both and means neither.
+SAMPLER_LEAD = 'path.cable[data-cable="grid:usb->sampler:usb_c"]'
+KEYS_LEAD = 'path.cable[data-cable="keys:midi_out->seq:midi_a_in"]'
+
+
 class TestTheBarePort:
     def test_it_redirects_to_the_splash(self, blank, app):
         response = blank.goto(app.base, wait_until="networkidle")
@@ -49,7 +56,7 @@ class TestTheBarePort:
             timeout=15_000,
         )
         assert blank.url.endswith("/rack")
-        assert blank.locator(".module").count() == 2
+        assert blank.locator(".module").count() == 11
 
     def test_its_figures_are_measured_rather_than_typed(self, app, blank):
         from src import catalogue
@@ -71,37 +78,77 @@ class TestTheBarePort:
 
 
 class TestTheWorkspace:
-    def test_it_boots_with_the_generic_pair(self, page):
-        assert page.locator(".module").count() == 2
+    def test_it_boots_with_the_whole_rig(self, page):
+        assert page.locator(".module").count() == 11
 
     def test_the_facing_indicator_reports_the_rack_it_is_looking_at(self, page):
         # It read EMPTY on a rack with two devices for two sessions, because
         # nothing refreshed it when a device was added and every model-level
-        # test agreed with the model. Both opening devices are played from
-        # above, so the rack it is looking at is all tops.
-        assert page.locator("#view-indicator").inner_text() == "ALL TOP"
+        # test agreed with the model.
+        #
+        # A mixed rack now, and the indicator has to say so rather than pick a
+        # winner: five devices are played from above and six are faced.
+        assert page.locator("#view-indicator").inner_text() == "6 front, 5 top"
 
-    def test_it_opens_on_a_grid_and_a_sampler(self, page):
+    def test_it_opens_on_every_device_in_the_catalogue(self, page):
         # The opening rack is a rig rather than a demonstration of the drawing
-        # code: two devices people own, one lead, four channels down it. It
-        # used to be a VCO beside a VCF with nothing running between them.
+        # code. It used to be a VCO beside a VCF with nothing running between
+        # them, then two devices and one lead; it is now the whole catalogue,
+        # patched the way it would be on a desk.
         names = " ".join(page.locator(".module .module-title").all_text_contents())
-        assert "Launchpad" in names
-        assert "EP-133" in names or "K.O" in names
+        for expected in ("Launchpad", "Hapax", "Stage 3", "EP-133", "DFAM",
+                         "Subharmonicon", "Qu-24", "Scarlett"):
+            assert expected in names, f"{expected} is not in the opening rack"
 
-    def test_they_arrive_linked(self, page):
-        assert page.locator("path.cable").count() >= 1
+    def test_it_is_laid_out_in_rows(self, page):
+        # Control, voices, out. A rig people can read is one grouped the way
+        # they would group it themselves.
+        labels = page.locator(".rack-group-label").all_text_contents()
+        assert labels == ["Control", "Voices", "Out"]
 
-    def test_the_lead_is_split_into_the_channels_it_carries(self, page):
+    def test_nothing_is_loose(self, page):
+        # Every device belongs to a row: a rig with a stray box in it reads as
+        # a rig somebody stopped tidying half way.
+        assert page.locator(".rack-loose .module").count() == 0
+
+    def test_they_arrive_patched(self, page):
+        leads = page.locator("path.cable").evaluate_all(
+            "paths => new Set(paths.map(p => p.dataset.cable)).size")
+        assert leads == 17
+
+    def test_the_opening_rack_is_a_file_not_a_script(self, page, app):
+        # Served as an ordinary patch document, so the first thing anyone sees
+        # is a thing they can export, edit and import again. It used to be two
+        # `addModule` calls in the frontend, which made the opening picture the
+        # one part of the app nobody could copy.
+        import urllib.request, json
+        with urllib.request.urlopen(f"{app.base}/api/opening") as response:
+            document = json.load(response)
+        assert document["format"] == "carlos.patch"
+        assert len(document["modules"]) == 11
+        assert len(document["connections"]) == 17
+
+    def test_the_usb_lead_is_split_into_the_channels_it_carries(self, page):
         # Three melodic groups and a kit, so the lead is drawn as four strands.
         # Derived from the bindings rather than stored on the cable: nothing has
         # to be kept in step when a group is rebound.
-        channels = page.locator("path.cable[data-channel]").evaluate_all(
+        #
+        # Named by lead, because more than one cable in this rig carries
+        # channels - the keyboard into the sequencer carries two.
+        channels = page.locator(SAMPLER_LEAD).evaluate_all(
             "paths => paths.map(p => Number(p.dataset.channel))")
         assert sorted(channels) == [1, 2, 3, 10]
 
+    def test_another_lead_carries_its_own_channels(self, page):
+        # The keyboard into the sequencer: two tracks, two strands. Proof the
+        # split is a property of a lead rather than a thing the opening rack
+        # happens to do once.
+        channels = page.locator(KEYS_LEAD).evaluate_all(
+            "paths => paths.map(p => Number(p.dataset.channel))")
+        assert sorted(channels) == [5, 6]
+
     def test_every_strand_says_what_it_carries(self, page):
-        titles = page.locator("path.cable[data-channel] title").all_text_contents()
+        titles = page.locator(f"{SAMPLER_LEAD} title").all_text_contents()
         assert len(titles) == 4
         assert all("channel" in t for t in titles)
         assert any("Group A" in t for t in titles)
@@ -131,14 +178,14 @@ class TestTheWorkspace:
     def test_the_other_strands_walk_a_gradient(self, page):
         # Every strand a different colour, so "which channel is that" is
         # answerable before anything is hovered.
-        strokes = page.locator("path.cable[data-channel]").evaluate_all(
+        strokes = page.locator(SAMPLER_LEAD).evaluate_all(
             "paths => paths.map(p => getComputedStyle(p).stroke)")
         assert len(set(strokes)) == len(strokes)
 
     def test_the_gradient_is_a_position_not_a_colour(self, page):
         # The strand carries where it sits on the scale; the scale itself lives
         # in the stylesheet with the rest of the palette.
-        mixes = page.locator("path.cable[data-channel]").evaluate_all(
+        mixes = page.locator(SAMPLER_LEAD).evaluate_all(
             "paths => paths.map(p => p.style.getPropertyValue('--lane-mix'))")
         assert sorted(float(m) for m in mixes) == [0.0, 1 / 3, 2 / 3, 1.0]
 
@@ -150,23 +197,23 @@ class TestTheWorkspace:
         assert painted == 0
 
     def test_the_lead_is_marked_as_split(self, page):
-        assert page.locator("path.cable.is-split").count() == 4
+        assert page.locator(f"{SAMPLER_LEAD}.is-split").count() == 4
 
     def test_it_says_a_host_sits_in_the_middle(self, page):
         # Two USB device ports do not reach each other on a real desk. The
         # cable says so rather than implying a grid can drive a sampler alone.
         # `text_content`, not `inner_text`: an SVG <title> is not an
         # HTMLElement and has no rendered text to read.
-        title = page.locator("path.cable title").first.text_content()
+        title = page.locator(f"{SAMPLER_LEAD} title").first.text_content()
         assert "through a host" in title
 
-    def test_the_lead_runs_behind_the_gear(self, page):
+    def test_the_usb_lead_runs_behind_the_gear(self, page):
         # Both USB sockets are round the back, so the whole run is out of sight
         # and it belongs under the devices. It used to be drawn over the panel
         # it was meant to be behind: the dashes said "part of this is hidden"
         # and the picture showed it in front of everything.
-        behind = page.locator("#patch-cables-behind path.cable").count()
-        front = page.locator("#patch-cables path.cable").count()
+        behind = page.locator(f"#patch-cables-behind {SAMPLER_LEAD}").count()
+        front = page.locator(f"#patch-cables {SAMPLER_LEAD}").count()
         assert behind == 4
         assert front == 0
 

@@ -1,0 +1,396 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "The opening rack",
+  "modules": [
+    {
+      "id": "grid",
+      "type": "novation.launchpad-x",
+      "view": "top",
+      "parameters": {
+        "brightness": 104
+      }
+    },
+    {
+      "id": "seq",
+      "type": "squarp.hapax",
+      "view": "top",
+      "parameters": {
+        "tempo": 112,
+        "swing": 54,
+        "gate_length": 46
+      }
+    },
+    {
+      "id": "keys",
+      "type": "nord.stage-3",
+      "view": "top",
+      "parameters": {
+        "piano_level": 100,
+        "synth_level": 78,
+        "organ_level": 42
+      }
+    },
+    {
+      "id": "sampler",
+      "type": "teenage-engineering.ep-133",
+      "view": "top",
+      "parameters": {
+        "tempo": 112,
+        "main_level": 96,
+        "fx_amount": 34,
+        "filter": 70
+      }
+    },
+    {
+      "id": "dfam",
+      "type": "moog.dfam",
+      "view": "front",
+      "parameters": {
+        "tempo": 112,
+        "vco1_freq": 42,
+        "vcf_cutoff": 70,
+        "vca_decay": 28
+      }
+    },
+    {
+      "id": "subh",
+      "type": "moog.subharmonicon",
+      "view": "front",
+      "parameters": {
+        "vco1_freq": 55,
+        "vco2_freq": 41,
+        "cutoff": 64,
+        "resonance": 38,
+        "tempo": 112
+      }
+    },
+    {
+      "id": "vco",
+      "type": "carlos.vco",
+      "view": "front",
+      "parameters": {
+        "frequency": 48,
+        "fine": 62
+      }
+    },
+    {
+      "id": "vcf",
+      "type": "carlos.vcf",
+      "view": "front",
+      "parameters": {
+        "cutoff": 74,
+        "resonance": 38
+      }
+    },
+    {
+      "id": "drum",
+      "type": "carlos.drum",
+      "view": "front",
+      "parameters": {
+        "tune": 22,
+        "decay": 66,
+        "snap": 88,
+        "level": 104
+      }
+    },
+    {
+      "id": "desk",
+      "type": "allen-heath.qu24",
+      "view": "top",
+      "parameters": {
+        "ch1_fader": 96,
+        "ch2_fader": 88,
+        "ch3_fader": 80,
+        "ch4_fader": 72,
+        "lr_fader": 100,
+        "phones_level": 70
+      }
+    },
+    {
+      "id": "iface",
+      "type": "focusrite.scarlett-2i2",
+      "view": "front",
+      "parameters": {
+        "gain_1": 58,
+        "gain_2": 58,
+        "monitor_level": 84,
+        "direct_monitor": 0
+      }
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "grid",
+        "jack": "usb"
+      },
+      "target": {
+        "module": "sampler",
+        "jack": "usb_c"
+      }
+    },
+    {
+      "source": {
+        "module": "keys",
+        "jack": "midi_out"
+      },
+      "target": {
+        "module": "seq",
+        "jack": "midi_a_in"
+      }
+    },
+    {
+      "source": {
+        "module": "seq",
+        "jack": "midi_a_out"
+      },
+      "target": {
+        "module": "subh",
+        "jack": "midi_in"
+      }
+    },
+    {
+      "source": {
+        "module": "seq",
+        "jack": "clock_out"
+      },
+      "target": {
+        "module": "sampler",
+        "jack": "sync_in"
+      }
+    },
+    {
+      "source": {
+        "module": "seq",
+        "jack": "gate_out_1"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "trigger_in"
+      }
+    },
+    {
+      "source": {
+        "module": "seq",
+        "jack": "cv_out_1"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "vco1_cv_in"
+      }
+    },
+    {
+      "source": {
+        "module": "seq",
+        "jack": "gate_out_2"
+      },
+      "target": {
+        "module": "drum",
+        "jack": "trig_in"
+      }
+    },
+    {
+      "source": {
+        "module": "seq",
+        "jack": "cv_out_2"
+      },
+      "target": {
+        "module": "vco",
+        "jack": "cv_in"
+      }
+    },
+    {
+      "source": {
+        "module": "vco",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "vcf",
+        "jack": "audio_in"
+      }
+    },
+    {
+      "source": {
+        "module": "vcf",
+        "jack": "env_out"
+      },
+      "target": {
+        "module": "drum",
+        "jack": "decay_cv_in"
+      }
+    },
+    {
+      "source": {
+        "module": "dfam",
+        "jack": "vca_out"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "mic_in_1"
+      }
+    },
+    {
+      "source": {
+        "module": "subh",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "mic_in_2"
+      }
+    },
+    {
+      "source": {
+        "module": "vcf",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "mic_in_3"
+      }
+    },
+    {
+      "source": {
+        "module": "drum",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "mic_in_4"
+      }
+    },
+    {
+      "source": {
+        "module": "sampler",
+        "jack": "line_out"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "stereo_in_1"
+      }
+    },
+    {
+      "source": {
+        "module": "keys",
+        "jack": "out_l"
+      },
+      "target": {
+        "module": "iface",
+        "jack": "input_1"
+      }
+    },
+    {
+      "source": {
+        "module": "desk",
+        "jack": "lr_out_l"
+      },
+      "target": {
+        "module": "iface",
+        "jack": "input_2"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "row-control",
+      "kind": "row",
+      "label": "Control",
+      "members": [
+        "grid",
+        "seq",
+        "keys"
+      ]
+    },
+    {
+      "id": "row-voices",
+      "kind": "row",
+      "label": "Voices",
+      "members": [
+        "sampler",
+        "dfam",
+        "subh",
+        "vco",
+        "vcf",
+        "drum"
+      ]
+    },
+    {
+      "id": "row-out",
+      "kind": "row",
+      "label": "Out",
+      "members": [
+        "desk",
+        "iface"
+      ]
+    }
+  ],
+  "display": {
+    "mode": "irl"
+  },
+  "midi": [
+    {
+      "id": "kit-a",
+      "source": {
+        "type": "channel",
+        "channel": 1
+      },
+      "module": "sampler",
+      "label": "Group A"
+    },
+    {
+      "id": "kit-b",
+      "source": {
+        "type": "channel",
+        "channel": 2
+      },
+      "module": "sampler",
+      "label": "Group B"
+    },
+    {
+      "id": "kit-c",
+      "source": {
+        "type": "channel",
+        "channel": 3
+      },
+      "module": "sampler",
+      "label": "Group C"
+    },
+    {
+      "id": "kit-drums",
+      "source": {
+        "type": "channel",
+        "channel": 10
+      },
+      "module": "sampler",
+      "label": "Drums"
+    },
+    {
+      "id": "seq-track-a",
+      "source": {
+        "type": "channel",
+        "channel": 5
+      },
+      "module": "seq",
+      "label": "Track A"
+    },
+    {
+      "id": "seq-track-b",
+      "source": {
+        "type": "channel",
+        "channel": 6
+      },
+      "module": "seq",
+      "label": "Track B"
+    },
+    {
+      "id": "subh-voice",
+      "source": {
+        "type": "channel",
+        "channel": 4
+      },
+      "module": "subh",
+      "label": "Subharmonicon"
+    }
+  ]
+}

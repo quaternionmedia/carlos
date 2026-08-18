@@ -136,10 +136,15 @@ uv run carlos serve --port 8123
   DFAM has a front and a back; a K.O. II has a face and a top edge and no back
   at all. Cables may run between any two sides. Losing track of a lead is part
   of the instrument.
-- **It opens on a rig, not a demonstration.** A Launchpad X playing an EP-133
-  down one USB lead, with four groups bound to four channels — so the first
-  thing on screen has a question in it rather than two boxes of knobs with
-  nothing running between them.
+- **It opens on a rig, not a demonstration.** Every device in the catalogue, in
+  three rows — control into voices, voices into the desk, desk into the
+  interface — with seventeen leads and two of them carrying channels. It is
+  fetched from `/api/opening`, not built in the browser: `catalogue/opening.json`
+  is an ordinary patch document, so the first thing you see is a file you can
+  export, edit and import again.
+- **One ring of six.** Right-click the rack and every wedge opens something:
+  Add, Rows, View, Patch, MIDI, All Devices. The ring used to mix families with
+  actions, and which was which you learned by trying.
 - **Four things you can point at.** Right-click a device, a cable, a row, or the
   rack itself, and each gives you its own ring. A row can be turned, emptied or
   deleted — and deleting one never deletes gear, because a grouping is a way of

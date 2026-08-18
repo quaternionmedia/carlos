@@ -117,6 +117,18 @@ CADENCE: tuple[EndpointCadence, ...] = (
         why="Worked examples ship with the device that owns them.",
     ),
     EndpointCadence(
+        path="/api/opening",
+        method="GET",
+        side_effect="none",
+        staleness_budget_seconds=_DEPLOY,
+        min_interval_seconds=3600,
+        why=(
+            "The rig the workspace opens on, shipped as a patch document. It "
+            "is a file in the build, so it changes when the build does and "
+            "never in between."
+        ),
+    ),
+    EndpointCadence(
         path="/api/patch/format",
         method="GET",
         side_effect="none",
