@@ -335,7 +335,19 @@ def status(ctx: click.Context) -> None:
     line("devices", str(len(list((root / "catalogue/devices").glob("*.json")))))
     line("walkthrough pages", str(len(list((root / "walkthrough").glob("*.md")))))
     line("screenshots", str(len(list((root / "walkthrough/media").glob("*.png")))))
-    line("servers on :8000", str(len(_listeners(8000, root))))
+    # Asked the same way `stop` asks: does anything answer. Counting rows in a
+    # process table reports a server that is not there, because a socket can
+    # outlive the process that bound it and `netstat` goes on naming it.
+    serving = _who_is_serving(8000)
+    if serving:
+        line("serving on :8000", f"instance {serving['instance']}, pid {serving['pid']}")
+    elif _answers(8000):
+        line("serving on :8000", "something, and it is not Carlos")
+    else:
+        line("serving on :8000", "nothing")
+        phantoms = _listeners(8000, root)
+        if phantoms:
+            line("", f"({len(phantoms)} stale netstat row(s), no process behind them)")
 
     click.echo()
     click.echo("  next: carlos check, carlos harness, carlos gates")

@@ -4,7 +4,10 @@ body {
     /* Room for the status line above. Nothing is reserved below: the palette
        floats over the rack rather than pinning a strip across the bottom. */
     padding: 56px 20px 24px;
-    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+    /* The house navy. Only the ground changes: the rack, the modules and every
+       signal colour above it are what they were, because a background is the
+       one surface that can be restated without restating anything on it. */
+    background: linear-gradient(135deg, var(--qm-navy), var(--qm-navy-lift));
     font-family: 'Courier New', monospace;
     color: #00ff88;
 }
@@ -452,6 +455,12 @@ kbd {
    on meaning disagree on bytes. Intents carry token names like `color:signal`;
    what they resolve to is the theme's business and lives here. */
 :root {
+    /* The ground everything else sits on. Named rather than inlined so the two
+       stops of the gradient cannot drift apart, and so a theme has one place to
+       change rather than a literal to find. */
+    --qm-navy: #0d1b2a;
+    --qm-navy-lift: #16273d;
+
     --rad-surface: #12140f;
     --rad-surface-edge: #2f3a2b;
     --rad-wedge: #1b2018;

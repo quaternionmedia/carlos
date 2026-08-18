@@ -57,7 +57,13 @@ seen, so it is reporting an absence of evidence rather than a defect.
 
 ## Known Conflicts With Org Records
 
-These belong in ADR-0001 as a conflict table, per the fork procedure's step 6.
+These belong in the adoption record as a conflict table, per the fork
+procedure's step 6, and they are in it:
+`governance/qm/adr/DRAFT-adopt-the-qm-constitution.md`, numberless and Proposed
+until a human ratifies. This table stays the working surface; that record is
+the decision behind it, and the two are kept in step by hand rather than
+generated — if they disagree, the record is the one that was reviewed.
+
 Enumerating a conflict is not waiving it.
 
 | Conflict | Record | Note |

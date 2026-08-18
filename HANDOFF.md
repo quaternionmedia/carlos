@@ -244,14 +244,19 @@ Ordered by what unblocks the most.
 1. **Push `project/carlos`** to `quaternionmedia/qm`. This is a remote write and
    needs authorization. It closes `submodule-check` and completes fork steps 2
    and 3.
-2. **Draft ADR-0001** — the adoption and scope record, carrying the conflict
-   table in `GOVERNANCE.md`. The fork procedure requires it, and each row needs
-   the reproduction that established it.
+2. **Ratify the adoption record.** It is drafted, at
+   `governance/qm/adr/DRAFT-adopt-the-qm-constitution.md` — numberless and
+   Proposed, because a number is assigned by the index at ratification and a
+   human ratifies. It carries the component audit, the seam protocol, the
+   service inventory, the risk register and twelve named conflicts. Ratifying
+   is a human commit: flip the status, assign the number, update the index.
 3. **The licensing pass.** Settle the MIT/AGPL class question first
    (outbound-licensing §4 puts services at AGPL-3.0-or-later), then `LICENSES/`,
    SPDX headers, and `reuse-lint` green. `python -m reuse lint` counts what is left.
-4. **Add `walkthrough/`**, which every QM repository owes and this one lacks.
-   Note it implies pytest, which is a second open conflict.
+4. **The frontend build-step conflict.** `static/` is plain modular
+   JavaScript with no build step; the house-stack set names mithril with
+   parcel. Neither the blessed answer nor a recorded exception, and the
+   adoption record names it.
 5. **Instance discovery.** `/healthz` now names the instance, its start time,
    the port actually bound and the resolved database path, so a measurement can
    be attributed — the identity half is done. What is not done is *discovery*:
