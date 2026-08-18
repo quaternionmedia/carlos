@@ -31,6 +31,8 @@ session (the README rewrite, the TinyDB cleanup, the community files) is
 committed here too rather than left loose.
 
 ```text
+Chase stability: stop leaking servers, stop sleeping, stop drifting
+Stop the onboarding docs disagreeing with each other
 Make every drawn thing a thing that does something
 Bring the handoff up to date with the walkthrough and the catalogue
 Record the keybed and the desk, and let a named face win
@@ -142,10 +144,10 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 
 | Check | Result |
 | --- | --- |
-| `uv run pytest tests walkthrough --doctest-glob=*.md` | 244 passed, 777 subtests |
+| `uv run pytest tests walkthrough --doctest-glob=*.md` | 252 passed, 796 subtests |
 | `node tests/palette.js` | 39/39 |
 | `node tests/view_toggle.js` | 83/83 |
-| `node tests/rack_behaviour.js` | 91/91 |
+| `node tests/rack_behaviour.js` | 95/95 |
 | `node tests/cable_tracing.js` | 52/52 |
 | `node tests/click_layers.js` | 10/10 |
 | rad conformance | 66 passed, 0 failed, 16 skipped |
@@ -190,6 +192,13 @@ them would be a false report.**
   rendering, assert the tree.
 - **Verify the artifact, not that the step ran.** Reload was recorded as working
   on the evidence of a log line. It does not work.
+- **Measure the flake, do not reason about it.** Three of this session's
+  stability fixes were found by running the same thing repeatedly and hashing
+  the output: a screenshot that was bistable between two renders of an
+  identical DOM, a failing page that leaked its server, and six sleeps standing
+  in for waits. None was visible from reading the code, and the screenshot one
+  would have quietly destroyed the uncommitted-diff signal the walkthrough
+  depends on.
 - **The model agreeing with itself is not evidence.** `#view-indicator` read
   `EMPTY` on a rack with two devices in it for two sessions. Every model-level
   test agreed, because the model was right and nothing wrote it to the screen.
