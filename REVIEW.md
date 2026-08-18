@@ -14,16 +14,18 @@ review is a document that reads as current and is not.
 
 ```bash
 uv sync
-uv run playwright install chromium          # once per clone
-uv run pytest tests walkthrough --doctest-glob=*.md
-node tests/view_toggle.js && node tests/rack_behaviour.js \
-  && node tests/cable_tracing.js && node tests/click_layers.js \
-  && node tests/palette.js
-python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they
+uv run playwright install chromium   # once per clone
+uv run carlos check                  # the suite and the walkthrough
+uv run carlos harness                # the five frontend harnesses
+uv run carlos gates                  # the governance gates
+uv run carlos status                 # what state this checkout is in
 ```
 
-Expected: 276 passed with 870 subtests; 83, 95, 52, 10 and 39 from the
-harnesses; three gate failures named below and no others.
+`carlos --help` lists every durable round, and `carlos --dry-run <round>`
+prints the command it runs — each is one you could type yourself.
+
+Expected: 289 passed; 83, 95, 52, 10 and 39 from the harnesses; three gate
+failures named below and no others.
 
 `walkthrough/01-onboarding.md` is the page that proves your checkout works, and
 it is executable — if it passes, the setup it describes happened on your machine.
