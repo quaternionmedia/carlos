@@ -31,6 +31,8 @@ session (the README rewrite, the TinyDB cleanup, the community files) is
 committed here too rather than left loose.
 
 ```text
+Make every drawn thing a thing that does something
+Bring the handoff up to date with the walkthrough and the catalogue
 Record the keybed and the desk, and let a named face win
 Make the walkthrough, the demo and the tests one object
 Add a modular drum rig, and finish the catalogue to the same standard
@@ -127,7 +129,9 @@ A browser workspace for sketching rigs of real gear.
 - **MIDI mapping** — bind a device to a channel, note, controller or transport
   and it lights when that arrives. Works with no hardware via a synthetic
   source.
-- **Two display modes**, `minimal` and `irl`.
+- **Two display modes**, `minimal` and `irl`. Everything `irl` draws does
+  something: a pad sends MIDI down the real path, screens read a declared
+  source, and every fader on a desk moves.
 - **An interop seam** — callable over REST+JSON+OpenAPI, five transforms, and
   outbound calls that are *planned* and never sent.
 
@@ -140,10 +144,10 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 | --- | --- |
 | `uv run pytest tests walkthrough --doctest-glob=*.md` | 244 passed, 777 subtests |
 | `node tests/palette.js` | 39/39 |
-| `node tests/view_toggle.js` | 65/65 |
+| `node tests/view_toggle.js` | 83/83 |
 | `node tests/rack_behaviour.js` | 91/91 |
 | `node tests/cable_tracing.js` | 52/52 |
-| `node tests/click_layers.js` | 9/9 |
+| `node tests/click_layers.js` | 10/10 |
 | rad conformance | 66 passed, 0 failed, 16 skipped |
 | Live end-to-end, cold start | all green, 15 OpenAPI paths |
 | `walkthrough/05-in-the-browser.md` | real Chromium, 5 shots, console clean |
@@ -230,8 +234,9 @@ Ordered by what unblocks the most.
 6. **Settle the frontend conflict.** `static/` is now five modules with no build
    step; the house-stack set names mithril with parcel. Neither the blessed
    answer nor a recorded exception.
-7. **Get a human eye on the five screenshots.** They are asserted for counts
-   and geometry and nothing else. See the validation list.
+7. **Get a human eye on the five screenshots.** They are asserted for counts,
+   geometry and behaviour and nothing else. Nobody has judged whether the
+   shapes read as the devices they stand for.
 8. **Finish the UI pass this session started.** Left undone, in order:
    - **The radial menu has no ARIA at all.** It handles its own keys, so it is
      operable; it is not announced. Everything else on the page now is, which
