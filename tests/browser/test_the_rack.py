@@ -278,6 +278,99 @@ class TestGettingBackOut:
         assert page.locator(".rad-wedge").count() == 7
 
 
+class TestEverySocketSaysWhatItIs:
+    """Labels on the laid-out panels, not only the abstract ones.
+
+    `minimal` has labelled sockets since the beginning. `irl` drew them as bare
+    circles, which made a back panel a picture of *a* back panel rather than a
+    drawing of this one — and the whole reason that mode exists is being able to
+    tell one socket from another without hovering each in turn.
+    """
+
+    def faces(self, page):
+        """Every device, on every side it draws, in `irl`."""
+        return page.evaluate(
+            """() => {
+                const was = system.mode;
+                const out = [];
+                system.clearRack();
+                system.setMode('irl');
+                for (const id of Object.keys(ModuleFactory.definitions)) {
+                    const m = system.addModule(id);
+                    for (const side of m.drawnSides()) {
+                        m.setView(side);
+                        const face = m.element.querySelector('.face.active');
+                        const jacks = [...face.querySelectorAll('.jack')];
+                        const labels = [...face.querySelectorAll(
+                            '.irl-jack-label')];
+                        const boxes = labels.map(l => {
+                            const b = l.getBoundingClientRect();
+                            return [b.left, b.top, b.width, b.height];
+                        });
+                        let clashes = 0;
+                        for (let i = 0; i < boxes.length; i++) {
+                            for (let j = i + 1; j < boxes.length; j++) {
+                                const [ax, ay, aw, ah] = boxes[i];
+                                const [cx, cy, cw, ch] = boxes[j];
+                                if (ax < cx + cw && cx < ax + aw
+                                    && ay < cy + ch && cy < ay + ah) clashes++;
+                            }
+                        }
+                        out.push({
+                            id, side,
+                            jacks: jacks.length,
+                            labels: labels.length,
+                            blank: labels.filter(
+                                l => !l.textContent.trim()).length,
+                            clashes,
+                        });
+                    }
+                    system.removeModule(m.id);
+                }
+                system.setMode(was);
+                return out;
+            }"""
+        )
+
+    def test_every_socket_on_every_drawn_face_is_labelled(self, page):
+        faces = self.faces(page)
+        assert faces, "no faces were examined, so this proves nothing"
+        for face in faces:
+            with_id = f"{face['id']} {face['side']}"
+            assert face["labels"] == face["jacks"], (
+                f"{with_id}: {face['jacks']} sockets, {face['labels']} labels")
+
+    def test_no_label_is_empty(self, page):
+        for face in self.faces(page):
+            assert face["blank"] == 0, f"{face['id']} {face['side']}"
+
+    def test_no_two_labels_overlap(self, page):
+        # A dense back panel puts sockets closer together than their names are
+        # wide: seventeen on a Qu-24, sixteen on a Hapax. Neighbours along a row
+        # alternate between two lines, because an overlapping label is not a
+        # label, it is a smear — and worse than the bare circle it replaced.
+        crowded = [f for f in self.faces(page) if f["clashes"]]
+        assert crowded == [], f"labels overlap on {crowded}"
+
+    def test_the_stage_3_back_says_what_each_socket_is(self, page):
+        # The panel this was asked about.
+        said = page.evaluate(
+            """() => {
+                system.clearRack();
+                system.setMode('irl');
+                const m = system.addModule('nord.stage-3');
+                m.setView('back');
+                const out = [...m.element.querySelectorAll(
+                    '.face.active .irl-jack-label')].map(l => l.textContent);
+                system.clearRack();
+                return out;
+            }"""
+        )
+        assert len(said) == 11
+        for named in ("MIDI IN", "MIDI OUT", "OUT L", "OUT R"):
+            assert any(named in text for text in said), f"{named} is not named"
+
+
 class TestPullingALeadOut:
     """Press a socket and drag, and the lead follows the hand.
 

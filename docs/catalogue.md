@@ -175,6 +175,15 @@ answers to nothing.
 expanding a panel is two edits in two places and the way it goes wrong is doing
 one of them.
 
+Every socket is drawn with its label under it in both modes. A label is the
+`label` field on the jack, falling back to its name — so a jack with no `label`
+still says something, and one with a good label says the thing printed on the
+hardware.
+
+On a crowded panel the labels alternate between two lines along each row.
+Seventeen sockets across a Qu-24's back are closer together than their names are
+wide, and one line of labels there is not a label, it is a smear.
+
 #### `face` — the side you look at first
 
 ```json
