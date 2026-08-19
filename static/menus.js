@@ -139,7 +139,16 @@ function carlosResolve(context, state) {
                         item('mode:irl', 'As laid out', 'display:irl'),
                         item('mode:minimal', 'Minimal', 'display:minimal'),
                         item('turn-all', 'Turn All', 'turn-all'),
-                        item('palette:reset', 'Reset palette', 'palette:reset'),
+                        item('palette:reset', 'Reset panel', 'palette:reset'),
+                        // The overlay's own exit. rad-android gives its
+                        // floating window a deliberate way out because a
+                        // surface that cannot be dismissed is one you are
+                        // stuck with; the way back is this same ring, which
+                        // is reachable from the rack whether or not the panel
+                        // is on screen.
+                        item('palette:toggle',
+                             state.panelHidden ? 'Show panel' : 'Hide panel',
+                             'palette:toggle'),
                     ],
                 }),
                 // The rack as a document: whole-rig operations, all of which

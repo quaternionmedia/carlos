@@ -273,7 +273,10 @@ was pinned across the bottom taking a slice out of every rack whether or not
 anyone was naming a patch. It opens at a default corner, is dragged by its grip
 or moved with the arrow keys, and is clamped so a grip's width always stays on
 screen — a panel dragged past the corner is gone, and gone is indistinguishable
-from broken. `Home` on the grip, or **Display → Reset palette**, puts it back.
+from broken. `Home` on the grip, or **View ▸ Reset panel**, puts it back. **View ▸ Hide
+panel** dismisses it entirely — rad-android gives its overlay a deliberate way
+out, because a floating surface you cannot dismiss is one you are stuck with.
+The way back is the same ring, which the rack always answers to.
 
 Where someone left it is remembered in `localStorage`, and deliberately not in
 the patch document: a window position is not part of a rig, and a rack exported

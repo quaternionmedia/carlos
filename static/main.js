@@ -290,6 +290,12 @@ const radMenu = new RadMenu({
         definitions: ModuleFactory.definitions,
         groups: system.groups,
         modules: system.modules,
+        // Read at resolve time rather than held: the panel's own class is the
+        // one copy of whether it is on screen, and a second would be a second
+        // answer to the same question.
+        panelHidden: Boolean(
+            document.getElementById('tool-palette')
+                ?.classList.contains('is-dismissed')),
         ...cableState(),
     }),
     onIntent: (intent) => routeIntent(intent),
@@ -395,6 +401,17 @@ function routeIntent(intent) {
             system.setMode(action.endsWith('irl') ? 'irl' : 'minimal');
             break;
 
+        case 'palette:toggle': {
+            const panel = document.getElementById('tool-palette');
+            if (!panel) break;
+            const hidden = panel.classList.toggle('is-dismissed');
+            system.status.update(
+                hidden
+                    ? 'Panel hidden - the rack menu brings it back'
+                    : 'Panel back');
+            break;
+        }
+
         case 'palette:reset':
             palette.reset();
             system.status.update('Palette back to where it starts');
@@ -458,6 +475,22 @@ function routeIntent(intent) {
 function contextAt(event) {
     const moduleEl = event.target.closest?.('.module');
     const inRack = event.target.closest?.('#rack');
+
+    // The panel is a surface the ring can be summoned from, which is what
+    // rad-android's overlay is: a floating window whose whole job is to be
+    // somewhere you can always reach the menu, even when what is under your
+    // hand is not the thing you want to act on. Summoning from it opens the
+    // rack's ring - the panel is about the rack, so that is what it offers.
+    //
+    // Not from the controls inside it: a right-click on the patch name is a
+    // right-click on a text field, and taking that would cost the field its
+    // own menu to give the rack a second door it already has.
+    const panel = event.target.closest?.('#tool-palette');
+    if (panel && !event.target.closest?.('input, button, [contenteditable]')) {
+        return { type: 'canvas', targetIds: [],
+                 position: { x: event.clientX, y: event.clientY } };
+    }
+
     if (!inRack && !moduleEl) return null;
 
     const position = { x: event.clientX, y: event.clientY };

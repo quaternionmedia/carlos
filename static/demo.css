@@ -548,6 +548,9 @@ kbd {
     --rad-hub-ink: #ffffff;
     --rad-push: #d4ff4f;
     --rad-glow: #b9a9e8;
+    /* The board the wedges sit on. Lavender at low alpha, and deliberately
+       not one of the three signal hues: nothing here is a state to read. */
+    --rad-backing: rgba(136, 116, 196, 0.16);
     /* Mid grey rather than black. rad-android's note, and it is the same
        problem here: over a dark field a black shadow composites to nothing,
        so the depth it is supposed to give never arrives. */
@@ -659,6 +662,12 @@ kbd {
     user-select: none;
 }
 
+/* Dismissed, not deleted: it keeps its position and its state, and the rack's
+   ring brings it back. */
+.rad-palette.is-dismissed {
+    display: none;
+}
+
 .rad-palette.is-moving .rad-palette-grip {
     cursor: grabbing;
     background: var(--rad-wedge-hover);
@@ -729,6 +738,12 @@ kbd {
    Only the drawn shape changes; hit testing stays the perfect uniform slice it
    always was, which is the same split rad-android makes between the shape a
    wedge appears to have and the angle band it actually answers to. */
+/* Decoration, and it says so: no pointer events, no aria, no state. */
+.rad-backing {
+    fill: var(--rad-backing);
+    pointer-events: none;
+}
+
 .rad-wedge {
     fill: var(--rad-wedge);
     stroke: var(--qm-navy-deep);

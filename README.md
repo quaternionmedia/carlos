@@ -146,6 +146,10 @@ uv run carlos serve --port 8123
   which way it faces, and what just happened — devices, leads and rows counted
   off the rack itself. The status line used to be a bar pinned across the top of
   the window; it is a line in the panel now, and the rack got the strip back.
+- **The panel is an overlay surface.** Right-click it and the rack's ring opens
+  there — somewhere the menu is always reachable when what is under your hand is
+  not what you want to act on. It can be hidden and brought back from that same
+  ring, and it keeps where you left it.
 - **One ring of six.** Right-click the rack and every wedge opens something:
   Add, Rows, View, Patch, MIDI, All Devices. The ring used to mix families with
   actions, and which was which you learned by trying.
@@ -203,7 +207,7 @@ uv run carlos serve --port 8123
 - **The patch name and the import live in a floating tool palette**, not a bar
   pinned across the bottom — a rack is the width of the window. It opens at a
   default corner, drags by its grip or moves with the arrow keys, and comes back
-  where you left it. `Home` on the grip, or Display → Reset palette, puts it
+  where you left it. `Home` on the grip, or View ▸ Reset panel, puts it
   back to the default.
 - Randomize all module parameters
 - Export and import the whole rack as a `carlos.patch` document

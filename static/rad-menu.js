@@ -311,6 +311,21 @@ class RadMenu {
         const group = document.createElementNS(RAD_SVG_NS, 'g');
         group.setAttribute('transform', `translate(${x} ${y})`);
 
+        // The board the wedges sit on.
+        //
+        // rad-android draws one soft, low-alpha blob behind its nodes - the
+        // literal painter's palette the paint daubs are arranged on, which is
+        // where `palette` as a word for a ring comes from in the first place.
+        // Purely decorative: it carries no state, answers to no gesture, and a
+        // renderer that dropped it would lose nothing a person needs to read.
+        // It is here because a ring floating on the bare rack reads as pasted
+        // over the rack, and this gives it something to be on.
+        const backing = document.createElementNS(RAD_SVG_NS, 'circle');
+        backing.setAttribute('r', r1 * 1.08);
+        backing.setAttribute('class', 'rad-backing');
+        backing.setAttribute('aria-hidden', 'true');
+        group.appendChild(backing);
+
         this.spec.items.forEach((menuItem, index) => {
             const wedge = document.createElementNS(RAD_SVG_NS, 'path');
             wedge.setAttribute('d', this.wedgePath(index, n, r0, r1));

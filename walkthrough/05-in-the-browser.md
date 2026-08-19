@@ -250,6 +250,26 @@ captured, and here it is:
 
 ```
 
+The panel is also a surface the ring can be summoned from, which is what
+rad-android's overlay is for: somewhere the menu is always reachable when what
+is under your hand is not the thing you want to act on. Right-click it and the
+rack's ring opens there — the panel is about the rack, so that is what it
+offers. Its own fields keep their own menus.
+
+```python
+>>> grip = page.locator('#tool-palette-grip').bounding_box()
+>>> page.mouse.click(grip['x'] + 40, grip['y'] + 10, button='right')
+>>> _ = page.wait_for_selector('.rad-wedge', timeout=5000)
+>>> page.locator('.rad-wedge').count()
+6
+>>> page.keyboard.press('Escape')
+
+```
+
+And it can be dismissed — **View ▸ Hide panel** — because a floating surface you
+cannot get rid of is one you are stuck with. It keeps where it was, and the
+rack's ring brings it back.
+
 The panel says what is on screen: what this rack is, what is in it, which way
 it faces, and what just happened. That last line used to be a bar pinned across
 the top of the window, so the running commentary was in one place and the facts
