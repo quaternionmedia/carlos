@@ -143,12 +143,13 @@ uv run carlos serve --port 8123
   is an ordinary patch document, so the first thing you see is a file you can
   export, edit and import again.
 
-- **One menu, in two states.** There is no floating panel — there was, and a
-  panel is a second menu surface. `View ▸ Pin ring` leaves the ring open over the
-  rack instead: it stays through whatever you do with it, and its hub reads the
-  rack. What is left at the foot of the window is a dock, and a dock is not a
-  menu: the status line and the facing indicator, the two things that change on
-  their own.
+- **One menu, in two states.** No floating panel and no status bar — both were
+  second surfaces, saying things *about* the rack while the ring said things
+  *to* it. A pinned ring is what they were: at rest it is a strip across the
+  navy above the rack, a title reading what the rack is and what the app last
+  said. Hold it and the ring blooms; double-tap and drag moves it; `View ▸ Unpin
+  ring` puts it away. It rests rather than staying open because a ring left over
+  the rack is a ring in the way of the rack.
 
 - **The ring is yours to arrange.** `Edit ▸` moves families round the ring,
   hides the ones you never use, and puts it all back. It remembers on this

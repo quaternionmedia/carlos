@@ -13,6 +13,17 @@
 
 const RAD_SVG_NS = 'http://www.w3.org/2000/svg';
 
+// How tall the resting bar is, and how far apart two presses can be in time
+// and space and still be one double-tap.
+//
+// The double-tap figures are rad-android's, and so is the gesture: a second
+// press that then *holds* is how its overlay handle is moved, chosen so the
+// ordinary press-and-drag that works the ring keeps its exact shape and never
+// has to know a second gesture exists.
+const RAD_BAR_HEIGHT = 30;
+const RAD_DOUBLE_TAP_MS = 320;
+const RAD_DOUBLE_TAP_SLOP = 24;
+
 // Break a hub label into lines that fit inside the dead zone.
 //
 // Word boundaries only, and never mid-word: a break falling inside a word reads
@@ -64,9 +75,29 @@ class RadMenu {
         // answers to a question rad's contract already settles.
         this.pinned = false;
         this.readout = null;      // what a pinned hub shows, if the host says
+        // Where the bar sits, and what it is doing.
+        //
+        // A pinned ring rests as a bar across the top - a title, saying what
+        // the rack is - and blooms into the ring itself only while held. That
+        // is what keeps it out of the way: at rest it covers a strip nothing
+        // is drawn in, rather than a corner of the rack.
+        this.barY = 0;
+        this.lastBarTap = 0;
+        this.moving = null;
+
+        // Whether this ring is currently the thing being driven.
+        //
+        // An unpinned ring always is: it exists for the length of one gesture
+        // and that gesture is its own. A pinned one is on screen all the time,
+        // and a ring that owned the keyboard and swallowed every click for as
+        // long as it was up would take the whole app with it - which is exactly
+        // what it did: arrow keys stopped reaching knobs, Enter stopped
+        // patching, and every click anywhere was suppressed as the ring's.
+        this.engaged = false;
         this.longPressTimer = null;
         this.pressOrigin = null;
 
+        this.onPointerDown = this.onPointerDown.bind(this);
         this.onPointerMove = this.onPointerMove.bind(this);
         this.onPointerUp = this.onPointerUp.bind(this);
         this.onKeyDown = this.onKeyDown.bind(this);
@@ -100,11 +131,57 @@ class RadMenu {
         });
         this.machine.open(style);
 
+        // Summoned rather than rested: a pinned ring opened by pointing at
+        // something is being driven, and settles back to its bar afterwards.
+        if (this.pinned) this.engaged = true;
+
         this.render();
+        document.addEventListener('pointerdown', this.onPointerDown, true);
         document.addEventListener('pointermove', this.onPointerMove);
         document.addEventListener('pointerup', this.onPointerUp);
         document.addEventListener('keydown', this.onKeyDown, true);
         return this;
+    }
+
+    // Whether input belongs to this ring right now.
+    //
+    // Unpinned, always: the ring is the gesture. Pinned, only once a press has
+    // landed inside it - the ring is one thing on a screen full of others, and
+    // the rack underneath it is still a rack.
+    get owningInput() {
+        return !this.pinned || this.engaged;
+    }
+
+    // The bar's box, in viewport coordinates.
+    barBox() {
+        const width = (typeof window !== 'undefined' && window.innerWidth) || 0;
+        return { x: 0, y: this.barY, width, height: RAD_BAR_HEIGHT };
+    }
+
+    // Is this press on the bar? Asked of the geometry for the same reason the
+    // ring is: the layer is `pointer-events: none` so it cannot swallow a click
+    // meant for a knob beneath it, which means the DOM cannot answer.
+    aimedAtBar(clientX, clientY) {
+        if (!this.pinned) return false;
+        const box = this.barBox();
+        return clientY >= box.y && clientY <= box.y + box.height
+            && clientX >= box.x && clientX <= box.x + box.width;
+    }
+
+    // Resting: pinned, and not currently bloomed into a ring.
+    get resting() {
+        return this.pinned && !this.engaged;
+    }
+
+    // Is this point inside the ring's own band?
+    //
+    // Asked of the geometry, not of the element: the layer is
+    // `pointer-events: none` so that a ring drawn over a knob cannot swallow a
+    // click meant for it, which means the DOM cannot answer this.
+    aimedAtRing(clientX, clientY) {
+        if (!this.centre) return false;
+        const { r } = this.toPolar(clientX, clientY);
+        return r <= radCancelRadius(this.geometry);
     }
 
     // Clamp the ring inside the viewport by shifting the centre inward, never
@@ -118,13 +195,20 @@ class RadMenu {
         };
     }
 
+    // Closing is not unpinning.
+    //
+    // It used to clear `pinned` too, which meant `openAt` - which closes first -
+    // quietly unpinned the ring every time you summoned one on a device. A
+    // pinned ring that is put away by pointing at something else was never
+    // pinned. `pin(false)` is the one thing that unpins.
     close({ silent = false } = {}) {
-        this.pinned = false;
+        this.engaged = false;
         this.disarm();
         if (this.layer) {
             this.layer.remove();
             this.layer = null;
         }
+        document.removeEventListener('pointerdown', this.onPointerDown, true);
         document.removeEventListener('pointermove', this.onPointerMove);
         document.removeEventListener('pointerup', this.onPointerUp);
         document.removeEventListener('keydown', this.onKeyDown, true);
@@ -210,28 +294,154 @@ class RadMenu {
         setTimeout(() => document.removeEventListener('click', swallow, true), 350);
     }
 
+    onPointerDown(event) {
+        // Only a pinned ring has to ask. An unpinned one was opened by this
+        // very gesture and is already the thing being driven.
+        if (!this.open || !this.pinned) return;
+
+        if (!this.resting) {
+            this.engaged = this.aimedAtRing(event.clientX, event.clientY);
+            return;
+        }
+
+        if (!this.aimedAtBar(event.clientX, event.clientY)) return;
+
+        // A press on the bar is one of two things, and which one is decided by
+        // what already happened rather than by where it landed.
+        const now = event.timeStamp || 0;
+        const soon = now - this.lastBarTap < RAD_DOUBLE_TAP_MS;
+        const near = this.lastBarAt
+            && Math.abs(event.clientX - this.lastBarAt.x) < RAD_DOUBLE_TAP_SLOP
+            && Math.abs(event.clientY - this.lastBarAt.y) < RAD_DOUBLE_TAP_SLOP;
+
+        this.lastBarTap = now;
+        this.lastBarAt = { x: event.clientX, y: event.clientY };
+
+        if (soon && near) {
+            // Second press of a double-tap: this one moves the bar. Deliberate
+            // enough that it can never be reached by accident from the press
+            // that opens the ring, which is rad-android's whole reason for
+            // putting reposition behind this gesture rather than a drag.
+            this.moving = { from: event.clientY, at: this.barY };
+            this.layer?.classList.add('is-moving');
+            event.preventDefault();
+            return;
+        }
+
+        // Otherwise: hold it and the ring blooms where the press landed.
+        this.armBloom(event);
+    }
+
+    // Hold the bar, and the rest of the ring appears.
+    //
+    // The same `longPressMs` the contract names for summoning a ring anywhere
+    // else, because this *is* summoning a ring - the bar is where it rests, not
+    // a different control with rules of its own.
+    armBloom(event) {
+        this.releaseArmListeners();
+        const at = { x: event.clientX, y: event.clientY };
+
+        this.armMove = (e) => {
+            if (Math.abs(e.clientX - at.x) > this.geometry.slop
+                || Math.abs(e.clientY - at.y) > this.geometry.slop) {
+                this.cancelBloom();
+            }
+        };
+        this.armEnd = () => this.cancelBloom();
+        document.addEventListener('pointermove', this.armMove);
+        document.addEventListener('pointerup', this.armEnd);
+        document.addEventListener('pointercancel', this.armEnd);
+
+        this.bloomTimer = setTimeout(() => {
+            this.bloomTimer = null;
+            this.releaseArmListeners();
+            this.bloomAt(at.x, at.y);
+        }, this.geometry.longPressMs);
+    }
+
+    cancelBloom() {
+        if (this.bloomTimer) clearTimeout(this.bloomTimer);
+        this.bloomTimer = null;
+        this.releaseArmListeners();
+    }
+
+    // Open the ring out of the bar, below the point that was held.
+    //
+    // Far enough below that the finger starts *outside* the ring's band, which
+    // is the contract's own cancel: let go without moving and nothing is
+    // chosen, drag down into a wedge and that wedge is. Blooming closer put the
+    // finger on a wedge the moment it appeared, so simply letting go committed
+    // whatever happened to be under it - `Add`, every time, because the bar is
+    // directly above the centre and north is item zero.
+    bloomAt(clientX, clientY) {
+        this.engaged = true;
+        this.centre = this.clampToViewport(
+            clientX, clientY + radCancelRadius(this.geometry) + 8);
+        this.spec = this.resolve(this.context);
+        this.machine = new RadMachine(this.spec.items.length, {
+            geometry: this.geometry,
+            labels: this.spec.items.map(i => i.label),
+        });
+        this.machine.state = 'PENDING';
+        this.machine.send({ type: 'longpress' });
+        this.render();
+        return this;
+    }
+
     onPointerMove(event) {
+        if (this.moving) {
+            this.barY = Math.max(0, this.moving.at + (event.clientY - this.moving.from));
+            this.render();
+            return;
+        }
         this.cancelLongPress(event);
-        if (!this.open) return;
+        if (!this.open || !this.owningInput) return;
         const { r, thetaDeg } = this.toPolar(event.clientX, event.clientY);
         this.machine.send({ type: 'move', r, thetaDeg });
         this.afterEvent();
     }
 
     onPointerUp(event) {
+        if (this.moving) {
+            this.moving = null;
+            this.layer?.classList.remove('is-moving');
+            if (this.onBarMoved) this.onBarMoved(this.barY);
+            this.render();
+            return;
+        }
+        this.cancelBloom();
         this.disarm();
-        if (!this.open) return;
+        if (!this.open || !this.owningInput) {
+            // A press that was not this ring's leaves it as it was: resting if
+            // it was resting, and never dragged shut by somebody using the rack
+            // underneath it.
+            if (this.pinned) this.engaged = false;
+            this.render();
+            return;
+        }
         const { r, thetaDeg } = this.toPolar(event.clientX, event.clientY);
         this.machine.send({ type: 'up', r, thetaDeg });
         // This release belongs to the menu, so nothing below it should also act
         // on it - neither the rest of this event nor the click that follows.
         event.stopPropagation();
         this.suppressNextClick();
+        // Engagement is *not* cleared here. `afterEvent` may descend into a
+        // submenu, and a pinned ring that stopped being engaged mid-gesture
+        // renders as its resting bar - so choosing `View` drew the title bar
+        // instead of View's ring. `settle` is the one place a pinned ring goes
+        // back to rest, because settling is what finishing means.
         this.afterEvent();
     }
 
     onKeyDown(event) {
-        if (!this.open) return;
+        // A pinned ring does not own the keyboard. Arrow keys belong to
+        // whatever knob has focus, Enter to whatever socket does, and Escape to
+        // the selection - all of which a permanently-open ring took, leaving a
+        // keyboard user with a rack they could look at and not touch.
+        //
+        // Summoning an unpinned ring with `m` is how the keyboard drives a ring,
+        // and that one owns these keys for as long as it is up.
+        if (!this.open || !this.owningInput) return;
         const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
                       'Enter', ' ', 'Escape'];
         if (!keys.includes(event.key)) return;
@@ -333,6 +543,11 @@ class RadMenu {
             this.close();
             return;
         }
+
+        // Back to the bar. The ring is what you asked for by holding, and it
+        // has now done the thing you asked for - leaving it open would put it
+        // back over the rack, which is the whole reason it rests as a bar.
+        this.engaged = false;
         this.stack = [];
         this.spec = this.resolve(this.context);
         this.machine = new RadMachine(this.spec.items.length, {
@@ -352,6 +567,7 @@ class RadMenu {
         if (!on) {
             if (this.open) this.close();
             this.pinned = false;
+            document.body?.removeAttribute?.('data-ring');
             return false;
         }
 
@@ -367,6 +583,9 @@ class RadMenu {
         }
         this.pinned = true;
         if (this.layer) this.layer.classList.add('is-pinned');
+        // The rack makes room for the bar. It is the one thing that gets any of
+        // the navy the rack floats in.
+        document.body?.setAttribute?.('data-ring', 'pinned');
         // Resolve *after* the flag, not before. `openAt` resolves as it opens,
         // and at that moment this ring was still unpinned - so the menu it
         // built offered to pin a ring that already was, and there was no way
@@ -384,6 +603,54 @@ class RadMenu {
 
     // --- rendering --------------------------------------------------------
     render() {
+        if (this.resting) return this.renderBar();
+        return this.renderRing();
+    }
+
+    // The pinned ring at rest: a strip across the top saying what the rack is.
+    //
+    // A title rather than a control. It answers to exactly two gestures - hold
+    // it and the ring blooms, double-tap and drag it and it moves - and to
+    // nothing else, so the rack underneath keeps every click and key it had.
+    renderBar() {
+        this.mountLayer();
+        this.layer.replaceChildren();
+        this.layer.classList.add('is-resting');
+        this.layer.setAttribute('aria-label', 'Rack');
+
+        const box = this.barBox();
+        const bar = document.createElementNS(RAD_SVG_NS, 'rect');
+        bar.setAttribute('x', box.x);
+        bar.setAttribute('y', box.y);
+        bar.setAttribute('width', box.width);
+        bar.setAttribute('height', box.height);
+        bar.setAttribute('class', 'rad-bar');
+        this.layer.appendChild(bar);
+
+        const said = this.readout ? this.readout() : '';
+        const text = document.createElementNS(RAD_SVG_NS, 'text');
+        text.setAttribute('x', 16);
+        text.setAttribute('y', box.y + box.height / 2);
+        text.setAttribute('class', 'rad-bar-text');
+        text.setAttribute('id', 'rad-bar-text');
+        // Drawn, never announced: `#status` is the live region that carries
+        // this to a screen reader, and announcing it twice would be two voices
+        // saying one thing.
+        text.setAttribute('aria-hidden', 'true');
+        text.textContent = said;
+        this.layer.appendChild(text);
+
+        const hint = document.createElementNS(RAD_SVG_NS, 'text');
+        hint.setAttribute('x', box.width - 16);
+        hint.setAttribute('y', box.y + box.height / 2);
+        hint.setAttribute('class', 'rad-bar-hint');
+        hint.setAttribute('aria-hidden', 'true');
+        hint.textContent = 'hold for the menu';
+        this.layer.appendChild(hint);
+        return this.layer;
+    }
+
+    mountLayer() {
         if (!this.layer) {
             this.layer = document.createElementNS(RAD_SVG_NS, 'svg');
             this.layer.setAttribute('class', 'rad-layer');
@@ -394,7 +661,13 @@ class RadMenu {
             this.layer.setAttribute('role', 'menu');
             document.body.appendChild(this.layer);
         }
+        return this.layer;
+    }
+
+    renderRing() {
+        this.mountLayer();
         this.layer.replaceChildren();
+        this.layer.classList.remove('is-resting');
 
         const { r0, r1 } = this.geometry;
         const { x, y } = this.centre;
@@ -461,12 +734,7 @@ class RadMenu {
             group.appendChild(text);
         });
 
-        // A pinned hub is bigger, because it has something to say. Only the
-        // *drawn* radius grows: the dead zone the machine cancels inside is
-        // `r0` and stays `r0`, so the gesture is identical whether or not the
-        // ring is pinned. Same split rad-android makes between the shape a
-        // wedge appears to have and the band it answers to.
-        const hubR = this.pinned ? r0 * 1.6 : r0;
+        const hubR = r0;
 
         const hub = document.createElementNS(RAD_SVG_NS, 'circle');
         hub.setAttribute('r', hubR);
@@ -495,17 +763,16 @@ class RadMenu {
         // you knew or did not. Here it is the same gesture - release on the
         // hub inside a submenu ascends - and it was equally unmarked. The
         // ring's own title moves into the line below it, so nothing is lost.
-        // A pinned ring is idle most of the time, and an idle hub that only
-        // repeats the ring's own name is a hub wasted. It reads the rack
-        // instead - what is in it and which way it faces - which is what the
-        // panel this replaced was for.
+        // The hub names the ring, or whatever is being pointed at. It briefly
+        // carried the rack's readout as well, back when a pinned ring was the
+        // only place that could live; the bar carries it now, and a hub saying
+        // the same thing was two answers to one question.
         const highlighted = this.spec.items[this.machine.highlight];
-        const idle = this.pinned && this.readout
-            ? (this.readout() || this.spec.title || '')
-            : (this.spec.title || '');
         const heading = highlighted
             ? highlighted.label
-            : (this.stack.length ? `◂ Back  ${this.spec.title || ''}` : idle);
+            : (this.stack.length
+                ? `◂ Back  ${this.spec.title || ''}`
+                : (this.spec.title || ''));
 
         const title = document.createElementNS(RAD_SVG_NS, 'text');
         title.setAttribute('class', 'rad-title');
@@ -517,10 +784,7 @@ class RadMenu {
 
         // Word boundaries only, and never mid-word: a break that falls inside a
         // word reads as a truncation, which is the thing being avoided.
-        // Four lines when pinned: the readout is four facts and dropping one
-        // silently would be the truncation this contract bans, wearing a
-        // different hat.
-        const lines = wrapHubLabel(heading, hubR, undefined, this.pinned ? 4 : 3);
+        const lines = wrapHubLabel(heading, hubR);
         const first = 4 - ((lines.length - 1) * 7);
         lines.forEach((line, index) => {
             const span = document.createElementNS(RAD_SVG_NS, 'tspan');

@@ -70,7 +70,7 @@ class TestTheMenu:
         pick(page, "View")
         labels = page.locator(".rad-label").all_text_contents()
         assert any("Minimal" in text for text in labels)
-        assert any("Pin ring" in text for text in labels)
+        assert any("Unpin ring" in text for text in labels)
 
     def test_a_right_click_on_a_device_opens_that_device_s_menu(self, page):
         module = page.locator(".module").first.bounding_box()
@@ -238,139 +238,166 @@ class TestGettingBackOut:
         assert page.locator(".rad-wedge").count() == 7
 
 
-class TestAPinnedRingIsThePanel:
-    """One object in two states.
+class TestTheBar:
+    """A pinned ring rests as a title, and blooms when you hold it.
 
-    A ring you can leave open over the rack *is* what a floating panel was, so
-    there is no second surface: pinning is a state of the menu rather than a
-    window beside it. Two menu systems would be two answers to a question rad's
-    contract already settles.
+    The panel is gone and this is what replaced it: one surface in two states.
+    At rest it is a strip across the navy above the rack — a title saying what
+    the rack is — and it covers nothing, because that strip is background
+    nothing was ever drawn in. Hold it and the ring itself appears.
+
+    It rests rather than staying open for a plain reason: a ring left over the
+    rack is a ring in the way of the rack, and the readout was the only part of
+    it worth having up all the time.
     """
 
-    def pin(self, page):
+    def bar(self, page):
+        return page.locator(".rad-bar")
+
+    def readout(self, page):
+        return page.locator("#rad-bar-text").text_content()
+
+    def hold(self, page, x=420):
+        """Hold the bar until the ring blooms."""
+        box = self.bar(page).bounding_box()
+        page.mouse.move(x, box["y"] + box["height"] / 2)
+        page.mouse.down()
+        page.wait_for_selector(".rad-wedge", timeout=5_000)
+
+    def test_it_arrives_resting(self, page):
+        assert page.locator(".rad-layer.is-resting").count() == 1
+        assert page.locator(".rad-wedge").count() == 0
+
+    def test_it_spans_the_top(self, page):
+        # Half a pixel out on each side: the rect carries a 1px stroke and a
+        # bounding box includes it.
+        box = self.bar(page).bounding_box()
+        assert box["x"] <= 0
+        assert box["y"] <= 0
+        assert box["width"] >= page.viewport_size["width"] - 1
+
+    def test_it_takes_the_navy_and_not_the_rack(self, page):
+        # The strip above the rack is background nothing is drawn in, so a
+        # title can have it without taking anything from the gear.
+        box = self.bar(page).bounding_box()
+        rack = page.evaluate(
+            "() => document.querySelector('#rack').getBoundingClientRect().top")
+        assert rack >= box["y"] + box["height"]
+
+    def test_it_says_what_the_rack_is(self, page):
+        said = self.readout(page)
+        assert "11 devices" in said
+        assert "17 leads" in said
+        assert "3 rows" in said
+
+
+    def test_what_the_app_says_displaces_the_figures(self, page):
+        # The bar is the only place this app answers back now, so an answer has
+        # to win over the standing description of the rack.
+        assert "11 devices" in self.readout(page)
+        page.evaluate("() => { system.addModule('moog.dfam'); }")
+        page.wait_for_function(
+            "() => document.querySelector('#rad-bar-text')"
+            ".textContent.includes('DFAM')", timeout=5_000)
+        assert "DFAM" in self.readout(page)
+
+    def test_holding_it_blooms_the_ring(self, page):
+        self.hold(page)
+        assert page.locator(".rad-wedge").count() == 7
+        page.mouse.up()
+
+    def test_letting_go_returns_it_to_the_bar(self, page):
+        self.hold(page)
+        page.mouse.up()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.rad-wedge').length === 0",
+            timeout=5_000)
+        assert page.locator(".rad-layer.is-resting").count() == 1
+
+    def test_using_it_returns_it_to_the_bar(self, page):
+        # The ring is what you asked for by holding, and it has now done the
+        # thing you asked for.
+        self.hold(page)
+        page.mouse.up()
         open_menu(page, *bare_rack(page))
         pick(page, "View")
-        pick(page, "Pin ring")
-        page.wait_for_selector(".rad-layer.is-pinned", timeout=5_000)
-
-    def hub(self, page):
-        return " ".join(
-            page.locator("#rad-menu-title tspan").all_text_contents()).strip()
-
-    def test_it_stays_open(self, page):
-        self.pin(page)
-        assert page.locator(".rad-wedge").count() == 7
-
-    def test_it_survives_being_used(self, page):
-        # A ring that vanished after every commit would be a panel that closed
-        # itself whenever you used it.
-        self.pin(page)
-        pick(page, "View")
         pick(page, "Minimal")
         ready(page, "minimally")
-        assert page.locator(".rad-wedge").count() == 7
+        page.wait_for_function(
+            "() => document.querySelectorAll('.rad-wedge').length === 0",
+            timeout=5_000)
+        assert page.locator(".rad-layer.is-resting").count() == 1
+        assert self.readout(page).startswith("Showing devices minimally")
 
-    def test_using_it_returns_it_to_its_root(self, page):
-        self.pin(page)
-        pick(page, "View")
-        pick(page, "Minimal")
-        ready(page, "minimally")
-        labels = [t.rstrip(" ▸")
-                  for t in page.locator(".rad-label").all_text_contents()]
-        assert labels[0] == "Add"
+    def test_a_press_on_the_rack_is_the_rack_s(self, bench):
+        # The bar is not a modal. Everything under it still works, which it did
+        # not when a pinned ring stayed open: it owned the keyboard and
+        # swallowed every click for as long as it was up.
+        #
+        # On the bench, because the opening rack's first device is a grid whose
+        # face is sixty-four pads - a press there is a note, correctly, and says
+        # nothing about whether the bar is in the way.
+        assert bench.locator(".rad-bar").count() == 1
+        bench.locator(".module").first.click()
+        assert bench.locator(".module.selected").count() == 1
 
-    def test_the_hub_reads_the_rack(self, page):
-        # What the panel was for. Asked at render time rather than pushed, so
-        # the ring holds no copy of a rack that changes underneath it.
-        self.pin(page)
-        hub = self.hub(page)
-        assert "11 devices" in hub
-        assert "17 leads" in hub
-        assert "3 rows" in hub
+    def test_the_keyboard_still_belongs_to_the_rack(self, page):
+        facing = page.locator("#view-indicator").inner_text()
+        page.keyboard.press("t")
+        page.wait_for_function(
+            f"() => document.querySelector('#view-indicator').textContent"
+            f" !== {facing!r}",
+            timeout=5_000)
+        assert page.locator("#view-indicator").inner_text() != facing
 
-    def test_the_readout_is_live(self, page):
-        self.pin(page)
-        assert "11 devices" in self.hub(page)
-        page.evaluate("() => system.addModule('moog.dfam')")
-        pick(page, "View")
-        pick(page, "As laid out")
-        page.wait_for_timeout(200)
-        assert "12 devices" in self.hub(page)
+    def test_double_tap_and_drag_moves_it(self, page):
+        # rad-android's own reposition gesture, chosen so the press that works
+        # the ring keeps its exact shape and never has to know this exists.
+        start = self.bar(page).bounding_box()
+        x, y = 500, start["y"] + start["height"] / 2
 
-    def test_nothing_of_the_readout_is_dropped(self, page):
-        # Four facts, and silently losing one would be the truncation the
-        # contract bans wearing a different hat.
-        self.pin(page)
-        assert self.hub(page).count("|") == 3
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.up()
+        page.mouse.down()
+        page.mouse.move(x, y + 180, steps=10)
+        page.mouse.up()
 
-    def test_the_gesture_is_unchanged_by_pinning(self, page):
-        # Only the drawn hub grows. The dead zone the machine cancels inside is
-        # the contract's `r0` and stays it.
-        self.pin(page)
-        geometry = page.evaluate("() => radMenu.geometry.r0")
-        drawn = float(page.locator(".rad-hub").get_attribute("r"))
-        assert drawn > geometry
-        assert page.evaluate("() => radMenu.machine.geometry?.r0 ?? radMenu.geometry.r0") == geometry
+        moved = self.bar(page).bounding_box()
+        assert round(moved["y"] - start["y"]) == 180
 
-    def test_it_lets_go(self, page):
-        self.pin(page)
+    def test_one_tap_does_not_move_it(self, page):
+        start = self.bar(page).bounding_box()
+        x, y = 500, start["y"] + start["height"] / 2
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.move(x, y + 120, steps=6)
+        page.mouse.up()
+        assert self.bar(page).bounding_box()["y"] == start["y"]
+
+    def test_it_can_be_let_go_of(self, page):
+        open_menu(page, *bare_rack(page))
         pick(page, "View")
         pick(page, "Unpin ring")
         ready(page, "let go")
-        assert page.locator(".rad-wedge").count() == 0
+        assert page.locator(".rad-bar").count() == 0
+        assert page.evaluate(
+            "() => document.body.getAttribute('data-ring')") is None
 
-    def test_it_offers_to_let_go_while_pinned(self, page):
-        self.pin(page)
-        pick(page, "View")
-        labels = page.locator(".rad-label").all_text_contents()
-        assert any("Unpin" in text for text in labels)
-
-    def test_a_pinned_ring_shows_the_world_after_the_verb_not_before(self, page):
-        """The ordering bug a demo dry-run found.
-
-        A pinned ring is drawn from state the intent is about to change, and it
-        used to re-resolve *before* dispatching — so it showed the previous
-        answer to everything. Hiding a family left it on the ring until the next
-        commit, at which point it vanished and looked like that commit had done
-        it.
-        """
-        self.pin(page)
-        labels = lambda: [t.rstrip(" ▸")
-                          for t in page.locator(".rad-label").all_text_contents()]
-        assert "MIDI" in labels()
-
-        pick(page, "Edit")
-        pick(page, "MIDI")
-        pick(page, "Hide")
-        page.wait_for_function(
-            "() => ![...document.querySelectorAll('.rad-label')]"
-            ".some(l => l.textContent.trim().startsWith('MIDI'))",
-            timeout=5_000)
-        assert "MIDI" not in labels()
-
-        pick(page, "Edit")
-        pick(page, "Reset ring")
-        page.wait_for_function(
-            "() => [...document.querySelectorAll('.rad-label')]"
-            ".some(l => l.textContent.trim().startsWith('MIDI'))",
-            timeout=5_000)
-        assert "MIDI" in labels()
-
-    def test_the_readout_follows_the_verb_immediately(self, page):
-        # Same ordering, seen through the hub: clearing the rack has to be
-        # visible in the readout without a second commit to shake it loose.
-        self.pin(page)
-        assert "11 devices" in self.hub(page)
-        page.evaluate("() => system.addModule('moog.dfam')")
-        pick(page, "View")
-        pick(page, "As laid out")
-        page.wait_for_timeout(250)
-        assert "12 devices" in self.hub(page)
-
-    def test_nothing_throws_through_any_of_it(self, page):
-        self.pin(page)
+    def test_letting_it_go_gives_the_rack_its_strip_back(self, page):
+        reserved = page.evaluate(
+            "() => getComputedStyle(document.body).paddingTop")
+        open_menu(page, *bare_rack(page))
         pick(page, "View")
         pick(page, "Unpin ring")
+        ready(page, "let go")
+        assert page.evaluate(
+            "() => getComputedStyle(document.body).paddingTop") != reserved
+
+    def test_nothing_throws_through_any_of_it(self, page):
+        self.hold(page)
+        page.mouse.up()
+        page.keyboard.press("Escape")
         assert page.errors == []
 
 

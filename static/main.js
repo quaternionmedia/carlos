@@ -30,10 +30,50 @@ async function bootstrap() {
     await openingRack();
 
     const count = ModuleFactory.ids.length;
-    system.status.update(
-        `Carlos ready - ${count} devices. Right-click for the menu, `
-        + 'or long-press and release to pick in one gesture.'
-    );
+    // Shorter than it was. It used to explain where the menu is, which was
+    // worth a sentence when the menu was invisible until you asked for it and
+    // is noise now that it is the first thing on screen.
+    system.status.update(`Carlos ready - ${count} devices in the catalogue`);
+
+    openTheRing();
+}
+
+// Where the ring sits when nobody has moved it.
+//
+// Top left, and low enough that its first node fits above it. That node is
+// drawn `2.3` rings out, so a centre at the clamp's own minimum would put the
+// readout off the top of the window - the clamp keeps the *ring* on screen and
+// knows nothing about a node that reaches past it.
+const PINNED_AT = { x: 152, y: 292 };
+
+// The bar reads the live region, so it has to be redrawn when the live region
+// changes. Watched rather than hooked into `status.update`: that keeps the
+// status line the one thing that knows how to say something, and the bar a
+// thing that reads it - the same direction the readout already ran.
+function watchTheStatus() {
+    const said = document.getElementById('status');
+    if (!said || typeof MutationObserver === 'undefined') return;
+    new MutationObserver(() => {
+        // The first thing on the bar is the rack, not the boot line. This is
+        // installed after boot has had its say, so the first mutation it sees
+        // is the app answering something somebody did - which is the only kind
+        // of message worth displacing the figures for.
+        hasAnswered = true;
+        if (radMenu.resting) radMenu.render();
+    }).observe(said, { childList: true, characterData: true, subtree: true });
+}
+
+// The ring is up when you arrive.
+//
+// It carries the readout, so a rack with no ring on it is a rack that cannot
+// tell you anything - which is what the dock used to be for. Unpin it and the
+// app is what it was: a rack, and a menu you summon.
+function openTheRing() {
+    watchTheStatus();
+    radMenu.openAt(
+        { type: 'canvas', targetIds: [], position: { ...PINNED_AT } },
+        PINNED_AT.x, PINNED_AT.y, 'tap');
+    radMenu.pin(true);
 }
 
 // ===================================
@@ -128,7 +168,9 @@ document.addEventListener('keydown', (event) => {
     // An open menu owns the keyboard. It handles its own keys in the capture
     // phase; anything it does not handle must still not reach the rack, or Tab
     // turns devices while a menu is sitting on top of them.
-    if (radMenu.open) return;
+    // A resting bar is not a menu in the way: it is where the menu
+    // lives. Only a bloomed ring owns the next press.
+    if (radMenu.open && !radMenu.resting) return;
 
     // Escape is "let go": drop the selection and hand focus back, so a knob
     // reached by keyboard is not somewhere you have to click your way out of.
@@ -354,6 +396,12 @@ function radState() {
         // copy of whether it is pinned, and a second would be a second answer
         // to the same question.
         pinned: Boolean(radMenu?.pinned),
+        // What the first node says when the ring is pinned: whatever this app
+        // last answered back, falling through to the rack's own figures when it
+        // has not said anything yet. Read off the live region rather than kept
+        // beside it, so there is one copy of the message and the screen-reader
+        // channel and the drawn one cannot disagree.
+
         ...cableState(),
     };
 }
@@ -363,15 +411,28 @@ const radMenu = new RadMenu({
     onIntent: (intent) => routeIntent(intent),
 });
 
-// What a pinned hub reads. Asked at render time rather than pushed, so the
-// ring holds no copy of a rack that goes on changing underneath it.
-radMenu.showsReadout(() => {
+// The rack in four short facts. Short words rather than a sentence, because
+// both the places this goes wrap at word boundaries and a long word is what
+// makes a readout read as a paragraph that happens to be round.
+function rackReadout() {
     const leads = system.patchBay.connections.length;
-    // Four short facts rather than a sentence: the hub wraps at word
-    // boundaries, so short words are what make it read as a readout instead of
-    // as a paragraph that happens to be round.
     return `${system.modules.size} devices | ${leads} leads | `
         + `${system.groups.length} rows | ${system.viewSummary().toLowerCase()}`;
+}
+
+// What the bar says. Asked at render time rather than pushed, so the ring holds
+// no copy of a rack that goes on changing underneath it.
+//
+// Whatever this app last answered back, falling through to the rack's own
+// figures when it has not said anything worth keeping. Read off the live region
+// rather than kept beside it: `#status` is the channel a screen reader is told
+// about, and a second copy would be two answers to one question.
+let hasAnswered = false;
+
+radMenu.showsReadout(() => {
+    if (!hasAnswered) return rackReadout();
+    const said = document.getElementById('status')?.textContent?.trim();
+    return said || rackReadout();
 });
 
 function routeIntent(intent) {
@@ -621,7 +682,9 @@ document.addEventListener('contextmenu', (event) => {
 // Long-press arms release-select: one gesture from press to commit.
 document.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
-    if (radMenu.open) return;
+    // A resting bar is not a menu in the way: it is where the menu
+    // lives. Only a bloomed ring owns the next press.
+    if (radMenu.open && !radMenu.resting) return;
     if (event.target.closest?.('.knob, .jack, button, input, select')) return;
 
     const context = contextAt(event);

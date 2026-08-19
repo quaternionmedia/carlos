@@ -144,7 +144,33 @@ screen, and sending it anywhere would make it a fact about an account.
 a wedge *does*. Its verbs are Android intents; Carlos's are its own actions and
 are not user-composable, so there is nothing here to offer.
 
-### A pinned ring is the panel
+### A pinned ring is the bar
+
+There is one menu surface. A pinned ring **rests as a strip across the top** —
+a title saying what the rack is and what the app last answered — and blooms into
+the ring itself only while held. Everything that used to float over the rack or
+pin itself across the bottom is that bar now.
+
+It takes the navy above the rack rather than the rack: that strip is background
+nothing was ever drawn in, so a title can have it without costing the gear
+anything, and the body reserves it while the bar is up.
+
+Three gestures, and nothing else:
+
+- **Hold it** and the ring blooms below the point held — far enough below that
+  the finger starts *outside* the band, which is the contract's own cancel. Let
+  go without moving and nothing is chosen; drag down into a wedge and that wedge
+  is. Blooming closer put the finger on a wedge the moment it appeared, so
+  letting go committed `Add` every time.
+- **Double-tap and drag** moves it. rad-android's own reposition gesture, behind
+  a deliberate second press so the press that works the ring keeps its exact
+  shape and never has to know this exists.
+- **Everything else belongs to the rack.** A ring that simply stayed open owned
+  the keyboard and swallowed every click for as long as it was up: arrows
+  stopped reaching knobs, Enter stopped patching, Escape stopped deselecting. A
+  pinned ring takes input only once a press has landed inside it.
+
+### A pinned ring was, briefly, the panel
 
 There is one menu surface, and it is the ring. A ring left open over the rack is
 what a floating panel was, which is why pinning is a **state of the menu** rather

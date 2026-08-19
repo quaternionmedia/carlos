@@ -616,6 +616,54 @@ kbd {
    Only the drawn shape changes; hit testing stays the perfect uniform slice it
    always was, which is the same split rad-android makes between the shape a
    wedge appears to have and the angle band it actually answers to. */
+/* === THE BAR ===
+   A pinned ring at rest. It lives in the navy above the rack rather than over
+   it: that strip is background nothing is drawn in, so a title can have it
+   without taking anything from the gear. */
+.rad-bar {
+    fill: var(--rad-hub-idle);
+    stroke: var(--rad-hub-live);
+    stroke-width: 0;
+}
+
+.rad-layer.is-resting .rad-bar {
+    /* One hairline along the bottom edge only, drawn as a border would be. */
+    stroke: var(--rad-hub-live);
+    stroke-width: 1;
+    stroke-dasharray: 0;
+}
+
+.rad-bar-text {
+    fill: var(--rad-hub-ink);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+.rad-bar-hint {
+    fill: var(--rad-hub-live);
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-anchor: end;
+    dominant-baseline: middle;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.rad-layer.is-moving .rad-bar {
+    fill: var(--rad-wedge);
+    stroke: var(--rad-push);
+}
+
+/* The rack starts below the bar rather than under it. The navy was always
+   there; this is the one thing given room in it. */
+body[data-ring="pinned"] {
+    padding-top: 46px;
+}
+
 /* Decoration, and it says so: no pointer events, no aria, no state. */
 .rad-backing {
     fill: var(--rad-backing);
@@ -1218,24 +1266,28 @@ button.irl-cell.is-struck {
 
 
 /* === THE DOCK ===
-   What is left once the floating panel is gone. Neither of these is a menu -
-   the ring is the menu, and a pinned ring is what the panel was - so they sit
-   at the foot of the window instead of floating over the rack. A thing that is
-   not a menu should not behave like one. */
+   Not drawn any more, and still here.
+
+   It was a strip across the foot of the window saying things about the rack
+   while the ring said things to it - two surfaces, one of them permanently
+   taking a slice off the bottom. The readout is the pinned ring's first node
+   now, which is where it belongs: the ring is already the thing on screen.
+
+   What survives is the announcement channel. `#status` is a live region and a
+   screen reader is told when it changes; an SVG node is drawn, not announced,
+   so the two are not interchangeable and this is not a duplicate copy of the
+   message. It is the same message on the channel that carries it to somebody
+   who cannot see the node.
+
+   Clipped rather than `display: none`, because a live region that is not
+   rendered is not announced. */
 .dock {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 40;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding: 6px 14px;
-    background: rgba(0, 0, 0, 0.82);
-    border-top: 1px solid var(--rad-surface-edge);
-    font-family: 'Courier New', monospace;
-    font-size: 11px;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
 }
 
 .dock-facing {

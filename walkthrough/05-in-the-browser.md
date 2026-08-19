@@ -252,84 +252,35 @@ captured, and here it is:
 
 ## One menu, in two states
 
-There is no floating panel. There was, and it held what a ring supposedly could
-not — but a panel is a second menu surface, and rad's contract settles that
-there is one. A ring you leave open over the rack *is* what it was.
+There is no floating panel and no status bar. There were both, and each was a
+second surface: one saying things about the rack while the ring said things to
+it. A ring you leave open is what they were.
 
-`View ▸ Pin ring` leaves it up. Pinned, it does not close when it has done
-something: it returns to its root and stays, because the next thing you want is
-usually also on it.
-
-```python
->>> spot = bare_rack(page)
->>> open_menu(page, *spot)
->>> pick(page, 'View')
->>> pick(page, 'Pin ring')
->>> _ = page.wait_for_selector('.rad-layer.is-pinned', timeout=5000)
->>> page.locator('.rad-wedge').count()
-7
-
-```
-
-Its idle hub reads the rack — asked at render time rather than pushed, so the
-ring holds no copy of a rack that goes on changing underneath it:
+At rest it is a strip across the top — a title, saying what the rack is. It sits
+in the navy above the rack rather than over it, so it covers nothing:
 
 ```python
->>> hub = ' '.join(
-...     page.locator('#rad-menu-title tspan').all_text_contents()).strip()
->>> '11 devices' in hub, '17 leads' in hub, '3 rows' in hub
-(True, True, True)
-
-```
-
-It survives being used, which is the whole point — a ring that vanished after
-every commit would be a panel that closed itself whenever you touched it:
-
-```python
->>> pick(page, 'View')
->>> pick(page, 'Minimal')
->>> until(page, "document.querySelector('#status').textContent"
-...             ".includes('minimally')")
->>> page.locator('.rad-wedge').count()
-7
->>> pick(page, 'View')
->>> pick(page, 'Unpin ring')
->>> until(page, "document.querySelector('#status').textContent"
-...             ".includes('let go')")
+>>> page.locator('.rad-layer.is-resting').count()
+1
 >>> page.locator('.rad-wedge').count()
 0
-
-```
-
-The hub is drawn larger when pinned, and **only drawn** larger: the dead zone
-the machine cancels inside is the contract's `r0` and stays `r0`, so the gesture
-is identical either way.
-
-What is left at the foot of the window is a dock, and a dock is not a menu — a
-status line and the facing indicator, the two things a ring cannot hold because
-they change on their own:
-
-```python
->>> page.locator('#tool-palette').count()
-0
->>> page.locator('#dock').is_visible()
+>>> bar = page.locator('.rad-bar').bounding_box()
+>>> round(bar['width']) >= page.viewport_size['width'] - 1
+True
+>>> rack = page.evaluate(
+...     "() => document.querySelector('#rack').getBoundingClientRect().top")
+>>> rack >= bar['y'] + bar['height']
 True
 
 ```
 
-And the facing indicator reports the rack it is actually looking at. A mixed
-rack says so rather than picking a winner:
+It reads the rack, and switches to whatever the app last answered back:
 
 ```python
->>> page.locator('#view-indicator').inner_text()
-'6 front, 5 top'
+>>> page.locator('#rad-bar-text').text_content()
+'11 devices | 17 leads | 3 rows | 6 front, 5 top'
 
 ```
-
-> That assertion is why this page exists. It read `EMPTY` on a rack with two
-> devices in it, for two sessions, because nothing refreshed it when a device
-> was added — and every model-level test agreed with the model. The first run
-> of this page found it.
 
 ```python
 >>> shots.take(page, 'boot')
@@ -338,6 +289,57 @@ rack says so rather than picking a winner:
 ```
 
 ![The rack on boot](media/05-in-the-browser-boot.png)
+
+Hold it and the rest appears — the ring blooms below the point you held, far
+enough that your finger starts outside its band. That is the contract's own
+cancel: let go without moving and nothing is chosen, drag down into a wedge and
+that wedge is.
+
+```python
+>>> _ = page.mouse.move(420, 15)
+>>> page.mouse.down()
+>>> _ = page.wait_for_selector('.rad-wedge', timeout=5000)
+>>> page.locator('.rad-wedge').count()
+7
+>>> page.mouse.up()
+>>> _ = page.wait_for_function(
+...     "() => document.querySelectorAll('.rad-wedge').length === 0",
+...     timeout=5000)
+>>> page.locator('.rad-layer.is-resting').count()
+1
+
+```
+
+Double-tap it and drag, and it moves — rad-android's own reposition gesture,
+behind a deliberate second press so the one that works the ring keeps its exact
+shape and never has to know this exists.
+
+```python
+>>> before = page.locator('.rad-bar').bounding_box()
+>>> _ = page.mouse.move(500, 15)
+>>> page.mouse.down(); page.mouse.up()
+>>> page.mouse.down()
+>>> _ = page.mouse.move(500, 195, steps=8)
+>>> page.mouse.up()
+>>> round(page.locator('.rad-bar').bounding_box()['y'] - before['y'])
+180
+
+```
+
+And the rack underneath keeps everything. A permanently-open ring owned the
+keyboard and swallowed every click for as long as it was up — arrow keys stopped
+reaching knobs, Enter stopped patching. A bar is not a modal:
+
+```python
+>>> facing = page.locator('#view-indicator').inner_text()
+>>> page.keyboard.press('t')
+>>> _ = page.wait_for_function(
+...     "() => document.querySelector('#view-indicator').textContent"
+...     " !== %r" % facing, timeout=5000)
+>>> page.locator('#view-indicator').inner_text() != facing
+True
+
+```
 
 ## The menu is a ring
 
