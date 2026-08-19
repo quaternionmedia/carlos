@@ -8,6 +8,8 @@ own address.
 
 from __future__ import annotations
 
+import pytest
+
 
 # The two leads in the opening rack that carry channels, named by the key each
 # piece carries. More than one cable splits now, so a selector that just asks
@@ -17,9 +19,18 @@ KEYS_LEAD = 'path.cable[data-cable="keys:midi_out->seq:midi_a_in"]'
 
 
 class TestTheBarePort:
-    def test_it_redirects_to_the_splash(self, blank, app):
+    """It is the workspace.
+
+    It used to land on a splash saying what this is, on the reasoning that
+    opening a rack is a thing you choose. The rack answers that better than a
+    page about it did — it opens on a rig, and the bar says what the rack is and
+    what this build is. A page you click through to reach the thing is a page
+    between somebody and the thing.
+    """
+
+    def test_it_reaches_the_workspace(self, blank, app):
         response = blank.goto(app.base, wait_until="networkidle")
-        assert blank.url.rstrip("/").endswith("/splash")
+        assert blank.url.endswith("/rack")
         assert response.status == 200  # after following the redirect
 
     def test_the_redirect_is_temporary_not_permanent(self, blank, app):
@@ -34,48 +45,57 @@ class TestTheBarePort:
             walk = walk.redirected_from
         assert hops == [307], f"expected one temporary redirect, got {hops}"
 
-    def test_the_splash_says_what_this_is(self, blank, app):
-        blank.goto(f"{app.base}/splash", wait_until="networkidle")
-        assert blank.inner_text(".splash-name") == "CARLOS"
-        assert "rigs" in blank.inner_text(".splash-line")
-
-    def test_the_way_in_is_a_link_that_needs_no_script(self, blank, app):
-        # A button wired by JavaScript is a door that does not open until the
-        # script does. This one is an anchor with an href.
-        blank.goto(f"{app.base}/splash", wait_until="networkidle")
-        assert blank.get_attribute(".splash-enter", "href") == "/rack"
-
-    def test_following_it_reaches_the_workspace(self, blank, app):
-        blank.goto(f"{app.base}/splash", wait_until="networkidle")
-        blank.click(".splash-enter")
-        # `#rack` is in the template and exists before any script runs, so it
-        # is not a signal that the app booted. The status line is.
-        blank.wait_for_function(
-            "() => (document.querySelector('#status')?.textContent || '')"
-            ".startsWith('Carlos ready')",
-            timeout=15_000,
-        )
+    def test_the_rack_keeps_one_address(self, blank, app):
+        # A redirect rather than serving the workspace at two addresses, so
+        # `/rack` stays the one a reader can link to.
+        blank.goto(f"{app.base}/rack", wait_until="networkidle")
         assert blank.url.endswith("/rack")
-        assert blank.locator(".module").count() == 11
 
-    def test_its_figures_are_measured_rather_than_typed(self, app, blank):
-        from src import catalogue
+    @pytest.mark.parametrize("path", ["/splash", "/static/splash.css"])
+    def test_the_splash_is_gone(self, app, path):
+        # Deleted, not orphaned: a route nothing links to is a route somebody
+        # links to again.
+        import urllib.error
+        import urllib.request
 
-        blank.goto(f"{app.base}/splash", wait_until="networkidle")
-        facts = blank.inner_text(".splash-facts")
-        assert str(len(catalogue.load_all())) in facts
-        assert "carlos.patch" in facts
+        try:
+            urllib.request.urlopen(f"{app.base}{path}")
+        except urllib.error.HTTPError as refused:
+            assert refused.code == 404, f"{path} answered {refused.code}"
+        else:
+            raise AssertionError(f"{path} still answers")
+
+    def test_the_bar_says_what_this_build_is(self, blank, app):
+        # The one fact the splash carried that is worth carrying inside: the
+        # rest of it — the catalogue size, the format version — lives at an
+        # address of its own and was being copied.
+        blank.goto(app.base, wait_until="networkidle")
+        # `text_content`, and `attached`: an SVG text node is not an
+        # HTMLElement, so it has no rendered text and no visibility to wait on.
+        blank.wait_for_selector("#rad-bar-text", state="attached", timeout=15_000)
+        assert "Carlos" in blank.locator("#rad-bar-text").text_content()
+
+    def test_the_build_is_the_one_the_server_reports(self, blank, app):
+        # Handed to the page rather than written into it. A version typed into
+        # a template is wrong at the next release and nothing notices.
+        import json
+        import urllib.request
+
+        with urllib.request.urlopen(f"{app.base}/healthz") as answered:
+            served = json.load(answered)["version"]
+
+        blank.goto(app.base, wait_until="networkidle")
+        blank.wait_for_selector("#rad-bar-text", state="attached", timeout=15_000)
+        assert served in blank.locator("#rad-bar-text").text_content()
 
     def test_nothing_throws_on_the_way_in(self, blank, app):
         blank.goto(app.base, wait_until="networkidle")
-        blank.click(".splash-enter")
         blank.wait_for_function(
             "() => (document.querySelector('#status')?.textContent || '')"
             ".startsWith('Carlos ready')",
             timeout=15_000,
         )
         assert blank.errors == []
-
 
 class TestTheWorkspace:
     def test_it_boots_with_the_whole_rig(self, page):

@@ -50,7 +50,7 @@ devices they stand for.
 | `05-in-the-browser-irl-drum-rig.png` | The Launchpad's 8×8 grid, the Hapax, two drum modules. **Relative sizing:** the drum module hits a 150px floor, so it draws 1.8× narrower than the Launchpad where reality is 6×. Too generous a floor? |
 | | **Aspect compression:** the Hapax draws at 1.30 against a true 1.56, the drum at 0.50 against 0.31. Too aggressive? |
 | `05-in-the-browser-boot.png` | The palette at its default corner, the status line, minimal mode — and the house navy behind all of it |
-| the splash, at `/` | The bare port redirects here. Does it say enough, and is the way in obvious? |
+| the bar, at `/` | The bare port is the workspace now. Does the bar say enough, where the splash used to? |
 | `05-in-the-browser-menu.png` | The eight-wedge ring |
 | `05-in-the-browser-turned.png` | Cables after `Tab` — all four occluded with four anchors, which is correct for where those sockets are |
 

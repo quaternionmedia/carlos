@@ -413,9 +413,18 @@ const radMenu = new RadMenu({
 // The rack in four short facts. Short words rather than a sentence, because
 // both the places this goes wrap at word boundaries and a long word is what
 // makes a readout read as a paragraph that happens to be round.
+// What build this is, from the page rather than from a constant here. There
+// was a splash saying it; the bar says it now, which is one fact in a line that
+// already existed rather than a page somebody clicks through to reach the thing
+// they came for.
+function buildName() {
+    const said = document.querySelector('meta[name="carlos-build"]')?.content;
+    return said ? `Carlos ${said}` : 'Carlos';
+}
+
 function rackReadout() {
     const leads = system.patchBay.connections.length;
-    return `${system.modules.size} devices | ${leads} leads | `
+    return `${buildName()} | ${system.modules.size} devices | ${leads} leads | `
         + `${system.groups.length} rows | ${system.viewSummary().toLowerCase()}`;
 }
 
