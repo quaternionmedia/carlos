@@ -206,6 +206,12 @@ uv run carlos serve --port 8123
   catalogue had it. Sockets are buttons — `Enter` or `Space` patches. `Esc` lets
   go of both the selection and the focus. Seventeen controls are reachable this
   way, and a browser test counts them rather than trusting the markup.
+- **Pull a lead out of a socket.** Press and drag, and the cable follows your
+  hand — drawn by the same routine as the one it will become, so the sag, the
+  layer and the dashes are already right. It says which kind of lead it is,
+  goes solid over a socket that will take it, and turns dashed and lime over one
+  that will not. Click-to-click still works: a drag is the gesture a hand
+  reaches for, two clicks is the one a keyboard can make.
 - Knobs also answer to the scroll wheel, and to a finger — they are pointer
   events, so a touchscreen turns them.
 - **The patch name and the import are ring verbs** — `Patch ▸ Name`,

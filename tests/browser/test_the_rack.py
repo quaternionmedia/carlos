@@ -278,6 +278,165 @@ class TestGettingBackOut:
         assert page.locator(".rad-wedge").count() == 7
 
 
+class TestPullingALeadOut:
+    """Press a socket and drag, and the lead follows the hand.
+
+    Beside click-to-click rather than instead of it: two clicks is the gesture a
+    keyboard can make, and a drag is the one a hand reaches for first.
+
+    The preview is drawn by the same routine as the cable it becomes — same
+    curve, same sag, same layer, same dashes for a run that goes out of sight.
+    A preview built by a second drawing routine is one that can disagree with
+    the thing it previews, and the disagreement is invisible until it matters.
+    """
+
+    def sockets(self, bench):
+        out = bench.locator(".module").nth(0).locator(
+            '.face.active .jack[data-type="output"]').first
+        inp = bench.locator(".module").nth(1).locator(
+            '.face.active .jack[data-type="input"]').first
+        other = bench.locator(".module").nth(1).locator(
+            '.face.active .jack[data-type="output"]').first
+        return out, inp, other
+
+    def centre(self, locator):
+        box = locator.bounding_box()
+        return box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+
+    def leads(self, bench):
+        return bench.locator("path.cable:not(.is-preview)").evaluate_all(
+            "paths => new Set(paths.map(p => p.dataset.cable)).size")
+
+    def preview(self, bench):
+        return bench.locator("path.cable.is-preview")
+
+    def test_a_small_movement_is_still_a_click(self, bench):
+        # Below the slop it is a hand not quite still. Taking that as a drag
+        # would make every click on a socket a lead pulled half out and dropped.
+        out, _, _ = self.sockets(bench)
+        x, y = self.centre(out)
+        bench.mouse.move(x, y)
+        bench.mouse.down()
+        bench.mouse.move(x + 3, y + 2)
+        assert self.preview(bench).count() == 0
+        bench.mouse.up()
+
+    def test_dragging_shows_the_lead_in_the_hand(self, bench):
+        out, _, _ = self.sockets(bench)
+        x, y = self.centre(out)
+        bench.mouse.move(x, y)
+        bench.mouse.down()
+        bench.mouse.move(x + 140, y + 70, steps=6)
+
+        preview = self.preview(bench)
+        assert preview.count() == 1
+        assert "is-open" in preview.first.get_attribute("class")
+        assert "audio lead from" in bench.locator("#status").inner_text()
+        bench.mouse.up()
+
+    def test_it_says_which_kind_of_lead(self, bench):
+        # The point of previewing: which cable this is, before it exists.
+        out, _, _ = self.sockets(bench)
+        x, y = self.centre(out)
+        bench.mouse.move(x, y)
+        bench.mouse.down()
+        bench.mouse.move(x + 120, y + 60, steps=6)
+        assert self.preview(bench).first.get_attribute("data-signal") == "audio"
+        bench.mouse.up()
+
+    def test_over_a_socket_that_will_take_it(self, bench):
+        out, inp, _ = self.sockets(bench)
+        x, y = self.centre(out)
+        tx, ty = self.centre(inp)
+        bench.mouse.move(x, y)
+        bench.mouse.down()
+        bench.mouse.move(tx, ty, steps=8)
+
+        assert "is-legal" in self.preview(bench).first.get_attribute("class")
+        assert "Release to patch" in bench.locator("#status").inner_text()
+        bench.mouse.up()
+
+    def test_over_one_that_will_not(self, bench):
+        out, _, other = self.sockets(bench)
+        x, y = self.centre(out)
+        tx, ty = self.centre(other)
+        bench.mouse.move(x, y)
+        bench.mouse.down()
+        bench.mouse.move(tx, ty, steps=8)
+
+        assert "is-refused" in self.preview(bench).first.get_attribute("class")
+        assert "cannot be patched" in bench.locator("#status").inner_text()
+        bench.mouse.up()
+        assert self.leads(bench) == 0
+
+    def test_releasing_on_a_legal_socket_patches_it(self, bench):
+        out, inp, _ = self.sockets(bench)
+        assert self.leads(bench) == 0
+
+        x, y = self.centre(out)
+        tx, ty = self.centre(inp)
+        bench.mouse.move(x, y)
+        bench.mouse.down()
+        bench.mouse.move(tx, ty, steps=8)
+        bench.mouse.up()
+
+        bench.wait_for_function(
+            "() => document.querySelectorAll("
+            "'path.cable:not(.is-preview)').length > 0", timeout=5_000)
+        assert self.leads(bench) == 1
+        assert "Patched" in bench.locator("#status").inner_text()
+
+    def test_the_preview_goes_when_the_hand_does(self, bench):
+        out, inp, _ = self.sockets(bench)
+        x, y = self.centre(out)
+        tx, ty = self.centre(inp)
+        bench.mouse.move(x, y)
+        bench.mouse.down()
+        bench.mouse.move(tx, ty, steps=8)
+        bench.mouse.up()
+        bench.wait_for_timeout(200)
+        assert self.preview(bench).count() == 0
+
+    def test_dropping_it_on_nothing_leaves_nothing_behind(self, bench):
+        out, _, _ = self.sockets(bench)
+        x, y = self.centre(out)
+        bench.mouse.move(x, y)
+        bench.mouse.down()
+        bench.mouse.move(x + 40, y + 260, steps=8)
+        bench.mouse.up()
+        bench.wait_for_timeout(200)
+
+        assert self.preview(bench).count() == 0
+        assert self.leads(bench) == 0
+        # And the socket is not left armed, which would make the next click
+        # somewhere else patch something nobody asked for.
+        assert bench.locator(".jack.arming").count() == 0
+        assert "dropped" in bench.locator("#status").inner_text().lower()
+
+    def test_click_to_click_still_works(self, bench):
+        # The gesture a keyboard can make, and the one this was added beside
+        # rather than instead of. Arming on the press broke it once: the click
+        # that followed found its own socket armed and cancelled it.
+        out, inp, _ = self.sockets(bench)
+        out.click()
+        assert bench.locator(".jack.arming").count() == 1
+        inp.click()
+        bench.wait_for_function(
+            "() => document.querySelectorAll("
+            "'path.cable:not(.is-preview)').length > 0", timeout=5_000)
+        assert self.leads(bench) == 1
+
+    def test_nothing_throws_through_any_of_it(self, bench):
+        out, inp, _ = self.sockets(bench)
+        x, y = self.centre(out)
+        tx, ty = self.centre(inp)
+        bench.mouse.move(x, y)
+        bench.mouse.down()
+        bench.mouse.move(tx, ty, steps=6)
+        bench.mouse.up()
+        assert bench.errors == []
+
+
 class TestTheBar:
     """A pinned ring rests as a title, and blooms when you hold it.
 

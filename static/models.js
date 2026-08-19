@@ -348,6 +348,25 @@ function cellLegend(feature, index) {
 // exist. An undeclared identifier throws on read - optional chaining guards a
 // null value, not a missing name - so every reach for the host goes through
 // here.
+// The socket under a point, or null.
+//
+// Asked of the page rather than of the event, because a captured pointer
+// reports the element that captured it however far the hand has travelled -
+// which is the whole reason the capture is there, and would otherwise make
+// every drag land back on the socket it came out of.
+function jackUnder(clientX, clientY) {
+    const under = typeof document === 'undefined'
+        ? null
+        : document.elementFromPoint?.(clientX, clientY);
+    const el = under?.closest?.('.jack');
+    if (!el) return null;
+
+    const module = hostSystem()?.modules?.get?.(
+        el.closest('.module')?.dataset.moduleId);
+    const jack = module?.jacks?.get?.(el.dataset.jack);
+    return jack && jack.side === el.dataset.side ? jack : null;
+}
+
 function hostSystem() {
     try {
         return typeof system === 'undefined' ? null : system;
@@ -894,7 +913,45 @@ class EurorackModule {
                 jack.element = jackEl;
                 jackEl.addEventListener('click', (event) => {
                     event.stopPropagation(); // patching a jack is not selecting the module
+                    // A click that was the end of a drag has already been
+                    // acted on. Without this the release that patched a lead
+                    // would also arm the socket it came out of.
+                    if (jackEl.dataset.dragged === 'yes') {
+                        delete jackEl.dataset.dragged;
+                        return;
+                    }
                     hostSystem()?.patchBay.handleJackClick(jack);
+                });
+
+                // Press and pull. The pointer is captured so a lead can be
+                // dragged across a device without the socket losing the
+                // gesture to whatever it crosses.
+                jackEl.addEventListener('pointerdown', (event) => {
+                    if (event.button !== 0) return;
+                    event.stopPropagation();
+                    const bay = hostSystem()?.patchBay;
+                    if (!bay) return;
+
+                    bay.beginDrag(jack, event);
+                    jackEl.setPointerCapture?.(event.pointerId);
+
+                    const move = (moveEvent) => bay.dragTo(
+                        moveEvent.clientX, moveEvent.clientY,
+                        jackUnder(moveEvent.clientX, moveEvent.clientY));
+
+                    const up = (upEvent) => {
+                        jackEl.removeEventListener('pointermove', move);
+                        jackEl.removeEventListener('pointerup', up);
+                        jackEl.removeEventListener('pointercancel', up);
+                        jackEl.releasePointerCapture?.(upEvent.pointerId);
+                        if (bay.endDrag(jackUnder(upEvent.clientX, upEvent.clientY))) {
+                            jackEl.dataset.dragged = 'yes';
+                        }
+                    };
+
+                    jackEl.addEventListener('pointermove', move);
+                    jackEl.addEventListener('pointerup', up);
+                    jackEl.addEventListener('pointercancel', up);
                 });
                 // Enter and Space are what a button answers to. Patching was
                 // pointer-only, which made the whole point of the app so.
@@ -1268,8 +1325,96 @@ class PatchBayManager {
         // Held here rather than read off the global: this manager is built
         // during EurorackSystem's constructor, before that global is bound.
         this.view = 'front';
+        // A lead being pulled out of a socket, if one is.
+        this.dragging = null;
+        this.preview = null;
         // The device whose cables are being followed, if any.
         this.tracing = null;
+    }
+
+    // Press a socket and pull.
+    //
+    // Added beside click-to-click rather than instead of it. Two sockets and
+    // two clicks is the gesture a keyboard can make and a touchscreen can make
+    // badly; a drag is the one a hand reaches for first, and neither is worth
+    // taking away for the other.
+    //
+    // Nothing is armed on the press. A press that turns out to be a click has
+    // to leave the click handler exactly the state it had before, and arming
+    // here meant the click that followed found its own socket already armed and
+    // cancelled it — a click on a socket did nothing at all.
+    beginDrag(jack, event) {
+        this.dragging = {
+            jack,
+            from: { x: event.clientX, y: event.clientY },
+            moved: false,
+        };
+        return this.dragging;
+    }
+
+    // How far a press has to travel before it is a drag rather than a click.
+    // Below this it is a hand not quite still, and taking it as a drag would
+    // make every click on a socket a lead pulled half out and dropped.
+    static get DRAG_SLOP() {
+        return 6;
+    }
+
+    dragTo(clientX, clientY, target = null) {
+        const drag = this.dragging;
+        if (!drag) return null;
+
+        if (!drag.moved) {
+            const far = Math.hypot(clientX - drag.from.x, clientY - drag.from.y);
+            if (far < PatchBayManager.DRAG_SLOP) return null;
+            drag.moved = true;
+            drag.jack.element?.classList.add('arming');
+        }
+
+        const refusal = target && target !== drag.jack
+            ? drag.jack.refusalReason(target)
+            : null;
+        hostSystem()?.status.update(
+            refusal
+            || (target && target !== drag.jack
+                ? `Release to patch ${drag.jack.name} into ${target.name}`
+                // No article: `a audio lead` and `an cv lead` are both waiting
+                // in a sentence built that way, and the signal is the thing
+                // worth saying anyway.
+                : `${drag.jack.signal} lead from ${drag.jack.name} - drop it on `
+                    + `${drag.jack.type === 'output' ? 'an input' : 'an output'}`));
+
+        return this.previewFrom(
+            drag.jack, clientX, clientY,
+            target && target !== drag.jack ? target : null);
+    }
+
+    // Let go. Returns whether this drag did something, so the click that
+    // follows a pointer release can be ignored when it did.
+    endDrag(target = null) {
+        const drag = this.dragging;
+        this.dragging = null;
+        this.clearPreview();
+        if (!drag) return false;
+
+        if (!drag.moved) return false;   // a click wearing a drag's clothes
+
+        drag.jack.element?.classList.remove('arming');
+
+        if (!target || target === drag.jack) {
+            hostSystem()?.status.update('Lead dropped');
+            return true;
+        }
+
+        const refusal = drag.jack.refusalReason(target);
+        if (refusal) {
+            hostSystem()?.status.update(refusal);
+            return true;
+        }
+
+        this.createConnection(drag.jack, target);
+        hostSystem()?.status.update(
+            `Patched ${drag.jack.name} into ${target.name}`);
+        return true;
     }
 
     handleJackClick(jack) {
@@ -1631,9 +1776,14 @@ class PatchBayManager {
         return mark;
     }
 
-    createCable(source, target) {
+    // `at` puts the far end somewhere other than the target socket, which is
+    // what a lead being dragged has: one end plugged in and one under the
+    // pointer. Everything else is the same code, deliberately — a preview built
+    // by a second drawing routine is a preview that can disagree with the thing
+    // it is previewing, and the disagreement is invisible until it matters.
+    createCable(source, target, { at = null, preview = false } = {}) {
         const from = this.endpointOf(source);
-        const to = this.endpointOf(target);
+        const to = at || this.endpointOf(target);
         if (!from || !to) return null;
 
         const midX = (from.x + to.x) / 2;
@@ -1661,6 +1811,7 @@ class PatchBayManager {
         const spread = lanes.length > 1 ? lanes : [null];
 
         const shared = ['cable'];
+        if (preview) shared.push('is-preview');
         // Rear wiring reads as rear wiring wherever the device is pointing.
         if (source.side === 'back') shared.push('is-rear');
         // The dashes are per half rather than per cable - see `layerFor`. A
@@ -1810,6 +1961,53 @@ class PatchBayManager {
         if (from.hidden) this.createAnchorMark(from, source.side);
         if (to.hidden) this.createAnchorMark(to, target.side);
         return { path, hit, strands };
+    }
+
+    // Show the lead that dragging from this socket would make.
+    //
+    // Drawn by `createCable`, which is the point: the preview is the same
+    // curve, the same sag, the same layer, the same dashes for a run that goes
+    // out of sight, and the same strands for a lead that carries channels. It
+    // is not a line that stands in for a cable — it is the cable, drawn early.
+    //
+    // With a legal target under the pointer it is exactly what you will get.
+    // Without one it runs to the pointer, because that is where the far end
+    // actually is.
+    previewFrom(source, clientX, clientY, target = null) {
+        this.clearPreview();
+        if (!source || !this.svg) return null;
+
+        const legal = target && !source.refusalReason(target);
+        const rackRect = this.rackOrigin();
+        const at = legal || !rackRect ? null : {
+            x: clientX - rackRect.left,
+            y: clientY - rackRect.top,
+            hidden: false,
+        };
+
+        const drawn = legal
+            ? this.createCable(source, target, { preview: true })
+            : this.createCable(source, source, { at, preview: true });
+        if (!drawn) return null;
+
+        // The probe belongs to cables you can point at, and this one does not
+        // exist yet.
+        drawn.hit?.remove?.();
+
+        const state = target && !legal ? 'refused' : (legal ? 'legal' : 'open');
+        drawn.strands.forEach(strand => {
+            strand.classList?.add?.(`is-${state}`);
+            strand.setAttribute?.('data-signal', source.signal);
+        });
+
+        this.preview = drawn;
+        return drawn;
+    }
+
+    clearPreview() {
+        this.preview?.strands?.forEach(strand => strand.remove?.());
+        this.preview?.hit?.remove?.();
+        this.preview = null;
     }
 
     // Which cable, if any, is under a viewport point. Asked of the geometry
