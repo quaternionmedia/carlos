@@ -34,10 +34,16 @@ class TestTheMenu:
         # on the whole set: it is the one thing all six have in common, and
         # the reason the ring is learnable.
         labels = page.locator(".rad-label").all_text_contents()
-        assert [text.split()[0] if " " not in text.strip(" ›▸>")
-                else text.strip(" ›▸>")
-                for text in labels] == [
+        assert [text.rstrip(" ▸") for text in labels] == [
             "Add", "Rows", "View", "Patch", "MIDI", "All Devices"]
+
+    def test_a_family_says_it_opens_something(self, page):
+        # `▸` is the mark rad-android puts on a verb that opens a ring rather
+        # than committing. Every wedge here carries it, which is the visible
+        # half of "all six are families".
+        open_menu(page, *bare_rack(page))
+        labels = page.locator(".rad-label").all_text_contents()
+        assert all(text.endswith("▸") for text in labels)
 
     def test_the_ring_is_announced(self, page):
         # It handled its own keys from the start, so it was operable and
@@ -76,6 +82,128 @@ class TestTheMenu:
         page.wait_for_selector(".rad-wedge", timeout=5_000)
         labels = " ".join(page.locator(".rad-label").all_text_contents())
         assert "Delete" in labels
+
+
+class TestTheRingLooksLikeRad:
+    """The ring follows the family rather than this app.
+
+    rad-android is the most fully branded surface in the family, and a menu
+    that looks like its host instead of like rad is a menu somebody has to
+    learn twice. Its palette is red-free neon — violet wedges, a turquoise
+    hub, lime for the zone that commits — and its wedges get depth from a gap
+    and a shadow rather than from a flat colour swap.
+    """
+
+    def hub_text(self, page):
+        return " ".join(
+            page.locator("#rad-menu-title tspan").all_text_contents()).strip()
+
+    def aim(self, page, label):
+        """Point at a wedge without committing it.
+
+        Not `hover()`: the ring's layer is `pointer-events: none` on purpose,
+        so the rack underneath swallows the hover and the wedge never learns it
+        was pointed at. The menu resolves a *position* into a wedge — it
+        listens on the document and knows nothing about the element under the
+        cursor — so this moves the real pointer and stops there.
+        """
+        target = page.locator(".rad-label", has_text=label).first
+        target.wait_for(state="visible", timeout=5_000)
+        box = target.bounding_box()
+        page.mouse.move(box["x"] + box["width"] / 2,
+                        box["y"] + box["height"] / 2)
+
+    def test_the_hub_names_what_you_are_pointing_at(self, page):
+        # The rule that lets a wedge be short: the hub is the one place a full
+        # name is ever spelled out, so a wedge only has to be recognised.
+        open_menu(page, *bare_rack(page))
+        assert self.hub_text(page) == "Rack"
+
+        self.aim(page, "Patch")
+        assert self.hub_text(page) == "Patch"
+
+    def test_the_hub_says_so_when_it_is_naming_a_choice(self, page):
+        open_menu(page, *bare_rack(page))
+        title = page.locator("#rad-menu-title")
+        assert title.get_attribute("data-highlighted") is None
+
+        self.aim(page, "Rows")
+        assert title.get_attribute("data-highlighted") == "true"
+
+    def test_a_long_name_wraps_rather_than_being_cut(self, page):
+        # Ellipsis is banned by the contract, so truncating was never the fix.
+        # A name too wide for the hub breaks at a word instead.
+        open_menu(page, *bare_rack(page))
+        self.aim(page, "All Devices")
+        lines = page.locator("#rad-menu-title tspan").all_text_contents()
+        assert lines == ["All", "Devices"]
+        assert "…" not in "".join(lines)
+        assert "..." not in "".join(lines)
+
+    def test_no_wedge_label_is_ever_truncated(self, page):
+        open_menu(page, *bare_rack(page))
+        for text in page.locator(".rad-label").all_text_contents():
+            assert "…" not in text
+            assert "..." not in text
+
+    def test_the_wedges_wear_the_family_violet(self, page):
+        open_menu(page, *bare_rack(page))
+        fill = page.locator(".rad-wedge").first.evaluate(
+            "el => getComputedStyle(el).fill")
+        # #4b3b75
+        assert fill == "rgb(75, 59, 117)"
+
+    def test_the_one_you_are_pointing_at_lifts(self, page):
+        # A gap and a shadow rather than a flat colour swap alone, which is
+        # rad-android's answer to a ring that otherwise reads as painted on.
+        open_menu(page, *bare_rack(page))
+        self.aim(page, "View")
+        wedge = page.locator(".rad-wedge.is-highlighted")
+        style = wedge.evaluate(
+            """el => ({
+                fill: getComputedStyle(el).fill,
+                filter: getComputedStyle(el).filter,
+                stroke: getComputedStyle(el).strokeWidth,
+            })"""
+        )
+        assert style["fill"] == "rgb(184, 79, 255)"   # #b84fff
+        assert "drop-shadow" in style["filter"]
+        assert float(style["stroke"].removesuffix("px")) >= 2
+
+    def test_the_hub_is_the_family_turquoise(self, page):
+        open_menu(page, *bare_rack(page))
+        hub = page.locator(".rad-hub").evaluate(
+            """el => ({ fill: getComputedStyle(el).fill,
+                        stroke: getComputedStyle(el).stroke })"""
+        )
+        assert hub["fill"] == "rgb(36, 27, 54)"      # #241b36
+        assert hub["stroke"] == "rgb(45, 226, 230)"  # #2de2e6
+
+    def test_nothing_on_the_ring_is_red(self, page):
+        # The family palette is red-free so that red never has to mean two
+        # things. Destructive is marked by the lime the push zone uses.
+        open_menu(page, *bare_rack(page))
+        pick(page, "All Devices")
+        reds = page.locator(".rad-wedge").evaluate_all(
+            """wedges => wedges.map(w => {
+                const style = getComputedStyle(w);
+                return [style.fill, style.stroke];
+            }).flat().filter(colour => {
+                const m = colour.match(/rgb\\((\\d+), (\\d+), (\\d+)\\)/);
+                if (!m) return false;
+                const [r, g, b] = m.slice(1).map(Number);
+                return r > 150 && g < 110 && b < 110;
+            })"""
+        )
+        assert reds == []
+
+    def test_the_destructive_one_is_marked_without_red(self, page):
+        open_menu(page, *bare_rack(page))
+        pick(page, "All Devices")
+        marked = page.locator(".rad-wedge.is-destructive")
+        assert marked.count() == 1
+        stroke = marked.evaluate("el => getComputedStyle(el).stroke")
+        assert stroke == "rgb(212, 255, 79)"   # #d4ff4f, the push-zone lime
 
 
 class TestPatchingAndUnpatching:

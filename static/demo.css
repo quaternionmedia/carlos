@@ -527,8 +527,31 @@ kbd {
 
     --rad-surface: #12140f;
     --rad-surface-edge: #2f3a2b;
-    --rad-wedge: #1b2018;
-    --rad-wedge-hover: #24402f;
+    /* The ring's own colours, taken from rad-android rather than invented
+       here. It is the family's most fully branded surface, and a menu that
+       looks like this app instead of like rad is a menu somebody has to learn
+       twice.
+
+       Red-free neon on purpose, which is rad-android's word for it: violet
+       carries the wedges, turquoise the hub, lime the push zone. Nothing in
+       the set is red, so red never has to mean two things.
+
+       These are the ring only. The rack keeps its green: this app is not
+       rad-android, it is an app that has rad's menu in it, and repainting the
+       gear would be claiming otherwise. */
+    --rad-wedge: #4b3b75;
+    --rad-wedge-hover: #b84fff;
+    --rad-wedge-ink: #ffffff;
+    --rad-wedge-ink-hot: #241033;
+    --rad-hub-idle: #241b36;
+    --rad-hub-live: #2de2e6;
+    --rad-hub-ink: #ffffff;
+    --rad-push: #d4ff4f;
+    --rad-glow: #b9a9e8;
+    /* Mid grey rather than black. rad-android's note, and it is the same
+       problem here: over a dark field a black shadow composites to nothing,
+       so the depth it is supposed to give never arrives. */
+    --rad-wedge-shadow: rgba(128, 128, 128, 0.55);
     --rad-ink: #00ff88;
     --rad-ink-dim: #6c7a68;
     --rad-signal: #00ff88;
@@ -698,20 +721,41 @@ kbd {
     pointer-events: none;
 }
 
+/* A thin gap between wedges and a shadow under the highlighted one, which is
+   rad-android's answer to a ring that is otherwise a flat colour swap: the
+   active wedge gets real depth instead of just a different fill.
+
+   The gap is a stroke in the field's own colour rather than a smaller path.
+   Only the drawn shape changes; hit testing stays the perfect uniform slice it
+   always was, which is the same split rad-android makes between the shape a
+   wedge appears to have and the angle band it actually answers to. */
 .rad-wedge {
     fill: var(--rad-wedge);
-    stroke: var(--rad-surface-edge);
-    stroke-width: 1;
-    transition: fill 0.08s linear;
+    stroke: var(--qm-navy-deep);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    transition: fill 0.08s linear, filter 0.08s linear;
 }
 
 .rad-wedge.is-highlighted {
     fill: var(--rad-wedge-hover);
-    stroke: var(--rad-ink);
+    stroke: var(--qm-navy-deep);
+    filter: drop-shadow(0 2px 5px var(--rad-wedge-shadow));
+}
+
+/* Destructive is a ring around the wedge, not a red one.
+   The family palette is red-free, and losing that to mark four items would
+   trade a whole scheme for a convention this app can carry another way: the
+   lime that marks the push zone is already the "this commits something"
+   colour, and nothing else on the ring is that hue. */
+.rad-wedge.is-destructive {
+    stroke: var(--rad-push);
+    stroke-dasharray: 4 3;
 }
 
 .rad-wedge.is-destructive.is-highlighted {
-    stroke: var(--rad-danger);
+    stroke: var(--rad-push);
+    stroke-dasharray: none;
 }
 
 .rad-wedge.is-disabled {
@@ -719,13 +763,13 @@ kbd {
 }
 
 .rad-hub {
-    fill: var(--rad-hub);
-    stroke: var(--rad-surface-edge);
-    stroke-width: 1;
+    fill: var(--rad-hub-idle);
+    stroke: var(--rad-hub-live);
+    stroke-width: 1.5;
 }
 
 .rad-label {
-    fill: var(--rad-ink);
+    fill: var(--rad-wedge-ink);
     font-family: 'Courier New', monospace;
     font-size: 10px;
     text-anchor: middle;
@@ -733,12 +777,27 @@ kbd {
     pointer-events: none;
 }
 
+/* The label on the wedge you are pointing at, against the bright violet. */
+.rad-wedge.is-highlighted + .rad-label {
+    fill: var(--rad-wedge-ink-hot);
+}
+
+/* The hub reads the highlighted item's full name. It is the one place on the
+   ring where a whole word is ever spelled out, so it is the one place that is
+   sized to be read rather than recognised. */
 .rad-title {
-    fill: var(--rad-ink-dim);
+    fill: var(--rad-hub-ink);
     font-family: 'Courier New', monospace;
-    font-size: 9px;
+    font-size: 10px;
     text-anchor: middle;
     pointer-events: none;
+}
+
+/* Nothing aimed at yet: the hub is saying what the ring is *of* rather than
+   naming a choice, and says it quietly. */
+.rad-title:not([data-highlighted]) {
+    fill: var(--rad-hub-live);
+    font-size: 9px;
 }
 
 /* rad honours reduced motion: the menu still works, it just stops moving. */

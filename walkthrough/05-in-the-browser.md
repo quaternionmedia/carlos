@@ -318,9 +318,23 @@ which opens something:
 >>> open_menu(page, *spot)
 >>> page.locator('.rad-wedge').count()
 6
->>> [text.rstrip(' ›') for text
+>>> [text.rstrip(' ▸') for text
 ...  in page.locator('.rad-label').all_text_contents()]
 ['Add', 'Rows', 'View', 'Patch', 'MIDI', 'All Devices']
+
+```
+
+Every one carries `▸`, the mark rad-android puts on a wedge that opens a ring
+rather than committing — so "all six are families" is visible rather than
+something you find out by trying. The hub reads the full name of whichever wedge
+you are pointing at, which is what lets a wedge be short: it is the one place on
+the ring a whole word is ever spelled out.
+
+```python
+>>> hub = lambda: ' '.join(
+...     page.locator('#rad-menu-title tspan').all_text_contents()).strip()
+>>> hub()
+'Rack'
 
 ```
 

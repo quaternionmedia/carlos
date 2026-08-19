@@ -28,8 +28,24 @@ function packRing(items, moreLabel = 'More') {
     ];
 }
 
+// `short` is what the wedge says; `label` is what the hub says.
+//
+// rad-android's surfaces record settles this for arbitrary names: wedges show
+// something recognisable, the hub shows the highlighted item's full label, and
+// ellipsis is banned by the contract - so truncating on the wedge was never
+// available as the fix. It shows icons and reads the name at the hub; this app
+// is text, so it shows a short name and reads the full one at the hub. Same
+// rule, same reason: symbols are recognised, names are read, and only one
+// place ever has to be wide enough to read.
+const WEDGE_MAX = 12;
+
 function item(id, label, action, extra = {}) {
     return { id, label, action, enabled: true, destructive: false, ...extra };
+}
+
+// What a wedge says, which is never longer than the ring can draw.
+function wedgeLabel(menuItem) {
+    return menuItem.short || menuItem.label;
 }
 
 // Devices grouped by category, as a submenu tree. Used by more than one menu,

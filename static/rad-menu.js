@@ -13,6 +13,36 @@
 
 const RAD_SVG_NS = 'http://www.w3.org/2000/svg';
 
+// Break a hub label into lines that fit inside the dead zone.
+//
+// Word boundaries only, and never mid-word: a break falling inside a word reads
+// as a truncation, which is the thing the contract's ban on the ellipsis exists
+// to avoid. A single word longer than the hub is left whole and allowed to
+// overflow - it is still readable, where a cut version would be a lie about
+// what the item is called.
+//
+// Characters rather than measured text, because this runs per frame while a
+// finger is moving and the hub is a fixed width in a fixed family. Three lines
+// is the ceiling: past that the name is not the problem the hub can solve.
+function wrapHubLabel(text, r0, perLine = Math.max(6, Math.floor(r0 / 4.1))) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    if (!words.length) return [''];
+
+    const lines = [];
+    let line = '';
+    words.forEach(word => {
+        const candidate = line ? `${line} ${word}` : word;
+        if (candidate.length <= perLine || !line) {
+            line = candidate;
+        } else {
+            lines.push(line);
+            line = word;
+        }
+    });
+    if (line) lines.push(line);
+    return lines.slice(0, 3);
+}
+
 class RadMenu {
     constructor({ host, resolve, onIntent, geometry = RAD_GEOMETRY }) {
         this.host = host;
@@ -316,7 +346,11 @@ class RadMenu {
             // The wedge carries the label already, so the text is decoration
             // to a reader and would otherwise be announced a second time.
             text.setAttribute('aria-hidden', 'true');
-            text.textContent = menuItem.children ? `${menuItem.label} ›` : menuItem.label;
+            // `▸`, the mark rad-android uses on a synthetic verb that opens
+            // something (`Edit ▸`). A plain dingbat rather than an emoji, so a
+            // high-contrast or monochrome rendering stays exactly as legible.
+            const shown = menuItem.short || menuItem.label;
+            text.textContent = menuItem.children ? `${shown} ▸` : shown;
             group.appendChild(text);
         });
 
@@ -327,13 +361,41 @@ class RadMenu {
 
         hub.setAttribute('aria-hidden', 'true');
 
+        // The hub reads the highlighted item's full name, wrapped across lines
+        // rather than cut.
+        //
+        // rad-android's rule, and the reason its wedges can be icons: the hub
+        // is the one place any full name ever appears, so a wedge only ever has
+        // to be recognised and never read. Here it means a wedge can say
+        // `Subharmonic` while the hub says `Subharmonicon` - and nothing is
+        // ever truncated, because the contract bans the ellipsis that would
+        // make truncation look deliberate.
+        //
+        // With nothing highlighted it falls back to what the ring is *of*,
+        // which is the question you have before you have aimed at anything.
+        const highlighted = this.spec.items[this.machine.highlight];
+        const heading = highlighted
+            ? highlighted.label
+            : (this.stack.length
+                ? `‹ ${this.spec.title || ''}`
+                : (this.spec.title || ''));
+
         const title = document.createElementNS(RAD_SVG_NS, 'text');
         title.setAttribute('class', 'rad-title');
         title.setAttribute('id', 'rad-menu-title');
-        title.setAttribute('y', 4);
-        title.textContent = this.stack.length
-            ? `‹ ${this.spec.title || ''}`
-            : (this.spec.title || '');
+        if (highlighted) title.setAttribute('data-highlighted', 'true');
+
+        // Word boundaries only, and never mid-word: a break that falls inside a
+        // word reads as a truncation, which is the thing being avoided.
+        const lines = wrapHubLabel(heading, r0);
+        const first = 4 - ((lines.length - 1) * 7);
+        lines.forEach((line, index) => {
+            const span = document.createElementNS(RAD_SVG_NS, 'tspan');
+            span.setAttribute('x', 0);
+            span.setAttribute('y', first + index * 14);
+            span.textContent = line;
+            title.appendChild(span);
+        });
         group.appendChild(title);
 
         // What this ring is *of* — the device, the cable, the rack.

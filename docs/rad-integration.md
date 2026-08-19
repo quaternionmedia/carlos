@@ -85,6 +85,52 @@ An edge is addressed by the two sockets it joins rather than by a stored id —
 the same reasoning that keeps a jack's side out of the exported document. A
 stored id would be a second answer to "which cable is this".
 
+### Look, and where it comes from
+
+The ring is painted from **rad-android**, which is the family's most fully
+branded surface. A menu that looks like its host rather than like rad is a menu
+somebody has to learn twice, and the gesture is already identical — only the
+paint was local.
+
+| | |
+|---|---|
+| wedge, idle | `#4b3b75` |
+| wedge, highlighted | `#b84fff` |
+| wedge ink | white, `#241033` on the highlighted one |
+| hub | `#241b36`, ringed and lettered in `#2de2e6` |
+| push / commit | `#d4ff4f` |
+| shadow | mid grey at 55% |
+
+**Red-free on purpose.** Violet carries the wedges, turquoise the hub, lime the
+zone that commits. Nothing in the set is red, so red never has to mean two
+things — which costs this app the obvious mark for a destructive item, and it
+is marked with the lime instead: dashed while idle, solid when pointed at.
+
+**The shadow is mid grey rather than black.** Over a dark field a black shadow
+composites to nothing and the depth it exists to give never arrives. That is
+rad-android's note and it is true here for the same reason.
+
+**Only the ring.** The rack keeps its green. This is not rad-android; it is an
+app with rad's menu in it, and repainting the gear would be claiming otherwise.
+The one place the violet leaves the ring is the palette's grip, which is the
+other thing you grab.
+
+### Wedges are short; the hub reads the name
+
+rad-android's surfaces record settles what to do about names of arbitrary
+length: wedges show an **icon**, the hub shows the **highlighted item's full
+label**, and the accessibility label always carries the full name. Ellipsis is
+banned by the contract, so truncating was never available as the fix.
+
+Carlos is text rather than icons, so it takes the same rule one step over: the
+wedge carries a short name, the hub spells out the full one, wrapped at word
+boundaries and never cut. `▸` marks a wedge that opens a ring rather than
+committing — the same plain dingbat rad-android uses on `Edit ▸`, chosen over
+an emoji so a monochrome or high-contrast rendering stays exactly as legible.
+
+A wedge with nothing aimed at it leaves the hub naming what the ring is *of*,
+which is the question you have before you have aimed at anything.
+
 ### Geometry
 
 Angle origin −90° (12 o'clock), clockwise. Item *i* is centred at
