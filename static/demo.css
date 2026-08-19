@@ -913,6 +913,36 @@ body[data-ring="pinned"] {
     opacity: 0.85;
 }
 
+/* === A LEAD BEING PULLED OUT ===
+   The preview is drawn by the same routine as the cable it will become, so it
+   already has the right colour, sag, layer and dashes. These rules only say
+   that it is not plugged in yet, and whether the socket under the pointer will
+   take it. */
+.cable.is-preview {
+    opacity: 0.75;
+    pointer-events: none;
+}
+
+/* Nothing under the pointer yet: a lead in the hand. */
+.cable.is-preview.is-open {
+    stroke-dasharray: 2 5;
+}
+
+/* Over a socket that will take it. Solid, because this is what you will get -
+   the preview stops being provisional the moment the answer is yes. */
+.cable.is-preview.is-legal {
+    opacity: 1;
+}
+
+/* Over one that will not. The push-zone lime again, which is the palette's
+   "this is the consequence" colour, rather than a red the family does not
+   have. */
+.cable.is-preview.is-refused {
+    stroke: var(--rad-push);
+    stroke-dasharray: 3 4;
+    opacity: 0.9;
+}
+
 /* Where a cable meets a device it enters out of sight. */
 .cable-anchor {
     fill: var(--rad-hub, #0b0d09);
