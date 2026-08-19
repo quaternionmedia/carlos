@@ -261,7 +261,7 @@ offers. Its own fields keep their own menus.
 >>> page.mouse.click(grip['x'] + 40, grip['y'] + 10, button='right')
 >>> _ = page.wait_for_selector('.rad-wedge', timeout=5000)
 >>> page.locator('.rad-wedge').count()
-6
+7
 >>> page.keyboard.press('Escape')
 
 ```
@@ -337,12 +337,17 @@ which opens something:
 >>> spot = bare_rack(page)
 >>> open_menu(page, *spot)
 >>> page.locator('.rad-wedge').count()
-6
+7
 >>> [text.rstrip(' ▸') for text
 ...  in page.locator('.rad-label').all_text_contents()]
-['Add', 'Rows', 'View', 'Patch', 'MIDI', 'All Devices']
+['Add', 'Rows', 'View', 'Patch', 'MIDI', 'All Devices', 'Edit']
 
 ```
+
+Six families and the door you arrange them through. `Edit ▸` moves a family
+round the ring, hides one you never use, and puts it all back — and a ring
+nobody has edited resolves exactly as it ships, so it costs nothing to anyone
+who never opens it.
 
 Every one carries `▸`, the mark rad-android puts on a wedge that opens a ring
 rather than committing — so "all six are families" is visible rather than
