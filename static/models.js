@@ -29,6 +29,11 @@ const CHANNELLED_SIGNALS = new Set(['usb', 'midi']);
 // diagonally rather than through its edge.
 const SILHOUETTE_INSET = 0.12;
 
+// How close two sockets' positions along an edge have to be to count as one
+// column, and how wide a band their anchors fan across when they do.
+const COLUMN_EPSILON = 0.02;
+const COLUMN_SPREAD = 0.09;
+
 // How far a cable hangs. A longer run hangs further, which is what a cable
 // does; the small per-cable term is what keeps a stereo pair between the same
 // two devices two followable lines instead of one thick one.
@@ -1549,18 +1554,63 @@ class PatchBayManager {
         if (!module) return 0.5;
 
         const runsAcross = ['front', 'back', 'top', 'bottom'].includes(jack.side);
-        const place = module.layout?.jacks?.[jack.name];
-        if (place && (place.side || 'front') === jack.side) {
-            const along = runsAcross ? place.x : place.y;
-            if (typeof along === 'number') return along;
+        const peers = [...module.jacks.values()].filter(j => j.side === jack.side);
+        if (peers.length < 2) return 0.5;
+
+        // Where a socket sits along the edge, and where it sits across it. A
+        // panel is two-dimensional and an edge is not, so only one of these
+        // survives the projection - which is the whole of the bug below.
+        const placeOf = (peer) => {
+            const place = module.layout?.jacks?.[peer.name];
+            return place && (place.side || 'front') === jack.side ? place : null;
+        };
+        const alongOf = (peer) => {
+            const place = placeOf(peer);
+            const value = place && (runsAcross ? place.x : place.y);
+            return typeof value === 'number' ? value : null;
+        };
+        const acrossOf = (peer) => {
+            const place = placeOf(peer);
+            const value = place && (runsAcross ? place.y : place.x);
+            return typeof value === 'number' ? value : 0;
+        };
+
+        const mine = alongOf(jack);
+        if (mine === null) {
+            const at = peers.indexOf(jack);
+            if (at < 0) return 0.5;
+            // Spread inside the edge rather than onto its ends: `n` sockets get
+            // `n` interior positions, so the first and last are not at the
+            // corners.
+            return (at + 1) / (peers.length + 1);
         }
 
-        const peers = [...module.jacks.values()].filter(j => j.side === jack.side);
-        const at = peers.indexOf(jack);
-        if (at < 0 || peers.length < 2) return 0.5;
-        // Spread inside the edge rather than onto its ends: `n` sockets get
-        // `n` interior positions, so the first and last are not at the corners.
-        return (at + 1) / (peers.length + 1);
+        // Sockets in the same column of a patch bay.
+        //
+        // Projecting a panel onto an edge keeps one axis and drops the other,
+        // so two sockets one above the other arrive at the same point on the
+        // outline - and their two leads land on top of each other with no way
+        // to tell which is which. That is the defect the inset above was
+        // written to fix for a stereo pair, back for a second time on any
+        // device whose patch bay is a grid: a DFAM puts `trigger_in` and
+        // `vca_out` at the same `x`, different rows, and turning the rack round
+        // stacked both leads on one anchor.
+        //
+        // The dropped axis breaks the tie. They fan within a narrow band around
+        // the true position rather than being spread evenly across the edge,
+        // because the position is real information - a socket at 0.9 belongs at
+        // the right-hand end - and only the collision is not.
+        const column = peers.filter(peer => {
+            const along = alongOf(peer);
+            return along !== null && Math.abs(along - mine) < COLUMN_EPSILON;
+        });
+        if (column.length < 2) return mine;
+
+        column.sort((a, b) => acrossOf(a) - acrossOf(b)
+            || a.name.localeCompare(b.name));
+        const rank = column.indexOf(jack);
+        const offset = ((rank + 1) / (column.length + 1) - 0.5) * COLUMN_SPREAD;
+        return Math.min(1, Math.max(0, mine + offset));
     }
 
     // A small ring where a cable meets a device it enters out of sight, so the

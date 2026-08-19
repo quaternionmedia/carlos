@@ -521,6 +521,58 @@ system.clearRack();
 
 
 // ---------------------------------------------------------------------------
+// Two sockets in one column do not share an anchor
+// ---------------------------------------------------------------------------
+// An edge has one dimension and a panel has two, so projecting one onto the
+// other drops an axis - and every pair of sockets that shared the surviving
+// one arrived at the same point on the outline. Two leads, one visible end,
+// no way to tell which was which: the defect `SILHOUETTE_INSET` was written to
+// fix for a stereo pair, back again on any device whose patch bay is a grid.
+//
+// A DFAM is one: `trigger_in` and `vca_out` sit at the same `x`, one above the
+// other. Turning the rack round stacked both leads on one anchor.
+system.clearRack();
+const bay = place(system.addModule('moog.dfam'));
+const stacked = bay.jacks.get('trigger_in');
+const below = bay.jacks.get('vca_out');
+
+const laid = ModuleFactory.definitions['moog.dfam'].layout.jacks;
+check('the two really are in one column',
+    laid.trigger_in.x === laid.vca_out.x, true);
+check('and really are different sockets',
+    laid.trigger_in.y !== laid.vca_out.y, true);
+
+const bayOf = (jack) => system.patchBay.edgeFraction(jack);
+check('they no longer land on the same place along the edge',
+    bayOf(stacked) !== bayOf(below), true);
+check('but both stay near where they actually are',
+    [Math.abs(bayOf(stacked) - laid.trigger_in.x) < 0.06,
+     Math.abs(bayOf(below) - laid.vca_out.x) < 0.06], [true, true]);
+check('and neither runs off the edge',
+    [bayOf(stacked), bayOf(below)].every(f => f >= 0 && f <= 1), true);
+
+// Every socket on that face, all twenty-two of them: no two share a point.
+const fronts = [...bay.jacks.values()].filter(j => j.side === 'front');
+const spots = fronts.map(j => Math.round(bayOf(j) * 10000));
+check('twenty-two sockets, twenty-two places',
+    new Set(spots).size, fronts.length);
+
+// A socket with no column-mate keeps its exact declared position: the fan is
+// for collisions, and a position is real information otherwise.
+const alone = [...bay.jacks.values()].find(j => {
+    const x = laid[j.name]?.x;
+    return x !== undefined && fronts.filter(
+        p => Math.abs((laid[p.name]?.x ?? -9) - x) < 0.02).length === 1;
+});
+if (alone) {
+    check('a socket with no column-mate is left where it is',
+        Math.abs(bayOf(alone) - laid[alone.name].x) < 1e-9, true);
+}
+
+system.clearRack();
+
+
+// ---------------------------------------------------------------------------
 // The drift goes both ways
 // ---------------------------------------------------------------------------
 // Each cable hangs a little more or a little less than its neighbour, so two
