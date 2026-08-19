@@ -393,7 +393,7 @@ class ContributingTests(unittest.TestCase):
         # rather than a seed script, so "calls into project-seed/ci" is not the
         # discriminator it looks like - and a workflow added later has to be
         # put in a bucket deliberately rather than silently counted as a gate.
-        ours = {"tests.yml", "release-gate.yml"}
+        ours = {"tests.yml", "release-gate.yml", "image.yml"}
         present = {p.name for p in Path(".github/workflows").glob("*.yml")}
         gates = present - ours
 

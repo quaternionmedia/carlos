@@ -65,6 +65,17 @@ class Settings(BaseModel):
     # feature that logs a lie.
     reload: bool = Field(
         default_factory=lambda: os.environ.get("CARLOS_RELOAD", "") == "1")
+    # Which proxies this build believes about the scheme and host in front of
+    # it.
+    #
+    # Starlette's own trailing-slash redirect is absolute - `/rack/` answers
+    # with a full URL - so without this a deployment behind a proxy sends
+    # somebody the address of the container it happens to be running in.
+    # Loopback only by default, which is right for a workstation and for a
+    # sidecar; a proxy on another host has to be named.
+    forwarded_allow_ips: str = Field(
+        default_factory=lambda: os.environ.get(
+            "CARLOS_FORWARDED_ALLOW_IPS", "127.0.0.1"))
 
     def resolved_db_path(self) -> str:
         """Where the database actually is, not where it was asked for.
@@ -152,8 +163,17 @@ async def no_store_static(request: Request, call_next):
     return response
 
 
-@app.get("/")
-async def home():
+# GET and HEAD together, here and on every page and probe below.
+#
+# FastAPI adds neither for you: a route declared `GET` answers `HEAD` with 405,
+# and the things that send HEAD are exactly the things you meet on the way to a
+# deployment - load balancer health probes, uptime monitors, link checkers, and
+# `curl -I`. A 405 to a health probe is an instance marked down.
+PAGE = ["GET", "HEAD"]
+
+
+@app.api_route("/", methods=PAGE)
+async def home(request: Request):
     """The bare port is the workspace.
 
     It used to land on a splash saying what this is, on the reasoning that
@@ -164,11 +184,20 @@ async def home():
 
     Still a redirect rather than serving the workspace at two addresses, so
     `/rack` stays the one address a reader can link to.
+
+    The query string comes along. It was dropped, which is the kind of thing
+    nothing notices until somebody shares a link with something in it and the
+    person opening it gets a different page than the one they were sent.
+
+    Relative, so a proxy in front of this does not have to be believed about its
+    own hostname.
     """
-    return RedirectResponse(url="/rack", status_code=307)
+    query = request.url.query
+    return RedirectResponse(
+        url=f"/rack?{query}" if query else "/rack", status_code=307)
 
 
-@app.get("/rack", response_class=HTMLResponse)
+@app.api_route("/rack", methods=PAGE, response_class=HTMLResponse)
 async def rack(request: Request):
     """The patch workspace itself.
 
@@ -186,7 +215,7 @@ async def rack(request: Request):
     )
 
 
-@app.get("/healthz")
+@app.api_route("/healthz", methods=PAGE)
 async def healthz(request: Request):
     """Liveness, and which instance is alive.
 
@@ -582,6 +611,11 @@ def main() -> None:
         host=settings.host,
         port=settings.port,
         reload=settings.reload,
+        # A deployment sits behind something. Told which proxies to believe,
+        # this build reports the address a person typed rather than the one the
+        # container answers on.
+        proxy_headers=True,
+        forwarded_allow_ips=settings.forwarded_allow_ips,
     )
 
 

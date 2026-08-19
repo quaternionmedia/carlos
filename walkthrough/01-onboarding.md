@@ -71,8 +71,9 @@ that way is collected by nobody and stays green forever.
 uv run python src/main.py
 ```
 
-`http://localhost:8000`. The bare address redirects to `/splash`; the workspace
-is at `/rack`. Three things to know before you debug anything:
+`http://localhost:8000`. The bare address redirects to the workspace at
+`/rack`, keeping any query it was given. Three things to know before you debug
+anything:
 
 **Do not open the address uvicorn prints.** It binds `0.0.0.0:8000` and says
 so, and `0.0.0.0` is not somewhere a browser can go — Chrome refuses it with

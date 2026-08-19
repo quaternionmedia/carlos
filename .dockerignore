@@ -1,0 +1,33 @@
+# What never belongs in the image.
+#
+# An allow-list would be safer and this is not one, deliberately: the Dockerfile
+# copies named directories rather than `.`, so this file is the second line
+# rather than the only one. It exists so the build context stays small and so a
+# stray local artifact cannot ride along if that ever changes.
+
+.git
+.github
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+
+# The local database and anything else the app wrote. A deployment gets an empty
+# one and a volume; a workstation's rack is not a fixture.
+data/
+
+# Tests, harnesses and the executable documentation. They run in CI against the
+# source, not against the image, and the image is not where anybody runs them.
+tests/
+walkthrough/
+governance/
+vendor/
+docs/
+
+# Notes, records and review packets. None of it is served.
+*.md
+!README.md
+
+Dockerfile
+.dockerignore

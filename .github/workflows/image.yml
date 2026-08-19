@@ -1,0 +1,125 @@
+# Does the deployable thing actually deploy?
+#
+# The suite proves the code. This proves the artifact: that the image builds
+# from the same lockfile the tests ran under, starts as a non-root user, answers
+# its own health probe, serves the workspace, and honours the methods a load
+# balancer will actually send it.
+#
+# It is a separate workflow from `tests.yml` because it answers a different
+# question and fails for different reasons — a broken `Dockerfile` is not a
+# broken test suite, and a reader seeing one red check should be able to tell
+# which of the two happened without opening it.
+#
+# No registry push. Publishing an image is a release act, and by
+# `DRAFT-version-tags-are-claims.md` releases are cut by a human from a tag.
+# This builds, proves, and throws it away.
+name: Image
+
+on:
+  pull_request:
+  push:
+    branches: [they]
+
+jobs:
+  build-and-prove:
+    name: It builds, and it answers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: carlos:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start it
+        run: |
+          docker run -d --name carlos -p 8000:8000 carlos:ci
+          # Wait for the app, not for a number of seconds. A sleep long enough
+          # for a slow runner is a sleep wasted on every fast one, and a sleep
+          # short enough to be quick is a flake.
+          for attempt in $(seq 60); do
+            if curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+              echo "up after ${attempt} attempt(s)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::it never answered /healthz"
+          docker logs carlos
+          exit 1
+
+      - name: It says which instance answered
+        run: |
+          curl -fsS http://127.0.0.1:8000/healthz | tee /tmp/health.json
+          python - <<'PY'
+          import json, sys
+          said = json.load(open('/tmp/health.json'))
+          for named in ('instance', 'pid', 'started_at', 'port', 'version'):
+              if named not in said:
+                  sys.exit(f"/healthz does not report {named}")
+          print("healthz reports", said['version'], "as", said['instance'])
+          PY
+
+      - name: It serves the workspace, and redirects to it
+        run: |
+          # The bare port keeps the query it was given.
+          landed=$(curl -fsS -o /dev/null -w '%{http_code} %{redirect_url}' \
+            'http://127.0.0.1:8000/?patch=demo')
+          echo "bare port: ${landed}"
+          case "${landed}" in
+            "307 "*"/rack?patch=demo") ;;
+            *) echo "::error::bare port answered '${landed}'"; exit 1 ;;
+          esac
+
+          curl -fsS http://127.0.0.1:8000/rack | grep -q 'id="rack"'
+          curl -fsS http://127.0.0.1:8000/api/opening | grep -q 'carlos.patch'
+
+      - name: It answers the methods a load balancer sends
+        run: |
+          # A GET-only route answers HEAD with 405, and a 405 to a health probe
+          # is an instance marked down.
+          for path in / /rack /healthz; do
+            code=$(curl -fsS -o /dev/null -w '%{http_code}' -I \
+              "http://127.0.0.1:8000${path}" || true)
+            echo "HEAD ${path} -> ${code}"
+            case "${code}" in
+              200|307) ;;
+              *) echo "::error::HEAD ${path} answered ${code}"; exit 1 ;;
+            esac
+          done
+
+      - name: It is not running as root
+        run: |
+          whoami=$(docker exec carlos id -un)
+          echo "running as ${whoami}"
+          [ "${whoami}" = "carlos" ] || {
+            echo "::error::the image runs as ${whoami}"; exit 1; }
+
+      - name: Its own healthcheck agrees
+        run: |
+          for attempt in $(seq 40); do
+            state=$(docker inspect --format='{{.State.Health.Status}}' carlos)
+            [ "${state}" = "healthy" ] && { echo "healthy"; exit 0; }
+            [ "${state}" = "unhealthy" ] && break
+            sleep 2
+          done
+          echo "::error::container health is $(docker inspect --format='{{.State.Health.Status}}' carlos)"
+          docker logs carlos
+          exit 1
+
+      - name: What it said on the way up
+        if: always()
+        run: docker logs carlos || true
+
+      - name: Stop it
+        if: always()
+        run: docker rm -f carlos || true

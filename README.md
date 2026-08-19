@@ -73,6 +73,11 @@ a splash saying what this is, on the reasoning that opening a rack is a thing
 you choose — the rack answers that better than a page about it did. It opens on
 a rig, and the bar across the top says what the rack is and what this build is.
 
+Running it somewhere that is not a workstation is `DEPLOYING.md`: an image, the
+environment variables, what to mount, and what the health probe reports. Nothing
+deployed from an untagged branch is a release — `RELEASING.md` says what one
+would assert.
+
 The address is predictable on purpose — this is a
 thing you open in a browser — and `CARLOS_HOST`, `CARLOS_PORT` and `CARLOS_DB`
 move a process without editing anything committed.
