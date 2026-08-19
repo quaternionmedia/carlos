@@ -8,7 +8,7 @@ underway and not finished, and this page is the honest state of it.
 - Repository: `quaternionmedia/carlos`
 - Current default branch on GitHub: `they`
 - Governance corpus: `quaternionmedia/qm`, vendored at `governance/qm`
-- Project branch: `project/carlos` — **created locally, not yet pushed**
+- Project branch: `project/carlos` — **pushed** to `quaternionmedia/qm`
 - Phase: `v0.0.1` on the corpus's project-phase ladder, which is the rung that
   means "working toward governance adoption"
 
@@ -29,7 +29,8 @@ underway and not finished, and this page is the honest state of it.
       `governance/qm/adr/DRAFT-adopt-the-qm-constitution.md`, numberless and
       Proposed. Ratification is a human commit.
 - [x] `walkthrough/` exists and runs from the ordinary test command.
-- [ ] `project/carlos` is pushed to `quaternionmedia/qm`. **A remote write.**
+- [x] `project/carlos` is pushed to `quaternionmedia/qm`. Done at the handoff;
+      `check-submodule-refs` went green on the same push.
 - [ ] The adoption record is ratified: status flipped, number assigned by the
       index, index updated. **A human commit naming the record.**
 - [ ] Runtime dependency policy is settled — see the conflicts below.

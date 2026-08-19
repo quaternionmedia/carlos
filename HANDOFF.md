@@ -161,24 +161,32 @@ code it names, red, before being kept.
 
 ## Gate Status
 
-Run them yourself rather than trusting this table: `carlos gates`.
+Run them yourself rather than trusting this table: `carlos gates`. What follows
+is the state on the forge after the handoff push, not a prediction.
 
-Two of the three long-standing reds should have closed with the handoff push.
-Check them on the forge rather than here — this file was written before the run
-finished.
+| Gate | State |
+| --- | --- |
+| `Suite and hermetic pages` | pass |
+| `The browser page` | pass — 129 browser tests, on Linux |
+| `adr-lint` | pass |
+| `check-submodule-refs` | pass |
+| `signatures` | pass |
+| `one-pr-check` (`slot`) | pass |
+| `reuse` | **fail, deliberately** |
 
-- **`submodule-check`** — was red because `project/carlos` was unpushed. It is
-  pushed now (`quaternionmedia/qm`), so this should be green.
-- **`signature-check`** — was red because it asks the forge about commits it had
-  never seen. Every commit is signed and verifiable locally with
-  `carlos signatures`; with the branch pushed this should be green too.
-- **`reuse-lint`** — **still red, deliberately.** The licensing pass is gated on
-  the outbound licence class, which is a human decision nobody has made.
-  Settling a licence class to turn a check green decides the wrong question for
-  the wrong reason. Publishing with this red is the accepted state, recorded in
-  `GOVERNANCE.md`.
+`reuse` is red because the licensing pass is gated on the outbound licence
+class, which is a human decision nobody has made. Settling one to turn a check
+green decides the wrong question for the wrong reason. Publishing with this red
+is the accepted state, recorded in `GOVERNANCE.md`.
 
-`adr-lint` and `one-pr-check` pass.
+The other two long-standing reds closed on this push, as `GOVERNANCE.md`
+predicted: `check-submodule-refs` once `project/carlos` was pushed to
+`quaternionmedia/qm`, and `signatures` once the forge could see the commits.
+
+**The first remote run found three things this workstation could not.** They are
+in `RETROSPECTIVE.md` §2; the shortest of them is that `contextmenu` fires on
+pointer down on Linux and pointer up on Windows, which took thirty-nine browser
+tests down.
 
 ## Cautions
 
