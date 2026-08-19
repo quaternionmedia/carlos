@@ -1,6 +1,6 @@
 # Retrospective — the `adopt/qm-governance` cycle
 
-Seventy-one commits, one branch, one workstation. Written at the handoff, from
+Seventy-five commits, one branch, and — right at the end — a second machine. Written at the handoff, from
 the log rather than from memory.
 
 This is not a summary of what was built; `HANDOFF.md` and the commit messages
@@ -34,8 +34,8 @@ second menu surface wearing different clothes.
 
 ## 2. What actually caught the defects
 
-Nine defects in this cycle were found by something other than a passing test
-suite. They are worth listing by **what found them**, because the pattern is the
+Twelve defects in this cycle were found by something other than a passing
+test suite. They are worth listing by **what found them**, because the pattern is the
 lesson.
 
 ### A real browser, driven like a hand — 3
@@ -75,6 +75,22 @@ remembering it, and neither had a failing test.
 - **The pinned ring was one action stale.** It re-resolved before dispatching,
   so hiding a family left it on the ring until the next commit — at which point
   it vanished and looked like *that* commit had done it.
+
+### The first CI run — 3
+
+The branch was pushed at the handoff, and the tests ran somewhere other than
+this workstation for the first time. All three of these were invisible here by
+construction.
+
+- **A right-click opened a ring and shut it in the same gesture.** `contextmenu`
+  fires on pointer *down* on Linux and on pointer *up* on Windows, so on Linux
+  the ring was still owed a release — which arrived, landed in the dead zone at
+  its centre, and cancelled it. Thirty-nine failures and fourteen errors.
+- **`data/` does not exist on a fresh checkout.** A cadence guard wrote a marker
+  into it to prove the measurement notices a write. Locally the directory was
+  always there because the app had run.
+- **The screenshot-drift check failed on a font**, which is the failure the
+  walkthrough record names in the clause that forbids it. See below.
 
 ### A user looking at the screen — 2
 
@@ -119,6 +135,25 @@ Twice, a defect was fixed in one place and left in its sibling:
   apart, and the same collision came back for grid patch bays.
 
 Both were found by a test asking **what happens after**, not what happens now.
+
+### Deviating from a record and finding out why it says that
+
+`DRAFT-one-executable-walkthrough.md` §4: the artifact is *recorded, never
+compared* — "a test that diffs images fails on a font and gets switched off".
+
+CI had a step that diffed `walkthrough/media` against the committed copies. It
+was added in good faith, to make drift arrive as a diff nobody can miss, and it
+worked for as long as every run happened on one machine. The first run on Linux
+failed on exactly the stated grounds: the same DOM, different bytes.
+
+It is removed rather than pinned to a platform, because the record already says
+where regression protection belongs — in the assertions, which the runtime-bound
+page makes against the real component, and which also assert their own artifacts
+exist. The pictures are output and are uploaded.
+
+The lesson is not "follow the record". It is that a record's *reason* is the part
+worth reading: the clause predicted the failure mode, the deviation looked
+harmless for weeks, and one cross-platform run settled it.
 
 ### Two copies of one fact
 

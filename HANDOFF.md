@@ -147,7 +147,6 @@ workstation, against this commit.
 | `node tests/cable_tracing.js` | 92/92 |
 | `node tests/click_layers.js` | 14/14, 0 collisions |
 | `walkthrough/05-in-the-browser.md` | real Chromium, 5 shots, console clean |
-| recorded screenshots | no drift |
 | `carlos signatures` | 71/71 signed |
 | `carlos gates` | 14 of 17 steps pass; the three reds are below |
 
