@@ -636,69 +636,7 @@ class ClickLayerTests(unittest.TestCase):
 
 
 @unittest.skipUnless(NODE, "node is not installed")
-class ToolPaletteTests(unittest.TestCase):
-    """A floating panel is arithmetic wearing a UI.
 
-    A default corner computed against a window nobody measured, a clamp that
-    lets the grip off the screen, a stored position that comes back as NaN:
-    none of those throw, they just leave the panel somewhere unreachable. And
-    unreachable looks exactly like not rendered. `tests/palette.js` runs here
-    so it is a gate rather than a script somebody remembers.
-    """
-
-    def run_harness(self):
-        return subprocess.run(
-            [NODE, "tests/palette.js"],
-            capture_output=True, text=True, timeout=180,
-        )
-
-    def test_the_palette_behaves(self):
-        result = self.run_harness()
-        self.assertEqual(
-            result.returncode, 0,
-            f"the tool palette misbehaves:\n{result.stdout}\n{result.stderr}",
-        )
-
-    def test_the_harness_checked_something(self):
-        result = self.run_harness()
-        self.assertIn("passed", result.stdout)
-        self.assertNotIn("0/0", result.stdout)
-
-    def test_the_panel_is_drawn_from_tokens_and_not_from_literals(self):
-        # rad's contract requires colour be a token: a literal cannot survive a
-        # theme change, and makes two implementations that agree on meaning
-        # disagree on bytes. The panel's own comment claims every colour in it
-        # is a token, so the claim is checked rather than stated - it was false
-        # when written, for one shadow.
-        css = Path("static/demo.css").read_text(encoding="utf-8")
-        start = css.index("/* === TOOL PALETTE === */")
-        end = css.index("/* === RADIAL MENU === */")
-        block = css[start:end]
-        block = re.sub(r"/\*.*?\*/", "", block, flags=re.S)
-
-        literals = re.findall(r"#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\(", block)
-        self.assertEqual(
-            literals, [],
-            f"the tool palette names colours directly: {literals}",
-        )
-        # And it does name tokens, so an empty block cannot pass the above.
-        self.assertIn("var(--rad-", block)
-
-    def test_the_palette_is_platform_free_of_the_rack(self):
-        # The panel knows nothing about racks, devices, cables or menus. It is
-        # a window that holds fields, and the moment it starts reaching into
-        # the rack it becomes the second menu system this app deleted.
-        source = Path("static/palette.js").read_text(encoding="utf-8")
-        source = re.sub(r"/\*.*?\*/", "", source, flags=re.S)
-        source = re.sub(r"^\s*//.*$", "", source, flags=re.M)
-
-        for reached in ("system", "EurorackSystem", "ModuleFactory", "radMenu",
-                        "carlosResolve", "patchBay", "Intent"):
-            with self.subTest(reached):
-                self.assertNotIn(reached, source)
-
-
-@unittest.skipUnless(NODE, "node is not installed")
 class CableTracingTests(unittest.TestCase):
     """A cable you cannot follow is the one thing a patch exists to tell you.
 
@@ -817,38 +755,49 @@ class RackBehaviourTests(unittest.TestCase):
 class DeprecatedMenuTests(unittest.TestCase):
     """The old menus are gone, not merely unused."""
 
-    def test_no_options_drawer_remains(self):
-        markup = Path("templates/partials/controls_panel.html").read_text(encoding="utf-8")
-        # Strip Jinja comments first: the file explains what was removed, and
-        # naming the old menus in that explanation is not carrying them.
+    def test_no_second_menu_surface_is_rendered(self):
+        """There is one menu, and it is the ring.
+
+        This used to read `controls_panel.html` and check the old drawer was
+        gone from it. The panel itself is gone now — a pinned ring is what it
+        was — so the check moves to the page that used to include it, and gets
+        stronger for it: not "the panel is not a menu" but "there is no second
+        surface at all".
+        """
+        markup = Path("templates/demo.html").read_text(encoding="utf-8")
         markup = re.sub(r"\{#.*?#\}", "", markup, flags=re.S)
 
         for gone in ("options-drawer", "drawer-handle", "drawer-body",
-                     "example-device", "row-target"):
+                     "example-device", "row-target", "tool-palette",
+                     "rad-palette", "key-hint"):
             with self.subTest(gone):
                 self.assertNotIn(gone, markup)
 
-    def test_the_panel_that_survives_is_not_a_menu(self):
-        # `palette` used to name a grid of device buttons here, and this guard
-        # used to forbid the word. It cannot any more: rad's own word for a set
-        # of colour tokens is `palette`, and the floating panel is built from
-        # them. So the guard is on the shape instead of the name, which is the
-        # stronger version anyway - a rename routes around a forbidden string
-        # and cannot route around this.
-        #
+    def test_what_is_left_in_the_page_is_not_a_menu(self):
         # A menu is made of buttons, of lists, and of the devices it offers.
-        # The panel holds a text field and a file input.
-        markup = Path("templates/partials/controls_panel.html").read_text(encoding="utf-8")
+        # What is left is a dock — a status line and the facing indicator — and
+        # one file input, which is what an OS dialog hangs off rather than a
+        # control anybody operates.
+        markup = Path("templates/demo.html").read_text(encoding="utf-8")
         markup = re.sub(r"\{#.*?#\}", "", markup, flags=re.S)
 
         self.assertNotIn("<button", markup)
         self.assertNotIn("<select", markup)
         self.assertNotIn("onclick", markup)
+        self.assertNotIn("<ul", markup)
 
         # The clinching one: a device palette names devices.
         for device_id in catalogue.load_all():
             with self.subTest(device_id):
                 self.assertNotIn(device_id, markup)
+
+    def test_the_panel_is_gone_from_the_build(self):
+        # Deleted, not orphaned. A file nothing includes is a file somebody
+        # re-includes.
+        for gone in ("templates/partials/controls_panel.html",
+                     "static/palette.js", "tests/palette.js"):
+            with self.subTest(gone):
+                self.assertFalse(Path(gone).exists(), f"{gone} is still here")
 
     def test_the_frontend_no_longer_builds_a_palette_or_row_picker(self):
         # Both files. `toggleDrawer` survived this check for a release by

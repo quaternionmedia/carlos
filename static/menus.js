@@ -229,6 +229,7 @@ function carlosResolve(context, state) {
                 // replace what is there.
                 item('patch', 'Patch', null, {
                     children: [
+                        item('patch:name', 'Name', 'patch:name'),
                         item('patch:export', 'Export', 'patch:export'),
                         item('patch:import', 'Import', 'patch:import',
                              { destructive: true }),

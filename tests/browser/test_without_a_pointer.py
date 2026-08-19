@@ -87,16 +87,6 @@ class TestTheTurnKey:
         page.keyboard.press("Shift+T")
         assert page.locator("#view-indicator").inner_text() == start
 
-    def test_typing_it_into_the_patch_name_does_not_turn_the_rack(self, page):
-        # A letter key means something to the rack and something else to
-        # somebody naming a patch, and the field wins while it has focus.
-        before = page.locator("#view-indicator").inner_text()
-        field = page.locator("#patch-name")
-        field.click()
-        field.type("test")
-        assert page.locator("#view-indicator").inner_text() == before
-        assert "test" in field.input_value()
-
 
 class TestAKnobAnswersToKeys:
     @pytest.mark.parametrize(
@@ -200,25 +190,3 @@ class TestPatchingWithoutAPointer:
         assert bench.locator(".module.selected").count() == 0
 
 
-class TestThePaletteMovesByKeyboard:
-    def test_arrows_move_it(self, page):
-        grip = page.locator("#tool-palette-grip")
-        grip.focus()
-        before = page.locator("#tool-palette").bounding_box()
-
-        page.keyboard.press("ArrowLeft")
-        after = page.locator("#tool-palette").bounding_box()
-
-        assert after["x"] < before["x"]
-
-    def test_home_puts_it_back(self, page):
-        grip = page.locator("#tool-palette-grip")
-        grip.focus()
-        default = page.locator("#tool-palette").bounding_box()
-
-        page.keyboard.press("ArrowLeft")
-        page.keyboard.press("ArrowDown")
-        assert page.locator("#tool-palette").bounding_box() != default
-
-        page.keyboard.press("Home")
-        assert page.locator("#tool-palette").bounding_box() == default

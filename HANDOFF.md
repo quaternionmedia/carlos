@@ -169,7 +169,6 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 | Check | Result |
 | --- | --- |
 | `uv run carlos check` | 289 passed |
-| `node tests/palette.js` | 39/39 |
 | `node tests/view_toggle.js` | 83/83 |
 | `node tests/rack_behaviour.js` | 95/95 |
 | `node tests/cable_tracing.js` | 52/52 |

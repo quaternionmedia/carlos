@@ -221,37 +221,13 @@ svg {
     z-index: 1;
 }
 
-/* What is in the rack, in three figures. Counted from the rack rather than
-   from whatever put it there, so an import, an undo and a hand-patched cable
-   all reach it by the same route. */
-.rad-readout {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    margin: 10px 0 0;
-}
 
-.rad-readout-cell {
-    padding: 6px 4px;
-    border-radius: 4px;
-    background: var(--rad-hub);
-    border: 1px solid var(--rad-surface-edge);
-    text-align: center;
-}
 
-.rad-readout dt {
-    font-size: 9px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--rad-ink-dim);
-}
 
-.rad-readout dd {
-    margin: 2px 0 0;
-    font-size: 15px;
-    font-variant-numeric: tabular-nums;
-    color: var(--rad-ink);
-}
+
+
+
+
 
 /* === DEVICE SIDES === */
 /* A device turns in place. Nothing about the rack's layout changes when one
@@ -446,13 +422,7 @@ svg {
     box-shadow: 0 0 12px rgba(255, 224, 102, 0.9);
 }
 
-/* === CONTROL PANEL EXTRAS === */
-.field-label,
-.view-label {
-    font-size: 10px;
-    color: #888;
-    text-transform: uppercase;
-}
+
 
 #patch-name {
     background: var(--rad-hub);
@@ -479,16 +449,7 @@ svg {
     padding: 2px 6px;
 }
 
-.key-hint {
-    margin: 4px 0 0;
-    padding: 0;
-    list-style: none;
-    font-size: 9px;
-    line-height: 1.6;
-    color: var(--rad-ink-dim);
-    border-top: 1px solid var(--rad-surface-edge);
-    padding-top: 6px;
-}
+
 
 kbd {
     background: #222;
@@ -617,108 +578,25 @@ kbd {
     text-overflow: ellipsis;
 }
 
-/* === TOOL PALETTE === */
-/* Not a menu: it resolves no context and emits no intent. It holds the things a
-   ring cannot express - a patch name is a text field - and floats rather than
-   pinning a strip across the bottom, because a rack is the width of the window
-   and a fixed bar took a slice out of every one of them.
 
-   `palette` is rad's own word for a set of colour tokens, and every colour here
-   is one. A literal cannot survive a theme change. */
-.rad-palette {
-    position: fixed;
-    /* `left` and `top` are written by static/palette.js. These are the fallback
-       for the moment before it runs, and they agree with its default corner -
-       so the palette does not appear in one place and jump to another. */
-    top: 68px;
-    right: 20px;
-    z-index: 30;
-    width: 232px;
-    background: var(--rad-surface);
-    border: 1px solid var(--rad-surface-edge);
-    border-radius: 6px;
-    box-shadow: 0 8px 24px var(--rad-shadow);
-    font-size: 11px;
-}
 
-/* Once palette.js has placed it, position is `left`/`top` only - `right` would
-   fight the drag on every move. */
-.rad-palette.is-placed {
-    right: auto;
-}
 
-.rad-palette-grip {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    background: var(--rad-wedge);
-    border-bottom: 1px solid var(--rad-surface-edge);
-    border-radius: 5px 5px 0 0;
-    cursor: grab;
-    /* The browser must not claim the drag for scrolling or for selecting the
-       title text. */
-    touch-action: none;
-    user-select: none;
-}
 
-/* Dismissed, not deleted: it keeps its position and its state, and the rack's
-   ring brings it back. */
-.rad-palette.is-dismissed {
-    display: none;
-}
 
-.rad-palette.is-moving .rad-palette-grip {
-    cursor: grabbing;
-    background: var(--rad-wedge-hover);
-}
 
-.rad-palette-grip:focus-visible {
-    outline: 2px solid var(--rad-ink);
-    outline-offset: -2px;
-}
 
-/* The handle, as the thing every draggable panel has had since panels did. */
-.rad-palette-dots {
-    width: 10px;
-    height: 10px;
-    flex-shrink: 0;
-    background-image: radial-gradient(var(--rad-ink-dim) 40%, transparent 42%);
-    background-size: 4px 4px;
-    opacity: 0.8;
-}
 
-.rad-palette-title {
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--rad-ink-dim);
-}
 
-.rad-palette-body {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 10px;
-}
 
-.rad-palette-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
 
-.rad-palette-row .field-label,
-.rad-palette-row .view-label {
-    flex-shrink: 0;
-    width: 46px;
-}
 
-.rad-palette-row #patch-name {
-    flex: 1;
-    min-width: 0;
-    width: auto;
-}
+
+
+
+
+
+
+
 
 /* === RADIAL MENU === *//* === RADIAL MENU === */
 .rad-layer {
@@ -1336,4 +1214,55 @@ button.irl-cell.is-struck {
     .jack.is-active {
         transition: none;
     }
+}
+
+
+/* === THE DOCK ===
+   What is left once the floating panel is gone. Neither of these is a menu -
+   the ring is the menu, and a pinned ring is what the panel was - so they sit
+   at the foot of the window instead of floating over the rack. A thing that is
+   not a menu should not behave like one. */
+.dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(0, 0, 0, 0.82);
+    border-top: 1px solid var(--rad-surface-edge);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+}
+
+.dock-facing {
+    color: var(--rad-ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 9px;
+}
+
+.dock #view-indicator {
+    color: var(--rad-ink);
+    white-space: nowrap;
+}
+
+/* The status line stops being a boxed panel row and becomes the rest of the
+   dock: one line, whatever the message, because a status that wraps would
+   change the dock's height and move the rack under it. */
+.dock .status {
+    margin: 0;
+    padding: 0 0 0 10px;
+    border: 0;
+    border-left: 1px solid var(--rad-surface-edge);
+    border-radius: 0;
+    background: none;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
 }

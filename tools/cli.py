@@ -47,7 +47,7 @@ import click
 # Checking one would match a stray copy of either.
 MARKERS = ("src/main.py", "catalogue/devices", "walkthrough")
 
-# The five frontend harnesses, in the order they are named everywhere else.
+# The four frontend harnesses, in the order they are named everywhere else.
 # The model is not the screen: two of this project's real bugs were invisible
 # to every model-level test and were caught only by these.
 HARNESSES = (
@@ -55,7 +55,6 @@ HARNESSES = (
     "rack_behaviour",
     "cable_tracing",
     "click_layers",
-    "palette",
 )
 
 # The one check command, spelled once. Both paths are named deliberately:

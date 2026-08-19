@@ -142,18 +142,14 @@ uv run carlos serve --port 8123
   fetched from `/api/opening`, not built in the browser: `catalogue/opening.json`
   is an ordinary patch document, so the first thing you see is a file you can
   export, edit and import again.
-- **One panel that says what is on screen.** What the rack is, what is in it,
-  which way it faces, and what just happened — devices, leads and rows counted
-  off the rack itself. The status line used to be a bar pinned across the top of
-  the window; it is a line in the panel now, and the rack got the strip back.
-- **A pinned ring is the panel.** `View ▸ Pin ring` leaves the menu open over
-  the rack; it stays through whatever you do with it, and its hub reads the rack
-  — devices, leads, rows, facing. One menu surface in two states rather than a
-  ring and a panel that both claim to be the menu.
-- **The panel is an overlay surface.** Right-click it and the rack's ring opens
-  there — somewhere the menu is always reachable when what is under your hand is
-  not what you want to act on. It can be hidden and brought back from that same
-  ring, and it keeps where you left it.
+
+- **One menu, in two states.** There is no floating panel — there was, and a
+  panel is a second menu surface. `View ▸ Pin ring` leaves the ring open over the
+  rack instead: it stays through whatever you do with it, and its hub reads the
+  rack. What is left at the foot of the window is a dock, and a dock is not a
+  menu: the status line and the facing indicator, the two things that change on
+  their own.
+
 - **The ring is yours to arrange.** `Edit ▸` moves families round the ring,
   hides the ones you never use, and puts it all back. It remembers on this
   browser; a ring nobody has edited resolves exactly as it ships.

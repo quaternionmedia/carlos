@@ -232,8 +232,8 @@ def open_rack(app: LiveApp, browser, width: int = 1280, height: int = 860):
 
     # Wait for the app to have *booted*, not for its markup to have parsed.
     #
-    # `#rack` and `#tool-palette` are both in the template, so they exist
-    # before a single script has run — waiting on either says nothing. The
+    # `#rack` and `#dock` are both in the template, so they exist before a
+    # single script has run — waiting on either says nothing. The
     # catalogue arrives over `fetch` and the starting devices are added when it
     # lands, so the honest signal is the status line saying so. Under load this
     # is the difference between a rack with two devices in it and an empty one,
@@ -288,7 +288,7 @@ def bare_rack(page) -> tuple[int, int]:
                 for (let x = box.right - 8; x > box.left; x -= 24) {
                     const top = document.elementFromPoint(x, y);
                     if (!top) continue;
-                    if (top.closest('.module') || top.closest('#tool-palette')) continue;
+                    if (top.closest('.module') || top.closest('#dock')) continue;
                     if (!top.closest('#rack')) continue;
                     return { x, y };
                 }

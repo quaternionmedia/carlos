@@ -13,7 +13,6 @@
     <script src="{{ asset('menus.js') }}"></script>
     <script src="{{ asset('rad-menu.js') }}"></script>
     <script src="{{ asset('models.js') }}"></script>
-    <script src="{{ asset('palette.js') }}"></script>
 </head>
 <body>
     <div class="rack-container" id="rack">
@@ -26,11 +25,30 @@
         <svg id="patch-cables"></svg>
     </div>
     
-    {# The palette carries the status line now. It used to be a bar pinned
-       across the top of the window, which put the running commentary in one
-       place and the persistent facts in another, and took a slice off the top
-       of every rack whether or not it had anything to say. #}
-    {% include 'partials/controls_panel.html' %}
+    {# What is left once the floating panel is gone.
+
+       The panel was a second menu surface, and rad's contract settles that
+       there is one. A pinned ring is what it was: the same object in its other
+       state, reading the rack from its hub.
+
+       Neither of these is a menu. The status line is how this app answers back
+       - a refused cable, what an import actually loaded - and it is a live
+       region so that answer is not sighted-only. The facing indicator is the
+       one fact that has to persist while the status line talks over itself.
+       They dock at the foot of the window rather than floating over the rack,
+       because a thing that is not a menu should not behave like one. #}
+    <div class="dock" id="dock">
+      <span class="dock-facing">Facing</span>
+      <span id="view-indicator">EMPTY</span>
+      <div class="status" id="status" role="status" aria-live="polite">System Ready</div>
+    </div>
+
+    {# Not a control: an OS file dialog needs an input to hang off, and
+       `Patch ▸ Import` is the thing that opens it. #}
+    <label class="visually-hidden" for="patch-file">Patch file to import</label>
+    <input id="patch-file" type="file" accept=".json,application/json"
+           class="visually-hidden"
+           onchange="importPatch(this.files[0]); this.value = '';">
 
     <script src="{{ asset('main.js') }}"></script>
 

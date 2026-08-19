@@ -328,7 +328,7 @@ class ContributingTests(unittest.TestCase):
         self.assertIn("walkthrough/05-in-the-browser.md", body)
         self.assertIn("playwright install", body)
         for harness in ("view_toggle", "rack_behaviour", "cable_tracing",
-                        "click_layers", "palette"):
+                        "click_layers"):
             with self.subTest(harness):
                 self.assertIn(f"tests/{harness}.js", body)
 

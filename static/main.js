@@ -99,8 +99,6 @@ async function loadExample(kind, deviceId) {
             return;
         }
         system.importState(document_);
-        const field = document.getElementById('patch-name');
-        if (field) field.value = system.name;
     } catch (error) {
         system.status.update(`Could not load that example: ${error.message}`);
     }
@@ -463,6 +461,19 @@ function routeIntent(intent) {
             break;
         }
 
+        case 'patch:name': {
+            // A ring has no text entry, and rad-android's answer to that is to
+            // scope down rather than grow a dialog inside the menu. The
+            // browser already has one prompt that works everywhere, including
+            // for a screen reader, so this uses it rather than building a
+            // second.
+            const named = window.prompt('Name this patch', system.name || '');
+            if (named === null) break;
+            system.name = named.trim() || 'Untitled Patch';
+            system.status.update(`Patch is "${system.name}"`);
+            break;
+        }
+
         case 'patch:export':
             exportPatch();
             break;
@@ -513,11 +524,6 @@ function routeIntent(intent) {
                         ? 'Ring pinned - it stays until you unpin it'
                         : 'Ring let go');
             });
-            break;
-
-        case 'palette:reset':
-            palette.reset();
-            system.status.update('Palette back to where it starts');
             break;
 
         case 'midi:connect':
@@ -584,16 +590,6 @@ function contextAt(event) {
     // somewhere you can always reach the menu, even when what is under your
     // hand is not the thing you want to act on. Summoning from it opens the
     // rack's ring - the panel is about the rack, so that is what it offers.
-    //
-    // Not from the controls inside it: a right-click on the patch name is a
-    // right-click on a text field, and taking that would cost the field its
-    // own menu to give the rack a second door it already has.
-    const panel = event.target.closest?.('#tool-palette');
-    if (panel && !event.target.closest?.('input, button, [contenteditable]')) {
-        return { type: 'canvas', targetIds: [],
-                 position: { x: event.clientX, y: event.clientY } };
-    }
-
     if (!inRack && !moduleEl) return null;
 
     const position = { x: event.clientX, y: event.clientY };
@@ -649,35 +645,15 @@ window.addEventListener('resize', () => system.patchBay.redrawAll());
 // ===================================
 // TOOL PALETTE
 // ===================================
-// The panel holding what a ring cannot express. It is constructed here rather
-// than constructing itself, so the storage it uses is something this file
-// chose and the tests can hand it another.
-const palette = new Palette({
-    element: document.getElementById('tool-palette'),
-    grip: document.getElementById('tool-palette-grip'),
-    // Reached through a guard: a browser can refuse `localStorage` outright,
-    // and reading the property is itself what throws.
-    storage: (() => {
-        try { return window.localStorage; } catch { return null; }
-    })(),
-});
-
-// ===================================
 // INTERCHANGE
 // ===================================
+// The rack's own name, which is where it lives now. It used to be read out of
+// a text field in the floating panel; the panel is gone and `Patch ▸ Name` sets
+// it directly, so there is one copy of it rather than two that had to be kept
+// in step on every import.
 function currentPatchName() {
-    const field = document.getElementById('patch-name');
-    const value = field?.value.trim();
-    return value || 'Untitled Patch';
+    return (system.name || '').trim() || 'Untitled Patch';
 }
-
-// A device with a `patch` screen is showing the rack's name, so typing in the
-// field has to reach it. Cheap enough to do per keystroke: it is a text write
-// per screen, and there are single digits of them.
-document.getElementById('patch-name')?.addEventListener('input', () => {
-    system.name = currentPatchName();
-    system.refreshScreens();
-});
 
 function exportPatch() {
     system.name = currentPatchName();
@@ -712,8 +688,6 @@ function importPatch(file) {
 
         try {
             system.importState(parsed);
-            const field = document.getElementById('patch-name');
-            if (field) field.value = system.name;
         } catch (error) {
             // importState checks before it clears, so the rack on screen is
             // still the one that was there.

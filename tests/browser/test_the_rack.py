@@ -84,87 +84,6 @@ class TestTheMenu:
         assert "Delete" in labels
 
 
-class TestThePanelIsAnOverlaySurface:
-    """The floating panel is somewhere the ring can always be reached.
-
-    That is what rad-android's overlay is for: a window whose whole job is to
-    be reachable when what is under your hand is not the thing you want to act
-    on. And it can be dismissed, because a floating surface you cannot get rid
-    of is one you are stuck with.
-    """
-
-    def test_the_panel_summons_the_rack_ring(self, page):
-        grip = page.locator("#tool-palette-grip").bounding_box()
-        page.mouse.click(grip["x"] + 40, grip["y"] + 10, button="right")
-        page.wait_for_selector(".rad-wedge", timeout=5_000)
-        assert page.locator(".rad-wedge").count() == 7
-
-    def test_it_opens_at_the_touch_point_pulled_in_to_fit(self, page):
-        # Summon opens the ring at the touch point, which is the whole of
-        # rad-android's overlay gesture: press, drag, release, one gesture.
-        #
-        # The panel sits in a corner, so the ring is shifted inward to stay on
-        # screen - the centre moves, the geometry never shrinks. Asserted both
-        # ways round, because "near where you pressed" and "entirely visible"
-        # is the pair of promises, and a ring that honoured only the first
-        # would hang half off the window.
-        grip = page.locator("#tool-palette-grip").bounding_box()
-        x, y = grip["x"] + 40, grip["y"] + 10
-        page.mouse.click(x, y, button="right")
-        page.wait_for_selector(".rad-wedge", timeout=5_000)
-
-        hub = page.locator(".rad-hub").bounding_box()
-        centre = (hub["x"] + hub["width"] / 2, hub["y"] + hub["height"] / 2)
-        viewport = page.viewport_size
-        assert abs(centre[0] - x) < 150
-        assert abs(centre[1] - y) < 150
-
-        board = page.locator(".rad-backing").bounding_box()
-        assert board["x"] >= 0
-        assert board["y"] >= 0
-        assert board["x"] + board["width"] <= viewport["width"]
-        assert board["y"] + board["height"] <= viewport["height"]
-
-    def test_a_field_inside_the_panel_keeps_its_own_menu(self, page):
-        # Taking the right-click on a text field would cost the field its own
-        # menu to give the rack a second door it already has.
-        field = page.locator("#patch-name").bounding_box()
-        page.mouse.click(field["x"] + 20, field["y"] + 8, button="right")
-        page.wait_for_timeout(300)
-        assert page.locator(".rad-wedge").count() == 0
-
-
-
-
-    def test_the_ring_sits_on_a_board(self, page):
-        # rad-android draws one soft, low-alpha blob behind its nodes - the
-        # painter's palette the daubs are arranged on, which is where the word
-        # comes from. Decoration, and it says so: no pointer events, no aria.
-        open_menu(page, *bare_rack(page))
-        board = page.locator(".rad-backing")
-        assert board.count() == 1
-        assert board.get_attribute("aria-hidden") == "true"
-
-        paint = board.evaluate(
-            """el => ({ fill: getComputedStyle(el).fill,
-                        events: getComputedStyle(el).pointerEvents })"""
-        )
-        assert paint["fill"] == "rgba(136, 116, 196, 0.16)"
-        assert paint["events"] == "none"
-
-    def test_the_board_is_behind_the_wedges(self, page):
-        # Or it would be a sheet over the thing it is meant to sit under.
-        open_menu(page, *bare_rack(page))
-        first = page.locator(".rad-layer g > *").first
-        assert "rad-backing" in (first.get_attribute("class") or "")
-
-    def test_nothing_throws_through_any_of_it(self, page):
-        grip = page.locator("#tool-palette-grip").bounding_box()
-        page.mouse.click(grip["x"] + 40, grip["y"] + 10, button="right")
-        page.wait_for_selector(".rad-wedge", timeout=5_000)
-        page.keyboard.press("Escape")
-        assert page.errors == []
-
 
 class TestHighContrast:
     """Colour comes out of every signal; the signal stays.
@@ -798,31 +717,4 @@ class TestOnlyTheFacesThatHaveSomething:
     def test_nothing_throws_through_any_of_it(self, drum_rig):
         assert drum_rig.errors == []
 
-
-class TestThePalette:
-    def test_dragging_it_moves_it_by_what_the_hand_moved(self, page):
-        before = page.locator("#tool-palette").bounding_box()
-        grip = page.locator("#tool-palette-grip").bounding_box()
-
-        page.mouse.move(grip["x"] + 40, grip["y"] + 10)
-        page.mouse.down()
-        page.mouse.move(grip["x"] + 40 - 200, grip["y"] + 10 + 160, steps=10)
-        page.mouse.up()
-
-        after = page.locator("#tool-palette").bounding_box()
-        assert round(before["x"] - after["x"]) == 200
-        assert round(after["y"] - before["y"]) == 160
-
-    def test_it_cannot_be_dragged_off_the_screen(self, page):
-        grip = page.locator("#tool-palette-grip").bounding_box()
-        page.mouse.move(grip["x"] + 40, grip["y"] + 10)
-        page.mouse.down()
-        page.mouse.move(-4000, -4000, steps=10)
-        page.mouse.up()
-
-        after = page.locator("#tool-palette").bounding_box()
-        viewport = page.viewport_size
-        assert after["x"] + after["width"] > 0
-        assert after["y"] >= 0
-        assert after["x"] < viewport["width"]
 

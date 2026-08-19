@@ -250,56 +250,70 @@ captured, and here it is:
 
 ```
 
-The panel is also a surface the ring can be summoned from, which is what
-rad-android's overlay is for: somewhere the menu is always reachable when what
-is under your hand is not the thing you want to act on. Right-click it and the
-rack's ring opens there — the panel is about the rack, so that is what it
-offers. Its own fields keep their own menus.
+## One menu, in two states
+
+There is no floating panel. There was, and it held what a ring supposedly could
+not — but a panel is a second menu surface, and rad's contract settles that
+there is one. A ring you leave open over the rack *is* what it was.
+
+`View ▸ Pin ring` leaves it up. Pinned, it does not close when it has done
+something: it returns to its root and stays, because the next thing you want is
+usually also on it.
 
 ```python
->>> grip = page.locator('#tool-palette-grip').bounding_box()
->>> page.mouse.click(grip['x'] + 40, grip['y'] + 10, button='right')
->>> _ = page.wait_for_selector('.rad-wedge', timeout=5000)
+>>> spot = bare_rack(page)
+>>> open_menu(page, *spot)
+>>> pick(page, 'View')
+>>> pick(page, 'Pin ring')
+>>> _ = page.wait_for_selector('.rad-layer.is-pinned', timeout=5000)
 >>> page.locator('.rad-wedge').count()
 7
->>> page.keyboard.press('Escape')
 
 ```
 
-And it can be dismissed — **View ▸ Hide panel** — because a floating surface you
-cannot get rid of is one you are stuck with. It keeps where it was, and the
-rack's ring brings it back.
-
-The panel says what is on screen: what this rack is, what is in it, which way
-it faces, and what just happened. That last line used to be a bar pinned across
-the top of the window, so the running commentary was in one place and the facts
-it commented on in another — and fifty-six pixels were held above every rack to
-clear it, whether or not it had anything to say.
+Its idle hub reads the rack — asked at render time rather than pushed, so the
+ring holds no copy of a rack that goes on changing underneath it:
 
 ```python
->>> [page.locator(f'#count-{what}').inner_text()
-...  for what in ('devices', 'cables', 'rows')]
-['11', '17', '3']
->>> page.evaluate("() => document.querySelector('#tool-palette')"
-...               ".contains(document.querySelector('#status'))")
+>>> hub = ' '.join(
+...     page.locator('#rad-menu-title tspan').all_text_contents()).strip()
+>>> '11 devices' in hub, '17 leads' in hub, '3 rows' in hub
+(True, True, True)
+
+```
+
+It survives being used, which is the whole point — a ring that vanished after
+every commit would be a panel that closed itself whenever you touched it:
+
+```python
+>>> pick(page, 'View')
+>>> pick(page, 'Minimal')
+>>> until(page, "document.querySelector('#status').textContent"
+...             ".includes('minimally')")
+>>> page.locator('.rad-wedge').count()
+7
+>>> pick(page, 'View')
+>>> pick(page, 'Unpin ring')
+>>> until(page, "document.querySelector('#status').textContent"
+...             ".includes('let go')")
+>>> page.locator('.rad-wedge').count()
+0
+
+```
+
+The hub is drawn larger when pinned, and **only drawn** larger: the dead zone
+the machine cancels inside is the contract's `r0` and stays `r0`, so the gesture
+is identical either way.
+
+What is left at the foot of the window is a dock, and a dock is not a menu — a
+status line and the facing indicator, the two things a ring cannot hold because
+they change on their own:
+
+```python
+>>> page.locator('#tool-palette').count()
+0
+>>> page.locator('#dock').is_visible()
 True
-
-```
-
-Leads rather than pieces, and counted off the rack rather than tallied as things
-are added — so an import, a deletion and a hand-patched cable all reach it the
-same way, and none of them can forget to.
-
-The palette opens at its default corner, which is the top right — the first
-thing here ever to check that against a real viewport rather than arithmetic:
-
-```python
->>> palette = page.locator('#tool-palette').bounding_box()
->>> viewport = page.viewport_size
->>> round(viewport['width'] - (palette['x'] + palette['width']))
-20
->>> round(palette['y'])
-68
 
 ```
 
@@ -328,7 +342,7 @@ rack says so rather than picking a winner:
 ## The menu is a ring
 
 Right-click on bare rack — a point found by asking the page what is under it,
-because the palette floats and a computed corner is only empty until it is not.
+rather than computing a corner and hoping nothing is in it.
 The ring holds at most eight, which the resolver enforces rather than a
 reviewer — and the rack's own ring is six. Six permanent families, every one of
 which opens something:
@@ -668,43 +682,6 @@ however many pieces it took to draw it:
 
 ![The rack turned](media/05-in-the-browser-turned.png)
 
-## The palette moves
-
-Drag it by its grip and it goes where you put it.
-
-```python
->>> before = page.locator('#tool-palette').bounding_box()
->>> grip = page.locator('#tool-palette-grip').bounding_box()
->>> grab_x, grab_y = grip['x'] + 40, grip['y'] + 10
->>> page.mouse.move(grab_x, grab_y)
->>> page.mouse.down()
->>> page.mouse.move(grab_x - 260, grab_y + 220, steps=12)
->>> page.mouse.up()
-
-```
-
-It moves by what the hand moved, not to where the hand is — the grab offset is
-kept, so the panel does not jump its own corner under the cursor:
-
-```python
->>> after = page.locator('#tool-palette').bounding_box()
->>> round(before['x'] - after['x'])
-260
->>> round(after['y'] - before['y'])
-220
-
-```
-
-And it is remembered, so a reload brings it back where it was left:
-
-```python
->>> _ = page.reload(wait_until='networkidle')
->>> _ = page.wait_for_selector('#tool-palette')
->>> reloaded = page.locator('#tool-palette').bounding_box()
->>> (round(reloaded['x']), round(reloaded['y'])) == (round(after['x']), round(after['y']))
-True
-
-```
 
 ## What was recorded
 
