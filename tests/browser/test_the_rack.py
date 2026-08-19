@@ -599,7 +599,8 @@ class TestTheBar:
 
     def test_the_facts_are_separated_by_dots_not_more_rules(self, page):
         # Four drawn rules in one strip is a strip nobody reads.
-        assert page.locator("#rad-bar-text .rad-bar-dot").count() == 3
+        # Build, devices, leads, rows, facing: five facts, four dots.
+        assert page.locator("#rad-bar-text .rad-bar-dot").count() == 4
         assert page.locator(".rad-bar-rule").count() == 0
 
     def test_the_hint_retires_once_it_has_been_used(self, page):

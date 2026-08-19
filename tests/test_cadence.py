@@ -39,8 +39,7 @@ class _ArrivedOn:
 # assume it was covered. Adding a route now forces a decision: declare its
 # cadence, or say here why it has none.
 NOT_A_SEAM = {
-    ("GET", "/"): "a redirect to the splash; the bare port is not an endpoint",
-    ("GET", "/splash"): "the page the bare port lands on, for a person not a peer",
+    ("GET", "/"): "a redirect to the workspace; the bare port is not an endpoint",
     ("GET", "/rack"): "the workspace itself, an HTML page rather than a seam",
     ("GET", "/docs"): "FastAPI's own interactive documentation",
     ("GET", "/docs/oauth2-redirect"): "FastAPI's own OAuth redirect helper",

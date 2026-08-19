@@ -32,36 +32,35 @@ through never reaches the teardown at the bottom of it — and a server that
 outlives its run holds a port until somebody notices. One session left seven of
 them.
 
-## The bare port lands on the splash
+## The bare port is the workspace
 
-Opening a rack is a thing you choose. Arriving at the address gets you a page
-that says what this is and one way in:
+There was a splash here — a page saying what this is, with one way in — on the
+reasoning that opening a rack is a thing you choose. The rack answers that
+better than a page about it did: it opens on a rig, and the bar across the top
+says what the rack is and what this build is. A page you click through to reach
+the thing is a page between somebody and the thing.
 
 ```python
 >>> landing = browser.new_page()
 >>> _ = landing.goto(app.base, wait_until='networkidle')
->>> landing.url.endswith('/splash')
-True
->>> landing.inner_text('.splash-name')
-'CARLOS'
-
-```
-
-Its figures are measured rather than typed, so a device added to the catalogue
-is a device the splash counts:
-
-```python
->>> from src import catalogue
->>> str(len(catalogue.load_all())) in landing.inner_text('.splash-facts')
+>>> landing.url.endswith('/rack')
 True
 
 ```
 
-The way in is a link, so it works before any JavaScript does:
+A redirect rather than the workspace at two addresses, so `/rack` stays the one
+a reader can link to. Temporary, not permanent: a 301 is cached by the browser
+forever, and moving the workspace back to `/` later would reach nobody who had
+ever visited.
 
 ```python
->>> landing.get_attribute('.splash-enter', 'href')
-'/rack'
+>>> hops = []
+>>> walk = landing.goto(app.base, wait_until='networkidle').request.redirected_from
+>>> while walk is not None:
+...     hops.append(walk.response().status)
+...     walk = walk.redirected_from
+>>> hops
+[307]
 >>> landing.close()
 
 ```
@@ -274,15 +273,16 @@ True
 
 ```
 
-It says two things, with one drawn rule between them: what the rack **is**, and
-what this app last **answered**. Neither replaces the other — the figures do not
+It says two things, with one drawn rule between them: what the rack **is** —
+led by what this build is, which is the one fact the retired splash carried that
+was worth carrying inside — and what this app last **answered**. Neither replaces the other — the figures do not
 stop being true when something happens, and the answer does not stop mattering
 when you look away. The facts inside the left half are separated by dim dots
 rather than more rules, because four rules in one strip is a strip nobody reads.
 
 ```python
 >>> page.locator('#rad-bar-text').text_content()
-'11 devices · 17 leads · 3 rows · 6 front, 5 top'
+'Carlos 0.1.0 · 11 devices · 17 leads · 3 rows · 6 front, 5 top'
 >>> page.locator('#rad-bar-said').count()      # nothing said yet
 0
 >>> page.evaluate("() => { system.addModule('moog.dfam'); }")

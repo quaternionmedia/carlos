@@ -68,10 +68,10 @@ fails. On a fresh checkout, `uv run playwright install chromium` once.
 uv run carlos serve
 ```
 
-Open `http://localhost:8000`. It lands on a splash that says what this is, with
-one link into the workspace at `/rack` — opening a rack is a thing you choose,
-and a tool that drops you into an editable document has decided for you what
-you came for.
+Open `http://localhost:8000` and you are in the workspace, at `/rack`. There was
+a splash saying what this is, on the reasoning that opening a rack is a thing
+you choose — the rack answers that better than a page about it did. It opens on
+a rig, and the bar across the top says what the rack is and what this build is.
 
 The address is predictable on purpose — this is a
 thing you open in a browser — and `CARLOS_HOST`, `CARLOS_PORT` and `CARLOS_DB`

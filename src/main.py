@@ -154,48 +154,35 @@ async def no_store_static(request: Request, call_next):
 
 @app.get("/")
 async def home():
-    """The bare port lands on the splash, not in the workspace.
+    """The bare port is the workspace.
 
-    Opening a rack is a thing you choose. A tool that drops you straight into
-    an editable document has decided for you what you came for, and the first
-    thing anyone arriving at an unfamiliar address needs is to be told what
-    this is.
+    It used to land on a splash saying what this is, on the reasoning that
+    opening a rack is a thing you choose. The rack answers that better than a
+    page about it did: it opens on a rig, and the bar across the top says what
+    the rack is and what this build is. A page you click through to get to the
+    thing is a page between somebody and the thing.
 
-    A redirect rather than serving the splash here, so the splash has one
-    address a reader can link to and come back to.
+    Still a redirect rather than serving the workspace at two addresses, so
+    `/rack` stays the one address a reader can link to.
     """
-    return RedirectResponse(url="/splash", status_code=307)
-
-
-@app.get("/splash", response_class=HTMLResponse)
-async def splash(request: Request):
-    """What this is, and the way in.
-
-    Every figure is measured here rather than written into the template: a
-    device count typed into a page is wrong the first time somebody adds a
-    device, and nothing would notice.
-    """
-    devices = catalogue.load_all()
-    return templates.TemplateResponse(
-        "splash.html",
-        {
-            "request": request,
-            "title": settings.app_name,
-            "version": settings.version,
-            "device_count": len(devices),
-            "category_count": len(catalogue.CATEGORIES),
-            "format_name": patch_format.FORMAT_NAME,
-            "format_version": patch_format.FORMAT_VERSION,
-        },
-    )
+    return RedirectResponse(url="/rack", status_code=307)
 
 
 @app.get("/rack", response_class=HTMLResponse)
 async def rack(request: Request):
-    """The patch workspace itself."""
+    """The patch workspace itself.
+
+    The build is handed to the page rather than written into it. The splash
+    measured its own figures for the same reason: a version typed into a
+    template is wrong at the next release and nothing notices.
+    """
     return templates.TemplateResponse(
         "demo.html",
-        {"request": request, "title": settings.app_name},
+        {
+            "request": request,
+            "title": settings.app_name,
+            "version": settings.version,
+        },
     )
 
 

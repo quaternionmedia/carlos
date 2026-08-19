@@ -15,7 +15,11 @@
     <script src="{{ asset('models.js') }}"></script>
 </head>
 <body>
-    <div class="rack-container" id="rack">
+    {# What this build is. The bar reads it; nothing else needs it, and a version
+   in the markup is a version something can render without asking the server. #}
+<meta name="carlos-build" content="{{ version }}">
+
+<div class="rack-container" id="rack">
         {# Two cable layers, because a rack has a front and a back and a lead
            can be on either. This one sits *under* the gear: everything that
            disappears round the back is drawn here, so it goes behind the
