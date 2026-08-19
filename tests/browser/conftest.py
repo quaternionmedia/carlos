@@ -45,6 +45,33 @@ def browser():
     release(driver)
 
 
+@pytest.fixture(autouse=True)
+def _a_browser_that_remembers_nothing(browser):
+    """Forget what the last test taught this browser.
+
+    Pages are fresh; the browser context they share is not. The ring's
+    arrangement and the bar's hint both live in `localStorage`, so a test that
+    hides a family leaves it hidden for every test after it - and the ones that
+    then find a ring without `Add` on it fail somewhere far from the cause.
+
+    It did not show up on this workstation and did show up on the first CI run,
+    which is the usual shape of a shared-state defect: order and timing decide
+    whether you see it.
+    """
+    yield
+    for context in browser.contexts:
+        try:
+            context.clear_cookies()
+        except Exception:
+            pass
+        for page_ in context.pages:
+            try:
+                page_.evaluate("() => { localStorage.clear(); }")
+            except Exception:
+                # A closed page has nothing left to forget.
+                pass
+
+
 @pytest.fixture
 def page(app, browser):
     """A fresh page on the workspace, with its console captured.

@@ -202,6 +202,13 @@ class NoneMeansNoneTests(unittest.TestCase):
         # A guard nobody has tried to route around is a green check standing
         # where a reader believes something is enforced. This writes on purpose
         # and the same measurement catches it.
+        # The directory before the snapshot, not after: on a fresh checkout
+        # `data/` does not exist, and creating it *is* a change to the world -
+        # which would make this pass for the wrong reason on the machine that
+        # has one and fail outright on the machine that does not. CI had
+        # neither, and said so.
+        Path("data").mkdir(parents=True, exist_ok=True)
+
         before = self.world()
         marker = Path("data") / "cadence-probe.json"
         marker.write_text("{}", encoding="utf-8")
