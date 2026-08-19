@@ -1,0 +1,104 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "Subharmonicon clocking DFAM, DFAM returning through its VCA",
+  "modules": [
+    {
+      "id": "sub",
+      "type": "moog.subharmonicon",
+      "view": "front",
+      "parameters": {
+        "tempo": 75,
+        "rhythm1_div": 4,
+        "rhythm2_div": 3,
+        "cutoff": 80
+      }
+    },
+    {
+      "id": "dfam",
+      "type": "moog.dfam",
+      "view": "front",
+      "parameters": {
+        "vco1_freq": 15,
+        "vca_decay": 20
+      }
+    },
+    {
+      "id": "desk",
+      "type": "allen-heath.qu24",
+      "view": "back",
+      "parameters": {}
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "sub",
+        "jack": "clock_out"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "adv_clock_in"
+      }
+    },
+    {
+      "source": {
+        "module": "dfam",
+        "jack": "vca_out"
+      },
+      "target": {
+        "module": "sub",
+        "jack": "vca_audio_in"
+      }
+    },
+    {
+      "source": {
+        "module": "sub",
+        "jack": "seq1_out"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "vco1_cv_in"
+      }
+    },
+    {
+      "source": {
+        "module": "sub",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "mic_in_1"
+      }
+    },
+    {
+      "source": {
+        "module": "dfam",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "mic_in_2"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "row-instruments",
+      "kind": "row",
+      "label": "Instruments",
+      "members": [
+        "sub",
+        "dfam"
+      ]
+    },
+    {
+      "id": "row-signal-path",
+      "kind": "row",
+      "label": "Signal path",
+      "members": [
+        "desk"
+      ]
+    }
+  ]
+}

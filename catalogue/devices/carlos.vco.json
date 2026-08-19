@@ -1,0 +1,206 @@
+{
+  "id": "carlos.vco",
+  "maker": "Carlos",
+  "model": "VCO",
+  "category": "eurorack",
+  "summary": "A generic voltage-controlled oscillator. Not a real product: the neutral module the workspace starts with, and the smallest example of a catalogue entry. Drawn at ten HP of a 3U rack, which is where its proportions come from: the panel is 50.5mm by 128.5mm and the box says so rather than an aspect number standing in for it.",
+  "fidelity": "sketch",
+  "jacks": [
+    {
+      "name": "cv_in",
+      "label": "CV",
+      "type": "input",
+      "signal": "cv",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "audio_out",
+      "label": "OUT",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "sync_in",
+      "label": "SYNC",
+      "type": "input",
+      "signal": "gate",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "sub_out",
+      "label": "SUB",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "3.5mm"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "frequency",
+      "label": "FREQ",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "fine",
+      "label": "FINE",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "waveform",
+      "label": "WAVE",
+      "min": 0,
+      "max": 3,
+      "default": 0
+    },
+    {
+      "name": "octave",
+      "label": "OCT",
+      "min": -2,
+      "max": 2,
+      "default": 0
+    },
+    {
+      "name": "pulse_width",
+      "label": "PW",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "fm_amount",
+      "label": "FM",
+      "min": 0,
+      "max": 127,
+      "default": 0
+    }
+  ],
+  "layout": {
+    "controls": {
+      "frequency": {
+        "x": 0.5,
+        "y": 0.16,
+        "side": "front",
+        "size": 1.2
+      },
+      "fine": {
+        "x": 0.5,
+        "y": 0.36,
+        "side": "front",
+        "size": 1.2
+      },
+      "waveform": {
+        "x": 0.28,
+        "y": 0.42,
+        "side": "front",
+        "size": 0.8,
+        "kind": "switch"
+      },
+      "octave": {
+        "x": 0.72,
+        "y": 0.42,
+        "side": "front",
+        "size": 0.8,
+        "kind": "switch"
+      },
+      "pulse_width": {
+        "x": 0.28,
+        "y": 0.58,
+        "side": "front",
+        "size": 0.9
+      },
+      "fm_amount": {
+        "x": 0.72,
+        "y": 0.58,
+        "side": "front",
+        "size": 0.9
+      }
+    },
+    "jacks": {
+      "cv_in": {
+        "x": 0.5,
+        "y": 0.62,
+        "side": "front",
+        "size": 1.0
+      },
+      "audio_out": {
+        "x": 0.5,
+        "y": 0.86,
+        "side": "front",
+        "size": 1.0
+      },
+      "sync_in": {
+        "x": 0.5,
+        "y": 0.62,
+        "side": "back",
+        "size": 1.0
+      },
+      "sub_out": {
+        "x": 0.5,
+        "y": 0.86,
+        "side": "back",
+        "size": 1.0
+      }
+    },
+    "box": {
+      "width": 50.5,
+      "height": 128.5,
+      "depth": 25
+    },
+    "face": "front",
+    "features": [
+      {
+        "kind": "logo",
+        "text": "VCO",
+        "x": 0.5,
+        "y": 0.045,
+        "w": 0.66,
+        "h": 0.05,
+        "side": "front"
+      },
+      {
+        "kind": "plate",
+        "x": 0.5,
+        "y": 0.26,
+        "w": 0.86,
+        "h": 0.3,
+        "side": "front",
+        "label": "Controls"
+      },
+      {
+        "kind": "plate",
+        "x": 0.5,
+        "y": 0.745,
+        "w": 0.86,
+        "h": 0.34,
+        "side": "front",
+        "label": "Patch bay"
+      },
+      {
+        "kind": "label",
+        "text": "BUS",
+        "x": 0.5,
+        "y": 0.3,
+        "w": 0.5,
+        "h": 0.06,
+        "side": "back"
+      },
+      {
+        "kind": "vent",
+        "x": 0.5,
+        "y": 0.13,
+        "w": 0.7,
+        "h": 0.1,
+        "side": "back"
+      }
+    ]
+  }
+}

@@ -1,12 +1,57 @@
 [project]
 name = "carlos"
 version = "0.1.0"
-description = "Add your description here"
+description = "A browser workspace for sketching virtual synth patches."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.116.1",
     "jinja2>=3.1.6",
+    # Imported directly by patch_format, catalogue, midi and interop. It
+    # arrives transitively with FastAPI, which is not the same as being a
+    # dependency of this project: a FastAPI that stopped requiring it would
+    # break this app for a reason nothing here declared.
+    "pydantic>=2.0",
     "tinydb>=4.8.2",
     "uvicorn>=0.35.0",
+    # `src/cli.py` imports it directly. It arrives transitively with uvicorn,
+    # which is not the same as being a dependency of this project: a uvicorn
+    # that stopped requiring it would break `carlos` for a reason nothing here
+    # declared. The same defect this project already fixed once for pydantic.
+    # Click is the house stack's CLI tool.
+    "click>=8.1",
+]
+
+# One entry point for every durable round. It dispatches and implements
+# nothing; see the header of `src/cli.py`. The commands it runs are commands
+# you can type yourself, and CI types them directly rather than installing
+# this, so a gate cannot fail for want of a package.
+[project.scripts]
+carlos = "tools.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src", "tools"]
+
+[tool.pytest.ini_options]
+# Deliberately no `testpaths`. The one-executable-walkthrough record measured
+# it: with `testpaths = ["walkthrough"]` set, `pytest tests` collects zero
+# pages, because `testpaths` is ignored the moment pytest is handed a path
+# argument. The invocation names the directory or the pages do not run, so the
+# command in README.md and AGENTS.md names both:
+#
+#     uv run pytest tests walkthrough --doctest-glob=*.md
+#
+# NORMALIZE_WHITESPACE keeps pages readable; ELLIPSIS lets a page show the
+# shape of a long value without pasting a hundred characters nobody reads.
+doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
+
+[dependency-groups]
+dev = [
+    "playwright>=1.62.0",
+    "pytest>=9.1.1",
+    "pytest-playwright>=0.9.0",
 ]

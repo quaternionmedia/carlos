@@ -1,0 +1,71 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "A stereo pair of semi-modulars recorded to a computer",
+  "modules": [
+    {
+      "id": "interface",
+      "type": "focusrite.scarlett-2i2",
+      "view": "front",
+      "parameters": {
+        "gain_1": 40,
+        "gain_2": 40,
+        "monitor_level": 85,
+        "direct_monitor": 30
+      }
+    },
+    {
+      "id": "dfam",
+      "type": "moog.dfam",
+      "view": "back",
+      "parameters": {}
+    },
+    {
+      "id": "sub",
+      "type": "moog.subharmonicon",
+      "view": "back",
+      "parameters": {}
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "dfam",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "interface",
+        "jack": "input_1"
+      }
+    },
+    {
+      "source": {
+        "module": "sub",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "interface",
+        "jack": "input_2"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "row-instruments",
+      "kind": "row",
+      "label": "Instruments",
+      "members": [
+        "dfam",
+        "sub"
+      ]
+    },
+    {
+      "id": "row-signal-path",
+      "kind": "row",
+      "label": "Signal path",
+      "members": [
+        "interface"
+      ]
+    }
+  ]
+}

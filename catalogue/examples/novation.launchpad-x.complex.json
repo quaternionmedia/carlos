@@ -1,0 +1,125 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "A grid playing a modular drum rig",
+  "modules": [
+    {
+      "id": "grid",
+      "type": "novation.launchpad-x",
+      "view": "top",
+      "parameters": {
+        "brightness": 96
+      }
+    },
+    {
+      "id": "seq",
+      "type": "squarp.hapax",
+      "view": "top",
+      "parameters": {
+        "tempo": 100,
+        "swing": 58,
+        "gate_length": 40
+      }
+    },
+    {
+      "id": "kick",
+      "type": "carlos.drum",
+      "view": "front",
+      "parameters": {
+        "tune": 16,
+        "decay": 74,
+        "snap": 24,
+        "level": 112
+      }
+    },
+    {
+      "id": "clap",
+      "type": "carlos.drum",
+      "view": "front",
+      "parameters": {
+        "tune": 70,
+        "decay": 38,
+        "snap": 104,
+        "level": 88
+      }
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "seq",
+        "jack": "gate_out_1"
+      },
+      "target": {
+        "module": "kick",
+        "jack": "trig_in"
+      }
+    },
+    {
+      "source": {
+        "module": "seq",
+        "jack": "gate_out_2"
+      },
+      "target": {
+        "module": "clap",
+        "jack": "trig_in"
+      }
+    },
+    {
+      "source": {
+        "module": "seq",
+        "jack": "cv_out_1"
+      },
+      "target": {
+        "module": "kick",
+        "jack": "tone_cv_in"
+      }
+    },
+    {
+      "source": {
+        "module": "seq",
+        "jack": "cv_out_2"
+      },
+      "target": {
+        "module": "clap",
+        "jack": "decay_cv_in"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "row-1",
+      "kind": "row",
+      "label": "Voices",
+      "members": [
+        "kick",
+        "clap"
+      ]
+    }
+  ],
+  "display": {
+    "mode": "irl"
+  },
+  "midi": [
+    {
+      "id": "bind-1",
+      "source": {
+        "type": "note",
+        "channel": 10,
+        "note": 36
+      },
+      "module": "kick",
+      "label": "note 36 ch 10"
+    },
+    {
+      "id": "bind-2",
+      "source": {
+        "type": "note",
+        "channel": 10,
+        "note": 39
+      },
+      "module": "clap",
+      "label": "note 39 ch 10"
+    }
+  ]
+}

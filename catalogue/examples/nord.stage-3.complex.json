@@ -1,0 +1,107 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "Stage 3 playing the room and sequencing the rack",
+  "modules": [
+    {
+      "id": "nord",
+      "type": "nord.stage-3",
+      "view": "back",
+      "parameters": {
+        "master_level": 100,
+        "organ_level": 80,
+        "rotary_speed": 90
+      }
+    },
+    {
+      "id": "hapax",
+      "type": "squarp.hapax",
+      "view": "back",
+      "parameters": {}
+    },
+    {
+      "id": "desk",
+      "type": "allen-heath.qu24",
+      "view": "back",
+      "parameters": {}
+    },
+    {
+      "id": "sub",
+      "type": "moog.subharmonicon",
+      "view": "back",
+      "parameters": {}
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "nord",
+        "jack": "out_l"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "mic_in_1"
+      }
+    },
+    {
+      "source": {
+        "module": "nord",
+        "jack": "out_r"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "mic_in_2"
+      }
+    },
+    {
+      "source": {
+        "module": "nord",
+        "jack": "midi_out"
+      },
+      "target": {
+        "module": "hapax",
+        "jack": "midi_a_in"
+      }
+    },
+    {
+      "source": {
+        "module": "hapax",
+        "jack": "cv_out_1"
+      },
+      "target": {
+        "module": "sub",
+        "jack": "vco1_cv_in"
+      }
+    },
+    {
+      "source": {
+        "module": "desk",
+        "jack": "mix_out_1"
+      },
+      "target": {
+        "module": "nord",
+        "jack": "monitor_in"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "row-instruments",
+      "kind": "row",
+      "label": "Instruments",
+      "members": [
+        "nord",
+        "hapax",
+        "sub"
+      ]
+    },
+    {
+      "id": "row-signal-path",
+      "kind": "row",
+      "label": "Signal path",
+      "members": [
+        "desk"
+      ]
+    }
+  ]
+}

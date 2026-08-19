@@ -1,0 +1,122 @@
+# The project's own checks.
+#
+# Every other workflow here is a governance gate out of `governance/qm`. Until
+# this file existed, **nothing ran the tests** - a reviewer seeing green checks
+# was reading six gates about records, signatures and licensing, and could
+# reasonably have believed the suite had passed. It had only ever run on one
+# workstation.
+#
+# Two jobs, split the way `DRAFT-one-executable-walkthrough.md` decision 8
+# requires: hermetic pages run everywhere, and the runtime-bound page runs in a
+# job that provisions its runtime and fails rather than skipping when it is
+# absent. A skip is not a pass.
+#
+# Decision 7 of that record is the one this file cannot satisfy by existing: a
+# page that ran somewhere nobody merges has not run, and the evidence has to be
+# the identifier of an actual job run on the default branch. **A file that would
+# have run is not a run.**
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [they]
+
+jobs:
+  hermetic:
+    name: Suite and hermetic pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Sync
+        run: uv sync --all-groups
+
+      # Named explicitly, both of them. `testpaths` is ignored the moment
+      # pytest is handed a path argument, so a walkthrough wired that way is
+      # collected by nobody and stays green forever.
+      - name: Suite, and the hermetic walkthrough pages
+        run: >-
+          uv run pytest tests --ignore=tests/browser
+          walkthrough/01-onboarding.md
+          walkthrough/02-the-catalogue.md
+          walkthrough/03-a-modular-drum-rig.md
+          walkthrough/04-cookbook.md
+          --doctest-glob=*.md -q
+
+      # The frontend harnesses. The model is not the screen: two of this
+      # project's real bugs were invisible to every model-level test.
+      - name: Frontend harnesses
+        run: |
+          node tests/view_toggle.js
+          node tests/rack_behaviour.js
+          node tests/cable_tracing.js
+          node tests/click_layers.js
+
+  browser:
+    name: The browser page
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Sync
+        run: uv sync --all-groups
+
+      # Provisioning the runtime, and asserting it is there before collection.
+      # An absent browser has to fail the build rather than vanish into a skip
+      # count, so this step is separate and its failure is the report.
+      - name: Provision Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Assert the browser is reachable
+        run: >-
+          uv run python -c "from playwright.sync_api import sync_playwright;
+          p = sync_playwright().start();
+          b = p.chromium.launch();
+          print('chromium', b.version);
+          b.close(); p.stop()"
+
+      - name: The browser suite
+        run: uv run pytest tests/browser -q
+
+      - name: The runtime-bound page
+        run: uv run pytest walkthrough/05-in-the-browser.md --doctest-glob=*.md -q
+
+      # There is no screenshot-drift check here, and there was one.
+      #
+      # `DRAFT-one-executable-walkthrough.md` §4 says the artifact is *recorded,
+      # never compared*, and gives the reason: "a test that diffs images fails
+      # on a font and gets switched off". This job diffed `walkthrough/media`
+      # against the committed copies, and on the first run that happened
+      # anywhere but one Windows workstation it failed on exactly that - Linux
+      # renders the same DOM to different bytes.
+      #
+      # Removed rather than pinned to a platform, because the record already
+      # says where regression protection belongs: in the assertions. The
+      # runtime-bound page makes them against the real component and asserts its
+      # own artifacts exist, so "somebody forgot" is still a red build. The
+      # pictures are output, and they are kept below.
+
+      - name: Keep what it drew
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: walkthrough-media
+          path: walkthrough/media/
+          if-no-files-found: error

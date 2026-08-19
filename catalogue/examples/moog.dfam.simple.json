@@ -1,0 +1,20 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "DFAM alone, tuned for a kick",
+  "modules": [
+    {
+      "id": "dfam",
+      "type": "moog.dfam",
+      "view": "front",
+      "parameters": {
+        "vco1_freq": 12,
+        "vcf_cutoff": 40,
+        "vca_decay": 18,
+        "noise_level": 0
+      }
+    }
+  ],
+  "connections": [],
+  "groups": []
+}

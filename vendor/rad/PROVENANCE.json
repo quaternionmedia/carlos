@@ -1,0 +1,15 @@
+{
+  "source": "https://github.com/quaternionmedia/rad",
+  "file": "conformance/vectors.json",
+  "vectors_version": "0.3.0",
+  "upstream_commit": "b85474753fa9d2197b54ceeaba2c9a6fe81fbb20",
+  "upstream_committed": "2026-08-10T13:53:14Z",
+  "vendored_on": "2026-08-17",
+  "why": [
+    "rad's contract is the seam and its vectors are the executable half of it.",
+    "They are vendored rather than fetched so the test suite has no network",
+    "dependency and so an upstream change is a reviewed diff rather than a",
+    "silent behaviour change. Refresh by re-copying and re-running the suite;",
+    "a vectors_version bump is a deliberate act."
+  ]
+}

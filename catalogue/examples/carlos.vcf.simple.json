@@ -1,0 +1,15 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "One filter",
+  "modules": [
+    {
+      "id": "vcf",
+      "type": "carlos.vcf",
+      "view": "front",
+      "parameters": {}
+    }
+  ],
+  "connections": [],
+  "groups": []
+}

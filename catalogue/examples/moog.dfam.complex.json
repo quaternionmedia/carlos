@@ -1,0 +1,69 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "DFAM self-patched: envelope opens the filter, pitch tracks VCO 2",
+  "modules": [
+    {
+      "id": "dfam",
+      "type": "moog.dfam",
+      "view": "front",
+      "parameters": {
+        "vco1_freq": 20,
+        "vco2_freq": 55,
+        "noise_level": 35,
+        "vcf_cutoff": 60,
+        "vcf_resonance": 70,
+        "vca_decay": 30
+      }
+    },
+    {
+      "id": "interface",
+      "type": "focusrite.scarlett-2i2",
+      "view": "front",
+      "parameters": {}
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "dfam",
+        "jack": "vca_eg_out"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "vcf_cutoff_in"
+      }
+    },
+    {
+      "source": {
+        "module": "dfam",
+        "jack": "pitch_out"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "vco2_cv_in"
+      }
+    },
+    {
+      "source": {
+        "module": "dfam",
+        "jack": "vcf_eg_out"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "vca_decay_in"
+      }
+    },
+    {
+      "source": {
+        "module": "dfam",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "interface",
+        "jack": "input_1"
+      }
+    }
+  ],
+  "groups": []
+}

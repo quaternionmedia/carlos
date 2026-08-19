@@ -1,0 +1,97 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "K.O. II sampling the rack and clocking it back",
+  "modules": [
+    {
+      "id": "ko2",
+      "type": "teenage-engineering.ep-133",
+      "view": "top",
+      "parameters": {
+        "tempo": 96,
+        "swing": 58,
+        "fx_amount": 30
+      }
+    },
+    {
+      "id": "sub",
+      "type": "moog.subharmonicon",
+      "view": "front",
+      "parameters": {}
+    },
+    {
+      "id": "dfam",
+      "type": "moog.dfam",
+      "view": "front",
+      "parameters": {}
+    },
+    {
+      "id": "desk",
+      "type": "allen-heath.qu24",
+      "view": "back",
+      "parameters": {}
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "sub",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "ko2",
+        "jack": "line_in"
+      }
+    },
+    {
+      "source": {
+        "module": "ko2",
+        "jack": "sync_out"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "adv_clock_in"
+      }
+    },
+    {
+      "source": {
+        "module": "ko2",
+        "jack": "line_out"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "mic_in_1"
+      }
+    },
+    {
+      "source": {
+        "module": "dfam",
+        "jack": "audio_out"
+      },
+      "target": {
+        "module": "desk",
+        "jack": "mic_in_2"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "row-instruments",
+      "kind": "row",
+      "label": "Instruments",
+      "members": [
+        "ko2",
+        "sub",
+        "dfam"
+      ]
+    },
+    {
+      "id": "row-signal-path",
+      "kind": "row",
+      "label": "Signal path",
+      "members": [
+        "desk"
+      ]
+    }
+  ]
+}

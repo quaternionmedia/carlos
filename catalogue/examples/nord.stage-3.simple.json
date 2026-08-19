@@ -1,0 +1,42 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "Stage 3 into an interface",
+  "modules": [
+    {
+      "id": "nord",
+      "type": "nord.stage-3",
+      "view": "back",
+      "parameters": {}
+    },
+    {
+      "id": "interface",
+      "type": "focusrite.scarlett-2i2",
+      "view": "back",
+      "parameters": {}
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "nord",
+        "jack": "out_l"
+      },
+      "target": {
+        "module": "interface",
+        "jack": "input_1"
+      }
+    },
+    {
+      "source": {
+        "module": "nord",
+        "jack": "out_r"
+      },
+      "target": {
+        "module": "interface",
+        "jack": "input_2"
+      }
+    }
+  ],
+  "groups": []
+}

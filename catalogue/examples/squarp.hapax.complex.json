@@ -1,0 +1,118 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "Hapax as the clock and brain of a four-machine rig",
+  "modules": [
+    {
+      "id": "hapax",
+      "type": "squarp.hapax",
+      "view": "back",
+      "parameters": {
+        "tempo": 124,
+        "swing": 56
+      }
+    },
+    {
+      "id": "dfam",
+      "type": "moog.dfam",
+      "view": "front",
+      "parameters": {}
+    },
+    {
+      "id": "sub",
+      "type": "moog.subharmonicon",
+      "view": "back",
+      "parameters": {}
+    },
+    {
+      "id": "nord",
+      "type": "nord.stage-3",
+      "view": "back",
+      "parameters": {}
+    },
+    {
+      "id": "ko2",
+      "type": "teenage-engineering.ep-133",
+      "view": "top",
+      "parameters": {
+        "tempo": 124
+      }
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "hapax",
+        "jack": "cv_out_1"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "vco1_cv_in"
+      }
+    },
+    {
+      "source": {
+        "module": "hapax",
+        "jack": "gate_out_1"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "trigger_in"
+      }
+    },
+    {
+      "source": {
+        "module": "hapax",
+        "jack": "cv_out_2"
+      },
+      "target": {
+        "module": "sub",
+        "jack": "vco1_cv_in"
+      }
+    },
+    {
+      "source": {
+        "module": "hapax",
+        "jack": "midi_a_out"
+      },
+      "target": {
+        "module": "sub",
+        "jack": "midi_in"
+      }
+    },
+    {
+      "source": {
+        "module": "hapax",
+        "jack": "midi_b_out"
+      },
+      "target": {
+        "module": "nord",
+        "jack": "midi_in"
+      }
+    },
+    {
+      "source": {
+        "module": "hapax",
+        "jack": "clock_out"
+      },
+      "target": {
+        "module": "ko2",
+        "jack": "sync_in"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "id": "row-instruments",
+      "kind": "row",
+      "label": "Instruments",
+      "members": [
+        "hapax",
+        "dfam",
+        "sub",
+        "nord",
+        "ko2"
+      ]
+    }
+  ]
+}

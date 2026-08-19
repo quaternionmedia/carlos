@@ -1,0 +1,19 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "One grid",
+  "modules": [
+    {
+      "id": "grid",
+      "type": "novation.launchpad-x",
+      "view": "top",
+      "parameters": {}
+    }
+  ],
+  "connections": [],
+  "groups": [],
+  "display": {
+    "mode": "minimal"
+  },
+  "midi": []
+}

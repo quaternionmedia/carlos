@@ -1,0 +1,484 @@
+{
+  "id": "squarp.hapax",
+  "maker": "Squarp Instruments",
+  "model": "Hapax",
+  "category": "sequencer",
+  "summary": "A two-project hardware sequencer with eight tracks per project, driving MIDI and CV/gate at once. Its output is time: notes, gates and clock. All connections are on the rear. The panel is drawn as a desktop sequencer: two displays over a step matrix, with the encoders between them. The matrix is drawn at the arrangement rather than counted off the product, so treat the grid as a caricature; the sockets and their sides are the part this entry is detailed about. The eight encoders under the displays move, and the track pads send MIDI.",
+  "fidelity": "detailed",
+  "jacks": [
+    {
+      "name": "midi_a_in",
+      "label": "MIDI A IN",
+      "type": "input",
+      "signal": "midi",
+      "side": "back",
+      "connector": "DIN-5"
+    },
+    {
+      "name": "midi_a_out",
+      "label": "MIDI A OUT",
+      "type": "output",
+      "signal": "midi",
+      "side": "back",
+      "connector": "DIN-5"
+    },
+    {
+      "name": "midi_b_in",
+      "label": "MIDI B IN",
+      "type": "input",
+      "signal": "midi",
+      "side": "back",
+      "connector": "DIN-5"
+    },
+    {
+      "name": "midi_b_out",
+      "label": "MIDI B OUT",
+      "type": "output",
+      "signal": "midi",
+      "side": "back",
+      "connector": "DIN-5"
+    },
+    {
+      "name": "usb_device",
+      "label": "USB DEVICE",
+      "type": "input",
+      "signal": "usb",
+      "side": "back",
+      "connector": "USB-B",
+      "note": "To a computer."
+    },
+    {
+      "name": "usb_host",
+      "label": "USB HOST",
+      "type": "output",
+      "signal": "usb",
+      "side": "back",
+      "connector": "USB-A",
+      "note": "To class-compliant MIDI gear."
+    },
+    {
+      "name": "cv_out_1",
+      "label": "CV 1",
+      "type": "output",
+      "signal": "cv",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "cv_out_2",
+      "label": "CV 2",
+      "type": "output",
+      "signal": "cv",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "cv_out_3",
+      "label": "CV 3",
+      "type": "output",
+      "signal": "cv",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "cv_out_4",
+      "label": "CV 4",
+      "type": "output",
+      "signal": "cv",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "gate_out_1",
+      "label": "GATE 1",
+      "type": "output",
+      "signal": "gate",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "gate_out_2",
+      "label": "GATE 2",
+      "type": "output",
+      "signal": "gate",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "gate_out_3",
+      "label": "GATE 3",
+      "type": "output",
+      "signal": "gate",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "gate_out_4",
+      "label": "GATE 4",
+      "type": "output",
+      "signal": "gate",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "clock_in",
+      "label": "CLOCK IN",
+      "type": "input",
+      "signal": "clock",
+      "side": "back",
+      "connector": "3.5mm"
+    },
+    {
+      "name": "clock_out",
+      "label": "CLOCK OUT",
+      "type": "output",
+      "signal": "clock",
+      "side": "back",
+      "connector": "3.5mm"
+    }
+  ],
+  "parameters": [
+    {
+      "name": "tempo",
+      "label": "BPM",
+      "min": 10,
+      "max": 400,
+      "default": 120,
+      "unit": "bpm"
+    },
+    {
+      "name": "swing",
+      "label": "SWING",
+      "min": 0,
+      "max": 100,
+      "default": 50,
+      "unit": "%"
+    },
+    {
+      "name": "gate_length",
+      "label": "GATE LEN",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_1",
+      "label": "E1",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_2",
+      "label": "E2",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_3",
+      "label": "E3",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_4",
+      "label": "E4",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_5",
+      "label": "E5",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_6",
+      "label": "E6",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_7",
+      "label": "E7",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "encoder_8",
+      "label": "E8",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    }
+  ],
+  "layout": {
+    "box": {
+      "width": 268,
+      "height": 46,
+      "depth": 172
+    },
+    "face": "top",
+    "controls": {
+      "tempo": {
+        "x": 0.075,
+        "y": 0.185,
+        "side": "top",
+        "size": 1.1,
+        "kind": "encoder"
+      },
+      "swing": {
+        "x": 0.075,
+        "y": 0.4,
+        "side": "top",
+        "size": 1.0,
+        "kind": "encoder"
+      },
+      "gate_length": {
+        "x": 0.075,
+        "y": 0.61,
+        "side": "top",
+        "size": 1.0,
+        "kind": "encoder"
+      },
+      "encoder_1": {
+        "x": 0.215,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_2": {
+        "x": 0.2764,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_3": {
+        "x": 0.3379,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_4": {
+        "x": 0.3993,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_5": {
+        "x": 0.4607,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_6": {
+        "x": 0.5221,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_7": {
+        "x": 0.5836,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      },
+      "encoder_8": {
+        "x": 0.645,
+        "y": 0.36,
+        "side": "top",
+        "size": 0.8,
+        "kind": "encoder"
+      }
+    },
+    "jacks": {
+      "midi_a_in": {
+        "x": 0.055,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "midi_a_out": {
+        "x": 0.115,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "midi_b_in": {
+        "x": 0.185,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "midi_b_out": {
+        "x": 0.245,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "usb_device": {
+        "x": 0.33,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "usb_host": {
+        "x": 0.39,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "cv_out_1": {
+        "x": 0.475,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "cv_out_2": {
+        "x": 0.515,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "cv_out_3": {
+        "x": 0.555,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "cv_out_4": {
+        "x": 0.595,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "gate_out_1": {
+        "x": 0.665,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "gate_out_2": {
+        "x": 0.705,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "gate_out_3": {
+        "x": 0.745,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "gate_out_4": {
+        "x": 0.785,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "clock_in": {
+        "x": 0.87,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "clock_out": {
+        "x": 0.93,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      }
+    },
+    "features": [
+      {
+        "kind": "logo",
+        "text": "HAPAX",
+        "x": 0.078,
+        "y": 0.87,
+        "w": 0.12,
+        "h": 0.07,
+        "side": "top"
+      },
+      {
+        "kind": "screen",
+        "text": "TRACK",
+        "x": 0.3,
+        "y": 0.18,
+        "w": 0.23,
+        "h": 0.23,
+        "side": "top",
+        "source": "last-event"
+      },
+      {
+        "kind": "screen",
+        "text": "PATTERN",
+        "x": 0.56,
+        "y": 0.18,
+        "w": 0.23,
+        "h": 0.23,
+        "side": "top",
+        "source": "transport"
+      },
+      {
+        "kind": "pads",
+        "rows": 2,
+        "cols": 8,
+        "x": 0.43,
+        "y": 0.56,
+        "w": 0.49,
+        "h": 0.18,
+        "side": "top",
+        "label": "Track select",
+        "emits": "midi-note",
+        "channel": 1,
+        "note": 60
+      },
+      {
+        "kind": "pads",
+        "rows": 2,
+        "cols": 16,
+        "x": 0.5,
+        "y": 0.83,
+        "w": 0.9,
+        "h": 0.23,
+        "side": "top",
+        "label": "Step matrix",
+        "emits": "event"
+      },
+      {
+        "kind": "buttons",
+        "rows": 4,
+        "cols": 2,
+        "x": 0.895,
+        "y": 0.4,
+        "w": 0.13,
+        "h": 0.36,
+        "side": "top",
+        "label": "Transport",
+        "emits": "event"
+      },
+      {
+        "kind": "label",
+        "text": "REAR PANEL",
+        "x": 0.5,
+        "y": 0.16,
+        "w": 0.3,
+        "h": 0.12,
+        "side": "back"
+      }
+    ]
+  }
+}

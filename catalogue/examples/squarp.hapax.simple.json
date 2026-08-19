@@ -1,0 +1,44 @@
+{
+  "format": "carlos.patch",
+  "version": 3,
+  "name": "Hapax driving DFAM with one CV and one gate",
+  "modules": [
+    {
+      "id": "hapax",
+      "type": "squarp.hapax",
+      "view": "back",
+      "parameters": {
+        "tempo": 110
+      }
+    },
+    {
+      "id": "dfam",
+      "type": "moog.dfam",
+      "view": "front",
+      "parameters": {}
+    }
+  ],
+  "connections": [
+    {
+      "source": {
+        "module": "hapax",
+        "jack": "cv_out_1"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "vco1_cv_in"
+      }
+    },
+    {
+      "source": {
+        "module": "hapax",
+        "jack": "gate_out_1"
+      },
+      "target": {
+        "module": "dfam",
+        "jack": "trigger_in"
+      }
+    }
+  ],
+  "groups": []
+}

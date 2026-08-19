@@ -1,0 +1,1344 @@
+/* === BASE STYLES === */
+body {
+    margin: 0;
+    /* Nothing is reserved on any edge. Fifty-six pixels used to be held at the
+       top for a status bar that has since moved into the palette, and the
+       reservation outlived it: a strip of empty ground above every rack,
+       clearing something that was no longer there. */
+    padding: 20px 20px 24px;
+    /* The house navy. Only the ground changes: the rack, the modules and every
+       signal colour above it are what they were, because a background is the
+       one surface that can be restated without restating anything on it. */
+    background: linear-gradient(135deg, var(--qm-navy), var(--qm-navy-deep));
+    font-family: 'Courier New', monospace;
+    color: #00ff88;
+}
+
+.rack-container {
+    background: #111;
+    border: 3px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    position: relative;
+}
+
+/* === MODULE STYLES === */
+/* Width follows the device: a 2i2 is small, a DFAM's patch bay is not. */
+.module {
+    display: inline-block;
+    /* Positioned so it can be stacked: a device sits above the cable layer that
+       runs behind it and below the one that runs in front. In flow it painted
+       under both, which is what put a lead going round the back on top of the
+       device it was going round. */
+    position: relative;
+    z-index: 2;
+    background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+    border: 2px solid #444;
+    border-radius: 6px;
+    padding: 15px;
+    margin: 10px;
+    min-width: 190px;
+    max-width: 340px;
+    vertical-align: top;
+}
+
+.module-title {
+    text-align: center;
+    color: #00ff88;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    padding-right: 22px;
+}
+
+.module-maker {
+    display: block;
+    font-size: 8px;
+    font-weight: normal;
+    color: #777;
+    letter-spacing: 1px;
+}
+
+/* === CONTROL STYLES === */
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    margin: 15px 0;
+}
+
+.knob {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    margin: 5px;
+    /* A knob is turned by dragging up and down; `pointer` said it was a link. */
+    cursor: ns-resize;
+}
+
+/* Both arrangements draw the same control, so both need the same two things:
+   the browser must not claim the drag for scrolling, and a knob reached by
+   keyboard must be visible. */
+.knob,
+.irl-knob {
+    touch-action: none;
+}
+
+.knob:focus-visible,
+.irl-knob:focus-visible {
+    outline: none;
+}
+
+.knob:focus-visible .knob-base,
+.irl-knob:focus-visible .knob-base {
+    border-color: var(--rad-ink);
+    box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.45);
+}
+
+.irl-knob {
+    cursor: ns-resize;
+}
+
+.knob-base {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, #333, #111);
+    border: 2px solid #555;
+    border-radius: 50%;
+}
+
+.knob-indicator {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    width: 2px;
+    height: 15px;
+    background: #00ff88;
+    transform-origin: 50% 15px;
+    transform: translateX(-50%);
+    border-radius: 1px;
+    box-shadow: 0 0 5px rgba(0, 255, 136, 0.8);
+}
+
+.knob-label {
+    text-align: center;
+    font-size: 8px;
+    color: #888;
+    margin-top: 3px;
+}
+
+/* === JACK STYLES === */
+.patch-bay {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    align-items: flex-start;
+}
+
+.jack-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.jack-section h4 {
+    font-size: 10px;
+    color: #666;
+    margin: 0 0 6px 0;
+    text-align: center;
+    border-bottom: 1px solid #2a2a2a;
+    padding-bottom: 3px;
+}
+
+/* Jacks wrap into rows, so a 22-point patch bay stays inside the module. */
+.jack-slot {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    width: 46px;
+    margin-bottom: 4px;
+    vertical-align: top;
+}
+
+.jack-label {
+    font-size: 7px;
+    color: #777;
+    text-align: center;
+    line-height: 1.1;
+    margin-top: 2px;
+    overflow-wrap: anywhere;
+}
+
+.jack {
+    width: 16px;
+    height: 16px;
+    background: radial-gradient(circle, #222, #000);
+    border: 1px solid #555;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.jack:hover {
+    border-color: #00ff88;
+    box-shadow: 0 0 8px rgba(0, 255, 136, 0.6);
+}
+
+.jack.connected {
+    background: radial-gradient(circle, #00ff88, #00aa55);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+}
+
+/* === PATCH CABLES === */
+svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* The layer under the gear.
+
+   Three numbers in one order: this layer at 1, devices at 2, the front cable
+   layer at 5. Nothing here is negative, and that is deliberate.
+
+   The obvious version of this rule was `z-index: -1` on the layer, letting it
+   paint in the step before in-flow content. It made every dashed lead vanish.
+   A negative child paints above its *stacking context's* background, and
+   `.rack-container` is `position: relative` with `z-index: auto`, which does
+   not create one — so the layer went below the rack's own opaque `#111` and the
+   cables were painted behind the floor they run across.
+
+   Lifting the gear is the version with no such trap: three positive numbers in
+   one stacking context, and the only thing that has to be true is that they are
+   in order. */
+#patch-cables-behind {
+    z-index: 1;
+}
+
+
+
+
+
+
+
+
+
+/* === DEVICE SIDES === */
+/* A device turns in place. Nothing about the rack's layout changes when one
+   module is turned round, so the rack itself carries no view state. */
+.rack-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    flex-direction: column;
+}
+
+.module {
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* One face per side; only the active one is laid out. Toggled by class rather
+   than by a rule per side, so a new side needs no new CSS. */
+.face {
+    display: none;
+}
+
+.face.active {
+    display: block;
+}
+
+/* Any side that is not the front is somewhere you had to turn the device to
+   see, and looking at one should not be ambiguous. */
+.module:not([data-view="front"]) {
+    background: linear-gradient(145deg, #241d14, #161009);
+    border-color: #5a4326;
+}
+
+.module:not([data-view="front"]) .module-title,
+.module:not([data-view="front"]) .jack-section h4 {
+    color: #ff9f43;
+}
+
+.module:not([data-view="front"]) .jack:hover {
+    border-color: #ff9f43;
+    box-shadow: 0 0 8px rgba(255, 159, 67, 0.6);
+}
+
+.module:not([data-view="front"]) .jack.connected {
+    background: radial-gradient(circle, #ff9f43, #aa5f10);
+    box-shadow: 0 0 10px rgba(255, 159, 67, 0.8);
+}
+
+.side-tag {
+    font-size: 8px;
+    color: #8a6a3a;
+    margin-left: 6px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.module-flip:disabled {
+    opacity: 0.25;
+    cursor: default;
+}
+
+/* === GROUPS === */
+.rack-group {
+    width: 100%;
+    border: 1px dashed #333;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.015);
+}
+
+.rack-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border-bottom: 1px dashed #2a2a2a;
+}
+
+.rack-group-label {
+    font-size: 10px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.rack-group-count {
+    font-size: 9px;
+    color: #555;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 0 6px;
+}
+
+.rack-group-remove {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0 4px;
+}
+
+.rack-group-remove:hover {
+    color: #ff6b6b;
+}
+
+/* A row is a row: devices in it never wrap onto a second line. */
+.rack-shelf {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    align-items: flex-start;
+    padding: 4px;
+}
+
+.rack-loose {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    width: 100%;
+}
+
+/* The device Tab acts on. */
+.module.selected {
+    border-color: #ffe066;
+    box-shadow: 0 0 14px rgba(255, 224, 102, 0.35);
+}
+
+.module-flip {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: #1a1a1a;
+    color: #888;
+    border: 1px solid #444;
+    border-radius: 3px;
+    width: 20px;
+    height: 18px;
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+.module-flip:hover {
+    color: #00ff88;
+    border-color: #00ff88;
+}
+
+.module[data-view="back"] .module-flip:hover {
+    color: #ff9f43;
+    border-color: #ff9f43;
+}
+
+/* A jack whose cable runs round to the other side. */
+.jack.through {
+    border-style: dashed;
+    border-color: #8a6a3a;
+}
+
+.empty-bay {
+    font-size: 9px;
+    color: #555;
+    text-align: center;
+    margin-top: 15px;
+}
+
+/* === FOCUS === */
+/* Keyboard focus was invisible everywhere, which made every control this
+   release opened up to the keyboard reachable and unfindable. */
+.jack:focus-visible {
+    outline: 2px solid var(--rad-ink);
+    outline-offset: 2px;
+}
+
+.module:not([data-view="front"]) .jack:focus-visible {
+    outline-color: var(--rad-rear);
+}
+
+.module-flip:focus-visible,
+.rack-group-remove:focus-visible,
+#patch-name:focus-visible {
+    outline: 2px solid var(--rad-ink);
+    outline-offset: 1px;
+}
+
+/* A jack waiting for its other end. */
+.jack.arming {
+    border-color: #ffe066;
+    box-shadow: 0 0 12px rgba(255, 224, 102, 0.9);
+}
+
+
+
+#patch-name {
+    background: var(--rad-hub);
+    border: 1px solid var(--rad-surface-edge);
+    color: var(--rad-ink);
+    font-family: inherit;
+    font-size: 11px;
+    padding: 5px 7px;
+    border-radius: 3px;
+    min-width: 0;
+}
+
+#patch-name:focus {
+    outline: none;
+    border-color: var(--rad-ink);
+}
+
+#view-indicator {
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--rad-ink);
+    border: 1px solid var(--rad-surface-edge);
+    border-radius: 3px;
+    padding: 2px 6px;
+}
+
+
+
+kbd {
+    background: #222;
+    border: 1px solid #555;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-family: inherit;
+    font-size: 9px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+/* === THEME TOKENS === */
+/* Colour is a token, never a literal — rad's contract requires it, because a
+   hex cannot survive a theme change and makes two implementations that agree
+   on meaning disagree on bytes. Intents carry token names like `color:signal`;
+   what they resolve to is the theme's business and lives here. */
+:root {
+    /* The ground everything else sits on. Named rather than inlined so the two
+       stops of the gradient cannot drift apart, and so a theme has one place to
+       change rather than a literal to find.
+
+       `#003054` is not invented here: it is the navy that recurs across the
+       org's projects, counted rather than remembered. The second stop is the
+       same colour deepened, so the gradient carries depth without introducing
+       a second hue nobody chose. */
+    --qm-navy: #003054;
+    --qm-navy-deep: #001d33;
+
+    --rad-surface: #12140f;
+    --rad-surface-edge: #2f3a2b;
+    /* The ring's own colours, taken from rad-android rather than invented
+       here. It is the family's most fully branded surface, and a menu that
+       looks like this app instead of like rad is a menu somebody has to learn
+       twice.
+
+       Red-free neon on purpose, which is rad-android's word for it: violet
+       carries the wedges, turquoise the hub, lime the push zone. Nothing in
+       the set is red, so red never has to mean two things.
+
+       These are the ring only. The rack keeps its green: this app is not
+       rad-android, it is an app that has rad's menu in it, and repainting the
+       gear would be claiming otherwise. */
+    --rad-wedge: #4b3b75;
+    --rad-wedge-hover: #b84fff;
+    --rad-wedge-ink: #ffffff;
+    --rad-wedge-ink-hot: #241033;
+    --rad-hub-idle: #241b36;
+    --rad-hub-live: #2de2e6;
+    --rad-hub-ink: #ffffff;
+    --rad-push: #d4ff4f;
+    --rad-glow: #b9a9e8;
+    /* The board the wedges sit on. Lavender at low alpha, and deliberately
+       not one of the three signal hues: nothing here is a state to read. */
+    --rad-backing: rgba(136, 116, 196, 0.16);
+    /* Mid grey rather than black. rad-android's note, and it is the same
+       problem here: over a dark field a black shadow composites to nothing,
+       so the depth it is supposed to give never arrives. */
+    --rad-wedge-shadow: rgba(128, 128, 128, 0.55);
+    --rad-ink: #00ff88;
+    --rad-ink-dim: #6c7a68;
+    --rad-signal: #00ff88;
+    --rad-rear: #ff9f43;
+
+    /* The ends of the lane gradient. A split cable tints each strand along
+       this scale, so "which channel is that" is answerable by colour before
+       anything is hovered - four strands in one green are four strands, and
+       four strands walking a scale are four channels.
+
+       Both ends are signal colours rather than an arbitrary pair: the low end
+       is the green everything else on this layer uses, and the high end is a
+       cooler version of it, so a bundle still reads as one cable. */
+    --rad-lane-low: #00ff88;
+    --rad-lane-high: #35b6ff;
+
+    /* Channel 10, which is the drums by a convention nothing enforces and
+       everything obeys. Off the scale on purpose: it is not "further along"
+       than channel 9, it is the one you are looking for. */
+    --rad-lane-drums: #ffd23f;
+
+    /* How heavy a cable is drawn. Slight by default: a rack is mostly gear,
+       and a lead is the thing running between two bits of it rather than the
+       subject. Two pixels made a rig of eight cables read as a cable diagram
+       with some devices in the background. The weights that matter - the drum
+       lane, the one you are following - are heavier *relative* to this, so
+       thinning the default is what gives them somewhere to stand out from. */
+    --cable-weight: 1.1;
+    --cable-weight-drums: 2;
+    --cable-weight-traced: 2.4;
+    --rad-danger: #ff6b6b;
+    --rad-hub: #0b0d09;
+    /* What a panel lifted off the rack casts. A token like any other colour:
+       a theme that lightens the surface has to lighten this with it. */
+    --rad-shadow: rgba(0, 0, 0, 0.55);
+}
+
+/* === STATUS LINE === */
+/* Fixed at the top, in the room `body` already reserves for it. This rule was
+   dropped when the inline stylesheet moved into this file, which left the
+   element in normal flow under the patch bar and its reserved space empty. */
+.status {
+    /* In the panel, not across the window. It was `position: fixed` at the top
+       of the viewport: the commentary in one place, the facts it was
+       commenting on in another, and eight pixels of every rack given up to a
+       line that is usually idle. */
+    margin-top: 10px;
+    padding: 7px 9px;
+    border-radius: 4px;
+    background: var(--rad-hub);
+    border: 1px solid var(--rad-surface-edge);
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--rad-ink);
+    /* One line, whatever the message. A status that wraps changes the height
+       of the bar, moves the rack, and so moves every cable endpoint it was
+       describing. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* === RADIAL MENU === *//* === RADIAL MENU === */
+.rad-layer {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 60;
+    pointer-events: none;
+}
+
+/* A thin gap between wedges and a shadow under the highlighted one, which is
+   rad-android's answer to a ring that is otherwise a flat colour swap: the
+   active wedge gets real depth instead of just a different fill.
+
+   The gap is a stroke in the field's own colour rather than a smaller path.
+   Only the drawn shape changes; hit testing stays the perfect uniform slice it
+   always was, which is the same split rad-android makes between the shape a
+   wedge appears to have and the angle band it actually answers to. */
+/* === THE BAR ===
+   A pinned ring at rest. It lives in the navy above the rack rather than over
+   it: that strip is background nothing is drawn in, so a title can have it
+   without taking anything from the gear. */
+.rad-bar {
+    fill: var(--rad-hub-idle);
+    stroke: var(--rad-hub-live);
+    stroke-width: 0;
+}
+
+.rad-layer.is-resting .rad-bar {
+    /* One hairline along the bottom edge only, drawn as a border would be. */
+    stroke: var(--rad-hub-live);
+    stroke-width: 1;
+    stroke-dasharray: 0;
+}
+
+.rad-bar-text {
+    fill: var(--rad-hub-ink);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+/* The dots between the facts. Dim, and the only thing separating them: four
+   drawn rules in one strip is a strip nobody reads. */
+.rad-bar-dot {
+    fill: var(--rad-hub-live);
+    opacity: 0.45;
+}
+
+/* The one drawn separator, between what the rack is and what just happened. */
+.rad-bar-rule {
+    stroke: var(--rad-hub-live);
+    stroke-width: 1;
+    opacity: 0.4;
+}
+
+/* What the app last answered. The turquoise the hub uses, so the live half of
+   the bar is the one wearing the live colour. */
+.rad-bar-said {
+    fill: var(--rad-hub-live);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+.rad-bar-hint {
+    fill: var(--rad-hub-live);
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-anchor: end;
+    dominant-baseline: middle;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.rad-layer.is-moving .rad-bar {
+    fill: var(--rad-wedge);
+    stroke: var(--rad-push);
+}
+
+/* The rack starts below the bar rather than under it. The navy was always
+   there; this is the one thing given room in it. */
+body[data-ring="pinned"] {
+    padding-top: 46px;
+}
+
+/* Decoration, and it says so: no pointer events, no aria, no state. */
+.rad-backing {
+    fill: var(--rad-backing);
+    pointer-events: none;
+}
+
+.rad-wedge {
+    fill: var(--rad-wedge);
+    stroke: var(--qm-navy-deep);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    transition: fill 0.08s linear, filter 0.08s linear;
+}
+
+.rad-wedge.is-highlighted {
+    fill: var(--rad-wedge-hover);
+    stroke: var(--qm-navy-deep);
+    filter: drop-shadow(0 2px 5px var(--rad-wedge-shadow));
+}
+
+/* Destructive is a ring around the wedge, not a red one.
+   The family palette is red-free, and losing that to mark four items would
+   trade a whole scheme for a convention this app can carry another way: the
+   lime that marks the push zone is already the "this commits something"
+   colour, and nothing else on the ring is that hue. */
+.rad-wedge.is-destructive {
+    stroke: var(--rad-push);
+    stroke-dasharray: 4 3;
+}
+
+.rad-wedge.is-destructive.is-highlighted {
+    stroke: var(--rad-push);
+    stroke-dasharray: none;
+}
+
+.rad-wedge.is-disabled {
+    opacity: 0.35;
+}
+
+.rad-hub {
+    fill: var(--rad-hub-idle);
+    stroke: var(--rad-hub-live);
+    stroke-width: 1.5;
+}
+
+.rad-label {
+    fill: var(--rad-wedge-ink);
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+/* The label on the wedge you are pointing at, against the bright violet. */
+.rad-wedge.is-highlighted + .rad-label {
+    fill: var(--rad-wedge-ink-hot);
+}
+
+/* The hub reads the highlighted item's full name. It is the one place on the
+   ring where a whole word is ever spelled out, so it is the one place that is
+   sized to be read rather than recognised. */
+.rad-title {
+    fill: var(--rad-hub-ink);
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    text-anchor: middle;
+    pointer-events: none;
+}
+
+/* Nothing aimed at yet: the hub is saying what the ring is *of* rather than
+   naming a choice, and says it quietly. */
+.rad-title:not([data-highlighted]) {
+    fill: var(--rad-hub-live);
+    font-size: 9px;
+}
+
+/* Inside a submenu, releasing on the hub steps back. Saying so is the whole
+   of rad-android's fix for a back that worked and was invisible. */
+.rad-title[data-back] {
+    fill: var(--rad-push);
+}
+
+/* High contrast, the way rad-android does it.
+
+   Its rule is the whole point: colour comes out of every signal without the
+   signal coming out with it. Idle and highlighted become black-fill and
+   white-fill, and the text inverts to match; the hub does the same swap; the
+   decorative board goes entirely, because that mode is a correctness contract
+   for things you have to read and the board carries nothing.
+
+   Resolved from `prefers-contrast`, which is this platform's version of the
+   device setting rad-android reads. There is no in-app toggle: a preference
+   the browser already knows is not one this app should ask for a second time.
+
+   `forced-colors` is the stronger case - the browser is repainting everything
+   itself - so the same block answers both. Under it the system's own palette
+   wins whatever is written here, which is correct: those users chose their
+   colours and this file is not entitled to overrule them. */
+@media (prefers-contrast: more), (forced-colors: active) {
+    .rad-wedge {
+        fill: #000000;
+        stroke: #ffffff;
+        stroke-width: 2;
+    }
+
+    .rad-wedge.is-highlighted {
+        fill: #ffffff;
+        stroke: #ffffff;
+        /* The shadow was depth for a colour swap that no longer happens, and
+           a grey blur under a white shape is the one thing this mode cannot
+           afford. */
+        filter: none;
+    }
+
+    /* Destructive keeps a mark that is not a colour: the dashes stay, and are
+       the whole signal here rather than half of it. */
+    .rad-wedge.is-destructive {
+        stroke: #ffffff;
+        stroke-dasharray: 4 3;
+    }
+
+    .rad-wedge.is-destructive.is-highlighted {
+        stroke: #000000;
+        stroke-dasharray: 4 3;
+    }
+
+    .rad-label {
+        fill: #ffffff;
+    }
+
+    .rad-wedge.is-highlighted + .rad-label {
+        fill: #000000;
+    }
+
+    .rad-hub {
+        fill: #000000;
+        stroke: #ffffff;
+    }
+
+    .rad-title,
+    .rad-title:not([data-highlighted]) {
+        fill: #ffffff;
+    }
+
+    /* Decoration only, and this mode is for the things that are not. */
+    .rad-backing {
+        fill: transparent;
+    }
+}
+
+/* rad honours reduced motion: the menu still works, it just stops moving. */
+@media (prefers-reduced-motion: reduce) {
+    .rad-wedge {
+        transition: none;
+    }
+}
+
+/* === CABLES === */
+/* Every cable is drawn in every view. An end whose face is turned away is
+   anchored to its device's outline rather than dropped, so a lead can always be
+   followed to both of the devices it joins. */
+.cable {
+    pointer-events: none;
+    /* Tokens, not values. Every colour on this layer used to be written into
+       the SVG attribute by hand, which put two hex literals outside the
+       palette and outside any theme that follows it - and the weight went the
+       same way for the same reason. */
+    stroke: var(--rad-signal);
+    stroke-width: var(--cable-weight);
+}
+
+/* Wiring that leaves round the back reads as rear wiring wherever the device
+   happens to be pointing. */
+.cable.is-rear {
+    stroke: var(--rad-rear);
+}
+
+/* One strand of a split cable, tinted by where it sits along the run.
+   `--lane-mix` is set per strand by `createCable` as a number from 0 to 1: a
+   position, never a colour. The scale lives here with the rest of the
+   palette. */
+.cable.is-lane {
+    stroke: color-mix(
+        in oklab,
+        var(--rad-lane-high) calc(var(--lane-mix, 0) * 100%),
+        var(--rad-lane-low)
+    );
+}
+
+.cable.is-rear.is-lane {
+    stroke: color-mix(
+        in oklab,
+        var(--rad-lane-high) calc(var(--lane-mix, 0) * 100%),
+        var(--rad-rear)
+    );
+}
+
+/* The drums. Thicker and off the gradient, because channel 10 is not a point
+   on a scale - it is the one people are looking for. The `is-rear` rule above
+   is overridden deliberately: which side the socket is on matters less than
+   which channel this is. */
+.cable.is-drums,
+.cable.is-rear.is-drums {
+    stroke: var(--rad-lane-drums);
+    stroke-width: var(--cable-weight-drums);
+}
+
+/* The fat invisible copy of each cable that `cableAt` probes with
+   `isPointInStroke`. It is geometry, not a control: never painted, and never
+   interactive even if a later rule turns pointer events on for this layer. */
+.cable-hit {
+    fill: none;
+    /* Transparent rather than `none` - see `createCable`. A stroke of `none`
+       has no painting area, and `isPointInStroke` asks about exactly that. */
+    stroke: transparent;
+    pointer-events: none;
+}
+
+/* Part of this run is behind something. Still one continuous line. */
+.cable.is-occluded {
+    stroke-dasharray: 6 4;
+    opacity: 0.85;
+}
+
+/* Where a cable meets a device it enters out of sight. */
+.cable-anchor {
+    fill: var(--rad-hub, #0b0d09);
+    stroke: #8a6a3a;
+    stroke-width: 1.5;
+}
+
+/* Following one device: its cables come forward, the rest recede. Without this
+   a rack of any size is a plate of spaghetti. */
+svg.is-tracing .cable {
+    opacity: 0.18;
+}
+
+svg.is-tracing .cable.is-traced {
+    opacity: 1;
+    stroke-width: var(--cable-weight-traced);
+}
+
+svg.is-tracing .cable-anchor {
+    opacity: 0.25;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cable {
+        transition: none;
+    }
+}
+
+/* === IRL PANEL === */
+/* The same device, drawn to its own proportions with its controls where they
+   sit. Abstract, not photographic: what has to be right is the arrangement. */
+.irl-panel {
+    position: relative;
+    width: 100%;
+    aspect-ratio: var(--aspect, 1);
+    min-height: 90px;
+    background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.25)),
+        #16181a;
+    border: 1px solid #3a3f44;
+    border-radius: 4px;
+}
+
+.irl-panel.is-bare {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.irl-empty {
+    font-size: 9px;
+    color: #555;
+}
+
+.irl-knob,
+.irl-jack-slot {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+
+.irl-knob .knob-base {
+    width: calc(18px * var(--size, 1));
+    height: calc(18px * var(--size, 1));
+}
+
+.irl-knob-label {
+    display: block;
+    margin-top: 2px;
+    font-size: 6px;
+    color: #7c7c7c;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.irl-jack-slot .jack {
+    width: calc(11px * var(--size, 1));
+    height: calc(11px * var(--size, 1));
+}
+
+/* === THE TWO MODES ARE TWO JOBS === */
+/* `irl` draws a device close to its real shape: the width comes from the box in
+   the catalogue and the height from the face's own proportion. `minimal` is the
+   abstract box every device shares and fills to fit its content - it is not a
+   drawing of anything, so a proportion would be a claim it does not make. */
+body[data-display-mode="irl"] .module {
+    /* `--panel-width` is set per device from its measured width. The bounds are
+       the fallback for a device with no box, which draws at the old size. */
+    width: var(--panel-width, 300px);
+    min-width: auto;
+    max-width: none;
+}
+
+/* === PANEL FEATURES === */
+/* Everything on a panel that carries no value. These are what make a device
+   recognisable at a glance, which is the whole job of this mode: a Stage 3 with
+   its knobs and sockets and no keybed is not a Stage 3. */
+.irl-feature {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+}
+
+/* --- keybed --- */
+.irl-keybed {
+    background: #0e0f10;
+    border: 1px solid #3a3f44;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.irl-key {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, #e8e6e0, #b9b6ad);
+    border-right: 1px solid #2a2b2c;
+    box-sizing: border-box;
+}
+
+/* A sharp is shorter than a natural and sits on the boundary between two. */
+.irl-key.is-sharp {
+    bottom: 38%;
+    background: linear-gradient(180deg, #2b2d2f, #121314);
+    border: 1px solid #0a0a0b;
+    border-radius: 0 0 1px 1px;
+    z-index: 1;
+}
+
+/* --- pad and button grids --- */
+.irl-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 1), 1fr);
+    grid-template-rows: repeat(var(--rows, 1), 1fr);
+    gap: 2px;
+    width: 100%;
+    height: 100%;
+}
+
+.irl-cell {
+    background: linear-gradient(160deg, #34383c, #1c1f21);
+    border: 1px solid #45494e;
+    border-radius: 2px;
+    /* A cell that emits is a `<button>`, so it needs the browser's own
+       chrome taken off it before it looks like the rest of the panel. */
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* A cell that sends is a control, and says so under the hand. */
+button.irl-cell {
+    cursor: pointer;
+    touch-action: none;
+}
+
+button.irl-cell:hover {
+    border-color: var(--rad-ink);
+}
+
+button.irl-cell:focus-visible {
+    outline: 2px solid var(--rad-ink);
+    outline-offset: 1px;
+}
+
+/* Struck. Brief and bright, the way a pad lights: this is the only feedback
+   that a press went anywhere, and it is transient because the press is. */
+button.irl-cell.is-struck {
+    background: radial-gradient(circle, #ffffff, var(--rad-signal));
+    border-color: var(--rad-signal);
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.85);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    button.irl-cell.is-struck {
+        transition: none;
+    }
+}
+
+.irl-buttons .irl-cell {
+    border-radius: 1px;
+    background: linear-gradient(160deg, #2a2d30, #17191b);
+}
+
+/* --- screen --- */
+.irl-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(160deg, #0d1a14, #060b09);
+    border: 1px solid #2f3a2b;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.irl-screen-text {
+    font-size: 7px;
+    letter-spacing: 1px;
+    color: var(--rad-ink);
+    opacity: 0.75;
+    white-space: nowrap;
+}
+
+/* --- wheel --- */
+/* Pitch and modulation: upright, seen edge-on, so a cylinder rather than a
+   disc. */
+.irl-wheel {
+    background: linear-gradient(90deg, #101112, #3c4145 45%, #101112);
+    border: 1px solid #4a4f54;
+    border-radius: 40% / 12%;
+}
+
+/* --- grille and vent --- */
+.irl-grille {
+    background: repeating-linear-gradient(
+        90deg, #202325 0 2px, #0e1011 2px 4px);
+    border: 1px solid #3a3f44;
+    border-radius: 2px;
+}
+
+.irl-vent {
+    background: repeating-linear-gradient(
+        0deg, #191b1d 0 2px, #0b0c0d 2px 4px);
+    border-radius: 1px;
+}
+
+/* --- plate: the boundary that makes a panel read as sections --- */
+.irl-plate {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 3px;
+}
+
+/* --- legends --- */
+.irl-logo,
+.irl-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.irl-legend {
+    font-size: 7px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #8b8b8b;
+    white-space: nowrap;
+}
+
+.irl-logo .irl-legend {
+    font-weight: bold;
+    color: #c0392b;
+    letter-spacing: 3px;
+}
+
+/* === CONTROLS THAT ARE NOT KNOBS === */
+/* A fader is not a knob turned sideways. A mixer drawn as a field of circles is
+   recognisable as nothing at all. */
+.irl-fader {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    touch-action: none;
+    cursor: ns-resize;
+}
+
+.irl-fader[data-orient="horizontal"] {
+    cursor: ew-resize;
+}
+
+.irl-fader-slot {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 2px;
+    background: #0a0b0c;
+    border: 1px solid #3a3f44;
+    border-radius: 1px;
+}
+
+.irl-fader[data-orient="horizontal"] .irl-fader-slot {
+    width: auto;
+    height: 2px;
+}
+
+/* The cap carries `.knob-indicator` so one painting path moves every kind of
+   control. It is the rotation that is reinterpreted as travel, in CSS, rather
+   than a second animation path in JS. */
+.irl-fader-cap {
+    position: absolute;
+    /* Up is more. `--value` is the parameter's fraction of its own range,
+       written by the one painting path every control shares. */
+    top: calc((1 - var(--value, 0.5)) * 100%);
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(10px * var(--size, 1));
+    height: calc(5px * var(--size, 1));
+    background: linear-gradient(180deg, #6a7075, #2c3033);
+    border: 1px solid #7d858b;
+    border-radius: 1px;
+}
+
+.irl-fader[data-orient="horizontal"] .irl-fader-cap {
+    top: 50%;
+    left: calc(var(--value, 0.5) * 100%);
+    width: calc(5px * var(--size, 1));
+    height: calc(10px * var(--size, 1));
+}
+
+/* A drawbar is a fader with a grip you can see, which is what tells an organ
+   section apart from a mixer strip at a glance. */
+.irl-drawbar .irl-fader-cap {
+    width: calc(9px * var(--size, 1));
+    height: calc(11px * var(--size, 1));
+    border-radius: 2px;
+    background: repeating-linear-gradient(
+        0deg, #d8d2c4 0 2px, #9a948a 2px 3px);
+    border-color: #7a746a;
+}
+
+.irl-drawbar .irl-fader-slot {
+    width: 4px;
+    background: #131415;
+}
+
+/* An encoder has no end stops, so it is drawn with a detent ring rather than a
+   travel arc. */
+.irl-encoder .knob-base {
+    border-style: dotted;
+    border-width: 2px;
+}
+
+.irl-switch {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    touch-action: none;
+    cursor: ns-resize;
+}
+
+.irl-switch-body {
+    width: calc(8px * var(--size, 1));
+    height: calc(14px * var(--size, 1));
+    background: #16181a;
+    border: 1px solid #4a4f54;
+    border-radius: 2px;
+    position: relative;
+}
+
+.irl-switch:focus-visible,
+.irl-fader:focus-visible {
+    outline: 2px solid var(--rad-ink);
+    outline-offset: 2px;
+}
+
+/* === MIDI ACTIVITY === */
+/* A mapped message lights the device it belongs to. Transient: the binding is
+   state, the flash is not. */
+.module.is-active {
+    border-color: var(--rad-signal, #00ff88);
+    box-shadow: 0 0 calc(6px + 18px * var(--activity, 0.5))
+                rgba(0, 255, 136, calc(0.25 + 0.5 * var(--activity, 0.5)));
+}
+
+.jack.is-active {
+    background: radial-gradient(circle, #ffffff, var(--rad-signal, #00ff88));
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .module.is-active,
+    .jack.is-active {
+        transition: none;
+    }
+}
+
+
+/* === THE DOCK ===
+   Not drawn any more, and still here.
+
+   It was a strip across the foot of the window saying things about the rack
+   while the ring said things to it - two surfaces, one of them permanently
+   taking a slice off the bottom. The readout is the pinned ring's first node
+   now, which is where it belongs: the ring is already the thing on screen.
+
+   What survives is the announcement channel. `#status` is a live region and a
+   screen reader is told when it changes; an SVG node is drawn, not announced,
+   so the two are not interchangeable and this is not a duplicate copy of the
+   message. It is the same message on the channel that carries it to somebody
+   who cannot see the node.
+
+   Clipped rather than `display: none`, because a live region that is not
+   rendered is not announced. */
+.dock {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.dock-facing {
+    color: var(--rad-ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 9px;
+}
+
+.dock #view-indicator {
+    color: var(--rad-ink);
+    white-space: nowrap;
+}
+
+/* The status line stops being a boxed panel row and becomes the rest of the
+   dock: one line, whatever the message, because a status that wraps would
+   change the dock's height and move the rack under it. */
+.dock .status {
+    margin: 0;
+    padding: 0 0 0 10px;
+    border: 0;
+    border-left: 1px solid var(--rad-surface-edge);
+    border-radius: 0;
+    background: none;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+}

@@ -1,0 +1,295 @@
+{
+  "id": "focusrite.scarlett-2i2",
+  "maker": "Focusrite",
+  "model": "Scarlett 2i2",
+  "category": "audio-interface",
+  "summary": "A two-in, two-out USB audio interface. Two combo inputs take microphone, line or instrument level on the front; balanced monitor outputs and USB-C are on the back. The archetype of the class rather than the largest of it. A half-rack box you face, so its front really is its front - the one device in this catalogue whose surface needs no re-facing.",
+  "fidelity": "detailed",
+  "jacks": [
+    {
+      "name": "input_1",
+      "label": "INPUT 1",
+      "type": "input",
+      "signal": "audio",
+      "side": "front",
+      "connector": "XLR/TRS combo",
+      "note": "Mic, line or instrument."
+    },
+    {
+      "name": "input_2",
+      "label": "INPUT 2",
+      "type": "input",
+      "signal": "audio",
+      "side": "front",
+      "connector": "XLR/TRS combo",
+      "note": "Mic, line or instrument."
+    },
+    {
+      "name": "phones_out",
+      "label": "PHONES",
+      "type": "output",
+      "signal": "audio",
+      "side": "front",
+      "connector": "1/4in"
+    },
+    {
+      "name": "output_l",
+      "label": "OUTPUT L",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "TRS",
+      "note": "Balanced monitor output."
+    },
+    {
+      "name": "output_r",
+      "label": "OUTPUT R",
+      "type": "output",
+      "signal": "audio",
+      "side": "back",
+      "connector": "TRS",
+      "note": "Balanced monitor output."
+    },
+    {
+      "name": "usb_c",
+      "label": "USB-C",
+      "type": "output",
+      "signal": "usb",
+      "side": "back",
+      "connector": "USB-C",
+      "note": "Bus powered; carries audio both ways."
+    }
+  ],
+  "parameters": [
+    {
+      "name": "gain_1",
+      "label": "GAIN 1",
+      "min": 0,
+      "max": 127,
+      "default": 45
+    },
+    {
+      "name": "gain_2",
+      "label": "GAIN 2",
+      "min": 0,
+      "max": 127,
+      "default": 45
+    },
+    {
+      "name": "monitor_level",
+      "label": "MONITOR",
+      "min": 0,
+      "max": 127,
+      "default": 80
+    },
+    {
+      "name": "direct_monitor",
+      "label": "DIRECT",
+      "min": 0,
+      "max": 127,
+      "default": 0
+    },
+    {
+      "name": "inst_1",
+      "label": "INST 1",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "inst_2",
+      "label": "INST 2",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "air_1",
+      "label": "AIR 1",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "air_2",
+      "label": "AIR 2",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "phantom",
+      "label": "48V",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "phones_level",
+      "label": "PHONES",
+      "min": 0,
+      "max": 127,
+      "default": 70
+    }
+  ],
+  "layout": {
+    "controls": {
+      "gain_1": {
+        "x": 0.22,
+        "y": 0.36,
+        "side": "front",
+        "size": 1.3
+      },
+      "gain_2": {
+        "x": 0.46,
+        "y": 0.36,
+        "side": "front",
+        "size": 1.3
+      },
+      "monitor_level": {
+        "x": 0.74,
+        "y": 0.34,
+        "side": "front",
+        "size": 1.5
+      },
+      "direct_monitor": {
+        "x": 0.62,
+        "y": 0.72,
+        "side": "front",
+        "size": 0.8
+      },
+      "inst_1": {
+        "x": 0.14,
+        "y": 0.56,
+        "side": "front",
+        "size": 0.7,
+        "kind": "switch"
+      },
+      "inst_2": {
+        "x": 0.38,
+        "y": 0.56,
+        "side": "front",
+        "size": 0.7,
+        "kind": "switch"
+      },
+      "air_1": {
+        "x": 0.24,
+        "y": 0.56,
+        "side": "front",
+        "size": 0.7,
+        "kind": "switch"
+      },
+      "air_2": {
+        "x": 0.48,
+        "y": 0.56,
+        "side": "front",
+        "size": 0.7,
+        "kind": "switch"
+      },
+      "phantom": {
+        "x": 0.62,
+        "y": 0.56,
+        "side": "front",
+        "size": 0.7,
+        "kind": "switch"
+      },
+      "phones_level": {
+        "x": 0.88,
+        "y": 0.34,
+        "side": "front",
+        "size": 1.1
+      }
+    },
+    "jacks": {
+      "input_1": {
+        "x": 0.1,
+        "y": 0.74,
+        "side": "front",
+        "size": 1.4
+      },
+      "input_2": {
+        "x": 0.34,
+        "y": 0.74,
+        "side": "front",
+        "size": 1.4
+      },
+      "phones_out": {
+        "x": 0.91,
+        "y": 0.7,
+        "side": "front",
+        "size": 1.2
+      },
+      "output_l": {
+        "x": 0.18,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "output_r": {
+        "x": 0.5,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      },
+      "usb_c": {
+        "x": 0.82,
+        "y": 0.5,
+        "side": "back",
+        "size": 1.0
+      }
+    },
+    "box": {
+      "width": 175,
+      "height": 47.5,
+      "depth": 99
+    },
+    "face": "front",
+    "features": [
+      {
+        "kind": "logo",
+        "text": "SCARLETT 2i2",
+        "x": 0.5,
+        "y": 0.13,
+        "w": 0.3,
+        "h": 0.12,
+        "side": "front"
+      },
+      {
+        "kind": "plate",
+        "x": 0.22,
+        "y": 0.36,
+        "w": 0.32,
+        "h": 0.36,
+        "side": "front",
+        "label": "Gain halos"
+      },
+      {
+        "kind": "label",
+        "text": "48V  INST  AIR",
+        "x": 0.62,
+        "y": 0.86,
+        "w": 0.34,
+        "h": 0.1,
+        "side": "front"
+      },
+      {
+        "kind": "label",
+        "text": "REAR",
+        "x": 0.5,
+        "y": 0.18,
+        "w": 0.2,
+        "h": 0.12,
+        "side": "back"
+      },
+      {
+        "kind": "label",
+        "text": "48V",
+        "x": 0.62,
+        "y": 0.44,
+        "w": 0.1,
+        "h": 0.05,
+        "side": "front"
+      }
+    ]
+  }
+}
