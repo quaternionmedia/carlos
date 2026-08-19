@@ -685,7 +685,12 @@ document.addEventListener('contextmenu', (event) => {
     if (!context) return;
 
     event.preventDefault();
-    radMenu.openAt(context, event.clientX, event.clientY, 'tap');
+    // The release that goes with this right-click has not necessarily happened
+    // yet - `contextmenu` fires on down on Linux and on up on Windows - and a
+    // release reaching a ring that has just opened lands in its dead zone and
+    // cancels it.
+    radMenu.openAt(context, event.clientX, event.clientY, 'tap',
+                   { ignoreNextUp: true });
 });
 
 // Long-press arms release-select: one gesture from press to commit.

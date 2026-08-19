@@ -138,8 +138,23 @@ class RadMenu {
     }
 
     // --- opening ----------------------------------------------------------
-    openAt(context, clientX, clientY, style = 'tap') {
+    openAt(context, clientX, clientY, style = 'tap', { ignoreNextUp = false } = {}) {
         this.close({ silent: true });
+
+        // Whether the release that belongs to the gesture that opened this ring
+        // is still to come.
+        //
+        // `contextmenu` fires on pointer *down* on Linux and on pointer *up* on
+        // Windows. Opening from it therefore leaves an unconsumed release on
+        // Linux, which reaches the ring, lands in the dead zone at its centre
+        // and cancels it - so a right-click opened a ring and shut it in the
+        // same gesture. On this workstation it passed, on the first CI run it
+        // took thirty-nine tests with it.
+        //
+        // Cleared by the next press as well as by the release it is waiting
+        // for, so on the platform where that release already happened it
+        // cannot swallow somebody else's.
+        this.ignoreNextUp = ignoreNextUp;
 
         this.context = context;
         this.spec = this.resolve(context);
@@ -340,6 +355,10 @@ class RadMenu {
     }
 
     onPointerDown(event) {
+        // A fresh press: whatever release the opening gesture owed has either
+        // arrived or never will.
+        this.ignoreNextUp = false;
+
         // Only a pinned ring has to ask. An unpinned one was opened by this
         // very gesture and is already the thing being driven.
         if (!this.open || !this.pinned) return;
@@ -479,6 +498,12 @@ class RadMenu {
         }
         this.cancelBloom();
         this.disarm();
+
+        if (this.ignoreNextUp) {
+            this.ignoreNextUp = false;
+            return;
+        }
+
         if (!this.open || !this.owningInput) {
             // A press that was not this ring's leaves it as it was: resting if
             // it was resting, and never dragged shut by somebody using the rack

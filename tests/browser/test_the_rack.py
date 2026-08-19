@@ -72,6 +72,46 @@ class TestTheMenu:
         assert any("Minimal" in text for text in labels)
         assert any("Unpin ring" in text for text in labels)
 
+    def test_a_right_click_survives_the_release_that_opened_it(self, page):
+        """The platform difference that cost the first CI run.
+
+        `contextmenu` fires on pointer *down* on Linux and on pointer *up* on
+        Windows. Opened from it, a ring on Linux is still owed a release — which
+        reaches it, lands in the dead zone at its centre and cancels it. A
+        right-click opened a ring and shut it in the same gesture; this
+        workstation never saw it, and thirty-nine tests went down on the first
+        remote run.
+
+        Driven by dispatching the events in Linux order, so the ordering is
+        covered wherever this runs rather than only where it broke.
+        """
+        x, y = bare_rack(page)
+        opened = page.evaluate(
+            """([x, y]) => {
+                const target = document.elementFromPoint(x, y);
+                const of = (type, extra) => new PointerEvent(type, {
+                    bubbles: true, cancelable: true, clientX: x, clientY: y,
+                    button: 2, buttons: 2, pointerId: 1, ...extra,
+                });
+                target.dispatchEvent(of('pointerdown'));
+                // Linux: the context menu arrives while the button is down.
+                target.dispatchEvent(new MouseEvent('contextmenu', {
+                    bubbles: true, cancelable: true, clientX: x, clientY: y,
+                    button: 2,
+                }));
+                const during = document.querySelectorAll('.rad-wedge').length;
+                target.dispatchEvent(of('pointerup', { buttons: 0 }));
+                return {
+                    during,
+                    after: document.querySelectorAll('.rad-wedge').length,
+                };
+            }""",
+            [x, y])
+
+        assert opened["during"] == 7, "the right-click did not open a ring"
+        assert opened["after"] == 7, (
+            "the release that opened the ring closed it again")
+
     def test_a_right_click_on_a_device_opens_that_device_s_menu(self, page):
         module = page.locator(".module").first.bounding_box()
         page.mouse.click(
