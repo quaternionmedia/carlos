@@ -2253,8 +2253,8 @@ class EurorackSystem {
         const module = this.modules.get(this.selected);
         this.status.update(
             module
-                ? `${module.name} selected - Tab turns just this one, Escape deselects`
-                : 'Nothing selected - Tab turns the whole rack'
+                ? `${module.name} selected - t turns just this one, Escape deselects`
+                : 'Nothing selected - t turns the whole rack'
         );
         return this.selected;
     }
@@ -2263,7 +2263,7 @@ class EurorackSystem {
         if (!this.selected) return;
         this.selected = null;
         this.applyView();
-        this.status.update('Nothing selected - Tab turns the whole rack');
+        this.status.update('Nothing selected - t turns the whole rack');
     }
 
     applyView() {

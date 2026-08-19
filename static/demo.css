@@ -641,6 +641,30 @@ kbd {
     pointer-events: none;
 }
 
+/* The dots between the facts. Dim, and the only thing separating them: four
+   drawn rules in one strip is a strip nobody reads. */
+.rad-bar-dot {
+    fill: var(--rad-hub-live);
+    opacity: 0.45;
+}
+
+/* The one drawn separator, between what the rack is and what just happened. */
+.rad-bar-rule {
+    stroke: var(--rad-hub-live);
+    stroke-width: 1;
+    opacity: 0.4;
+}
+
+/* What the app last answered. The turquoise the hub uses, so the live half of
+   the bar is the one wearing the live colour. */
+.rad-bar-said {
+    fill: var(--rad-hub-live);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
 .rad-bar-hint {
     fill: var(--rad-hub-live);
     font-family: 'Courier New', monospace;

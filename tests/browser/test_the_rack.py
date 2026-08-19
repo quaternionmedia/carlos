@@ -291,15 +291,42 @@ class TestTheBar:
         assert "3 rows" in said
 
 
-    def test_what_the_app_says_displaces_the_figures(self, page):
-        # The bar is the only place this app answers back now, so an answer has
-        # to win over the standing description of the rack.
-        assert "11 devices" in self.readout(page)
+    def test_it_says_both_things_with_a_rule_between(self, page):
+        # The figures do not stop being true when the app answers something,
+        # and the answer does not stop mattering when you look away - so
+        # neither replaces the other. One drawn rule separates them.
+        assert page.locator("#rad-bar-said").count() == 0
+        assert page.locator(".rad-bar-rule").count() == 0
+
         page.evaluate("() => { system.addModule('moog.dfam'); }")
+        page.wait_for_selector("#rad-bar-said", timeout=5_000)
+
+        assert "12 devices" in self.readout(page)
+        assert "DFAM" in page.locator("#rad-bar-said").text_content()
+        assert page.locator(".rad-bar-rule").count() == 1
+
+    def test_the_facts_are_separated_by_dots_not_more_rules(self, page):
+        # Four drawn rules in one strip is a strip nobody reads.
+        assert page.locator("#rad-bar-text .rad-bar-dot").count() == 3
+        assert page.locator(".rad-bar-rule").count() == 0
+
+    def test_the_hint_retires_once_it_has_been_used(self, page):
+        # Worth a strip of the bar exactly until somebody has held it once.
+        assert page.locator("#rad-bar-hint").count() == 1
+        self.hold(page)
+        page.mouse.up()
         page.wait_for_function(
-            "() => document.querySelector('#rad-bar-text')"
-            ".textContent.includes('DFAM')", timeout=5_000)
-        assert "DFAM" in self.readout(page)
+            "() => !document.querySelector('#rad-bar-hint')", timeout=5_000)
+        assert page.locator("#rad-bar-hint").count() == 0
+
+    def test_and_stays_retired(self, page):
+        self.hold(page)
+        page.mouse.up()
+        page.wait_for_function(
+            "() => !document.querySelector('#rad-bar-hint')", timeout=5_000)
+        page.reload(wait_until="networkidle")
+        page.wait_for_selector(".rad-bar", timeout=8_000)
+        assert page.locator("#rad-bar-hint").count() == 0
 
     def test_holding_it_blooms_the_ring(self, page):
         self.hold(page)
@@ -327,7 +354,7 @@ class TestTheBar:
             "() => document.querySelectorAll('.rad-wedge').length === 0",
             timeout=5_000)
         assert page.locator(".rad-layer.is-resting").count() == 1
-        assert self.readout(page).startswith("Showing devices minimally")
+        assert "minimally" in page.locator("#rad-bar-said").text_content()
 
     def test_a_press_on_the_rack_is_the_rack_s(self, bench):
         # The bar is not a modal. Everything under it still works, which it did

@@ -274,13 +274,29 @@ True
 
 ```
 
-It reads the rack, and switches to whatever the app last answered back:
+It says two things, with one drawn rule between them: what the rack **is**, and
+what this app last **answered**. Neither replaces the other — the figures do not
+stop being true when something happens, and the answer does not stop mattering
+when you look away. The facts inside the left half are separated by dim dots
+rather than more rules, because four rules in one strip is a strip nobody reads.
 
 ```python
 >>> page.locator('#rad-bar-text').text_content()
-'11 devices | 17 leads | 3 rows | 6 front, 5 top'
+'11 devices · 17 leads · 3 rows · 6 front, 5 top'
+>>> page.locator('#rad-bar-said').count()      # nothing said yet
+0
+>>> page.evaluate("() => { system.addModule('moog.dfam'); }")
+>>> _ = page.wait_for_selector('#rad-bar-said', timeout=5000)
+>>> 'DFAM' in page.locator('#rad-bar-said').text_content()
+True
+>>> page.locator('.rad-bar-rule').count()
+1
 
 ```
+
+Its right edge carries `hold for the menu` until somebody has held it once, and
+then never again — a hint is worth a strip of the bar exactly until it has been
+used, and after that it is a label on a door you already know how to open.
 
 ```python
 >>> shots.take(page, 'boot')

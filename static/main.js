@@ -54,11 +54,10 @@ function watchTheStatus() {
     const said = document.getElementById('status');
     if (!said || typeof MutationObserver === 'undefined') return;
     new MutationObserver(() => {
-        // The first thing on the bar is the rack, not the boot line. This is
-        // installed after boot has had its say, so the first mutation it sees
-        // is the app answering something somebody did - which is the only kind
-        // of message worth displacing the figures for.
-        hasAnswered = true;
+        // Installed after boot has had its say, so the first thing this sees is
+        // the app answering something somebody did - which is the only kind of
+        // message the bar's right half is for.
+        radMenu.saidLately = said.textContent.trim();
         if (radMenu.resting) radMenu.render();
     }).observe(said, { childList: true, characterData: true, subtree: true });
 }
@@ -145,9 +144,9 @@ async function loadExample(kind, deviceId) {
 }
 
 // ===================================
-// VIEW: Tab turns devices around
+// VIEW: `t` turns devices around
 // ===================================
-// With a device selected, Tab turns that one. With nothing selected it turns
+// With a device selected, `t` turns that one. With nothing selected it turns
 // the whole rack, which is the common case and so the default.
 //
 // Tab must not also move focus to the next control, or the two meanings
@@ -427,13 +426,23 @@ function rackReadout() {
 // figures when it has not said anything worth keeping. Read off the live region
 // rather than kept beside it: `#status` is the channel a screen reader is told
 // about, and a second copy would be two answers to one question.
-let hasAnswered = false;
+// The bar's left half: the rack, always. It stopped being conditional once the
+// bar gained a right half - the figures do not stop being true when the app
+// answers something, so nothing has to choose between them any more.
+radMenu.showsReadout(rackReadout);
 
-radMenu.showsReadout(() => {
-    if (!hasAnswered) return rackReadout();
-    const said = document.getElementById('status')?.textContent?.trim();
-    return said || rackReadout();
-});
+// Whether this browser has been shown how to open the ring. Remembered beside
+// the ring's arrangement, because it is the same kind of fact: something about
+// this person at this screen, and no use to anybody else.
+const HINT_STORE = 'carlos.barHint';
+
+radMenu.hintLearned = (() => {
+    try { return localStorage.getItem(HINT_STORE) === 'learned'; } catch { return false; }
+})();
+
+radMenu.onHintLearned = () => {
+    try { localStorage.setItem(HINT_STORE, 'learned'); } catch { /* it just asks again */ }
+};
 
 function routeIntent(intent) {
     const { action, context, payload = {} } = intent;

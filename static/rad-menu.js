@@ -84,6 +84,11 @@ class RadMenu {
         this.barY = 0;
         this.lastBarTap = 0;
         this.moving = null;
+        // What the app last answered, and whether anybody has held the bar yet.
+        // The host owns both — it is the thing that knows what was said and
+        // what this browser remembers.
+        this.saidLately = '';
+        this.hintLearned = false;
 
         // Whether this ring is currently the thing being driven.
         //
@@ -375,6 +380,10 @@ class RadMenu {
     // directly above the centre and north is item zero.
     bloomAt(clientX, clientY) {
         this.engaged = true;
+        if (!this.hintLearned) {
+            this.hintLearned = true;
+            if (this.onHintLearned) this.onHintLearned();
+        }
         this.centre = this.clampToViewport(
             clientX, clientY + radCancelRadius(this.geometry) + 8);
         this.spec = this.resolve(this.context);
@@ -627,26 +636,80 @@ class RadMenu {
         bar.setAttribute('class', 'rad-bar');
         this.layer.appendChild(bar);
 
-        const said = this.readout ? this.readout() : '';
+        // Two things, and a rule between them.
+        //
+        // The standing description of the rack does not stop being true when
+        // the app answers something, and the answer does not stop mattering
+        // when you look away - so neither replaces the other. One drawn rule
+        // separates them, and the facts inside the left half are separated by
+        // dim dots rather than more rules, because four rules in a strip is a
+        // strip nobody reads.
+        const middle = box.y + box.height / 2;
+        const facts = this.readout ? this.readout() : '';
+        const said = this.saidLately || '';
+
         const text = document.createElementNS(RAD_SVG_NS, 'text');
         text.setAttribute('x', 16);
-        text.setAttribute('y', box.y + box.height / 2);
+        text.setAttribute('y', middle);
         text.setAttribute('class', 'rad-bar-text');
         text.setAttribute('id', 'rad-bar-text');
         // Drawn, never announced: `#status` is the live region that carries
         // this to a screen reader, and announcing it twice would be two voices
         // saying one thing.
         text.setAttribute('aria-hidden', 'true');
-        text.textContent = said;
+
+        facts.split('|').forEach((fact, index) => {
+            if (index) {
+                const dot = document.createElementNS(RAD_SVG_NS, 'tspan');
+                dot.setAttribute('class', 'rad-bar-dot');
+                dot.textContent = ' · ';
+                text.appendChild(dot);
+            }
+            const run = document.createElementNS(RAD_SVG_NS, 'tspan');
+            run.textContent = fact.trim();
+            text.appendChild(run);
+        });
         this.layer.appendChild(text);
 
-        const hint = document.createElementNS(RAD_SVG_NS, 'text');
-        hint.setAttribute('x', box.width - 16);
-        hint.setAttribute('y', box.y + box.height / 2);
-        hint.setAttribute('class', 'rad-bar-hint');
-        hint.setAttribute('aria-hidden', 'true');
-        hint.textContent = 'hold for the menu';
-        this.layer.appendChild(hint);
+        // Where the left half ends. Measured rather than assumed, because the
+        // figures change width with the rack.
+        const measured = typeof text.getComputedTextLength === 'function'
+            ? text.getComputedTextLength()
+            : 0;
+        let next = 16 + (measured || 300) + 18;
+
+        if (said) {
+            const rule = document.createElementNS(RAD_SVG_NS, 'line');
+            rule.setAttribute('x1', next);
+            rule.setAttribute('x2', next);
+            rule.setAttribute('y1', box.y + 7);
+            rule.setAttribute('y2', box.y + box.height - 7);
+            rule.setAttribute('class', 'rad-bar-rule');
+            this.layer.appendChild(rule);
+
+            const answer = document.createElementNS(RAD_SVG_NS, 'text');
+            answer.setAttribute('x', next + 14);
+            answer.setAttribute('y', middle);
+            answer.setAttribute('class', 'rad-bar-said');
+            answer.setAttribute('id', 'rad-bar-said');
+            answer.setAttribute('aria-hidden', 'true');
+            answer.textContent = said;
+            this.layer.appendChild(answer);
+        }
+
+        // The hint retires itself. It is worth a strip of the bar exactly until
+        // somebody has held it once, and after that it is a label on a door
+        // they already know how to open.
+        if (!this.hintLearned) {
+            const hint = document.createElementNS(RAD_SVG_NS, 'text');
+            hint.setAttribute('x', box.width - 16);
+            hint.setAttribute('y', middle);
+            hint.setAttribute('class', 'rad-bar-hint');
+            hint.setAttribute('id', 'rad-bar-hint');
+            hint.setAttribute('aria-hidden', 'true');
+            hint.textContent = 'hold for the menu';
+            this.layer.appendChild(hint);
+        }
         return this.layer;
     }
 

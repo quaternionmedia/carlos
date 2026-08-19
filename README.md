@@ -146,8 +146,8 @@ uv run carlos serve --port 8123
 - **One menu, in two states.** No floating panel and no status bar — both were
   second surfaces, saying things *about* the rack while the ring said things
   *to* it. A pinned ring is what they were: at rest it is a strip across the
-  navy above the rack, a title reading what the rack is and what the app last
-  said. Hold it and the ring blooms; double-tap and drag moves it; `View ▸ Unpin
+  navy above the rack, saying two things with a rule between them — what the
+  rack **is**, and what the app last **answered**. Hold it and the ring blooms; double-tap and drag moves it; `View ▸ Unpin
   ring` puts it away. It rests rather than staying open because a ring left over
   the rack is a ring in the way of the rack.
 
