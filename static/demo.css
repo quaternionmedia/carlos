@@ -1022,6 +1022,29 @@ svg.is-tracing .cable-anchor {
     height: calc(11px * var(--size, 1));
 }
 
+/* Sockets say what they are, the way knobs do.
+   A back panel of eleven identical circles is a picture of a back panel and
+   not a drawing of *this* one - the whole reason `irl` exists is that you can
+   tell one socket from another without hovering each in turn. `minimal` has
+   labelled them since the beginning; this is the same label, in the mode that
+   claims to be the accurate one. */
+.irl-jack-label {
+    position: absolute;
+    /* Two lines, alternating along a row - see `renderIrlFace`. A dense back
+       panel puts sockets closer together than their names are wide, and one
+       line of labels there is not a label, it is a smear. */
+    top: calc(100% + 1px + (var(--label-line, 0) * 6px));
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 5px;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    color: #8b8b8b;
+    text-align: center;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
 /* === THE TWO MODES ARE TWO JOBS === */
 /* `irl` draws a device close to its real shape: the width comes from the box in
    the catalogue and the height from the face's own proportion. `minimal` is the

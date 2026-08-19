@@ -737,16 +737,43 @@ class EurorackModule {
             return this.renderControl(name, place, parameter);
         }).join('');
 
+        // Which line each socket's label sits on.
+        //
+        // A dense back panel puts sockets closer together than their names are
+        // wide, so a single line of labels overlaps into mush - seventeen on a
+        // Qu-24, sixteen on a Hapax. Neighbours along a row alternate between
+        // two lines instead, which is the oldest fix for a crowded axis and
+        // costs nothing on a panel that was never crowded.
+        //
+        // Rows are found by bucketing `y`, because sockets in a row are laid
+        // out at the same height and a strict equality would miss a panel
+        // measured a hair out.
+        const placed = Object.fromEntries(jacks);
+        const rows = new Map();
+        jacks.forEach(([name, place]) => {
+            const row = Math.round((place.y || 0) * 20);
+            if (!rows.has(row)) rows.set(row, []);
+            rows.get(row).push(name);
+        });
+        const line = new Map();
+        rows.forEach(names => {
+            names
+                .sort((a, b) => (placed[a]?.x || 0) - (placed[b]?.x || 0))
+                .forEach((name, at) => line.set(name, at % 2));
+        });
+
         const sockets = jacks.map(([name, place]) => {
             const jack = this.jacks.get(name);
             if (!jack) return '';
             return `
                 <div class="irl-jack-slot"
                      style="left:${place.x * 100}%; top:${place.y * 100}%;
-                            --size:${place.size || 1}">
+                            --size:${place.size || 1};
+                            --label-line:${line.get(name) || 0}">
                     <div class="jack" data-jack="${attr(name)}" data-type="${attr(jack.type)}"
                          data-signal="${attr(jack.signal)}" data-side="${attr(side)}"
                          ${jackAria(jack, side)}></div>
+                    <span class="irl-jack-label">${jack.label || name}</span>
                 </div>`;
         }).join('');
 
