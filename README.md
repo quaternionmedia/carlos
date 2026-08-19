@@ -208,11 +208,9 @@ uv run carlos serve --port 8123
   way, and a browser test counts them rather than trusting the markup.
 - Knobs also answer to the scroll wheel, and to a finger — they are pointer
   events, so a touchscreen turns them.
-- **The patch name and the import live in a floating tool palette**, not a bar
-  pinned across the bottom — a rack is the width of the window. It opens at a
-  default corner, drags by its grip or moves with the arrow keys, and comes back
-  where you left it. `Home` on the grip, or View ▸ Reset panel, puts it
-  back to the default.
+- **The patch name and the import are ring verbs** — `Patch ▸ Name`,
+  `Patch ▸ Import`. A ring has no text entry, so naming uses the prompt the
+  browser already has rather than growing a dialog inside the menu.
 - Randomize all module parameters
 - Export and import the whole rack as a `carlos.patch` document
 - Persist a local TinyDB file for future patch storage work

@@ -25,62 +25,27 @@ before your first commit.
 
 ## Current State
 
-Branch: `adopt/qm-governance`, cut from `they`. **Every commit is signed. Nothing is
-pushed.** Work inherited from the previous
-session (the README rewrite, the TinyDB cleanup, the community files) is
-committed here too rather than left loose.
+Branch: `adopt/qm-governance`, cut from `they`. **Every commit is signed** —
+71 of them, all verified by `carlos signatures`. The branch and the
+`governance/qm` submodule branch are both **pushed**; see Gate Status for what
+that closed.
 
-```text
-Put every durable round behind one entry point
-Add the pre-publication review packet
-Blind review: six findings, and CI that runs the tests
-Say how to tell two servers apart, now that they can be
-Wire up healthz, and say which instance answered
-Record the cadence work in the handoff
-Declare what asking this seam costs, and how often to ask
-Record the stability pass in the handoff
-Chase stability: stop leaking servers, stop sleeping, stop drifting
-Stop the onboarding docs disagreeing with each other
-Make every drawn thing a thing that does something
-Bring the handoff up to date with the walkthrough and the catalogue
-Record the keybed and the desk, and let a named face win
-Make the walkthrough, the demo and the tests one object
-Add a modular drum rig, and finish the catalogue to the same standard
-Bring the handoff up to date with the tool palette
-Float the bottom bar as a tool palette with a default starting position
-Record the panel work, and the stale-server trap
-Lay out the Nord Stage 3, and say how to lay out the next one
-Draw devices as caricatures, and stop a hidden pair collapsing into one line
-Give the catalogue a box, panel features, and control kinds
-Correct the test counts the UI pass moved
-Bring the handoff up to date with the UI pass
-Correct the docs the drawer deletion left behind, and record the edge context
-Make the rack operable: pull a lead out, reach a knob without a mouse
-Put the status line back on screen, and the facing indicator with it
-Lock the declared dependency
-Land the inherited TinyDB cleanup
-Document the build, and state what is not done
-Declare pydantic, which five modules import directly
-Gate the behaviour that model-level tests cannot see
-Adopt the rad interaction contract, and delete the other menus
-Add the device catalogue, the patch format, and worked examples
-Adopt the QM constitution: submodule, gates, and agent discovery
-```
+`RETROSPECTIVE.md` is the account of how this cycle went, and is the more useful
+read if you are picking the work up rather than operating it.
 
-Listed newest first, by subject rather than by hash: a document that records
-its own commit hash is wrong the moment it is committed, which is a small
-instance of the staleness this file exists to prevent. `git log --oneline -6`
-gives the hashes.
+The workspace opens on a rig: every device in the catalogue, in three rows,
+patched the way it would be on a desk — control into voices, voices into the
+desk, desk into the interface. It is fetched from `/api/opening` as an ordinary
+`carlos.patch` document, so the first thing anyone sees is a file they can
+export, edit and import again.
 
-**The branch name describes only the last of these.** It carries two distinct
-bodies of work — the governance adoption, and everything the application gained
-since. A publisher may reasonably want them split; they were kept on one branch
-because the async contract allows one open pull request per contributor, so two
-branches would only be two PRs that cannot both be open.
-
-The submodule is on `project/carlos` at a signed commit (`5bebfa6`), created
-from the corpus's real `main`. **That branch is not pushed**, which is why
-`submodule-check` fails.
+**There is one menu, and one surface.** The options drawer, the device palette,
+the example picker, the row controls, the floating tool palette, the status bar
+and the info dock have all been deleted over this cycle. What is left is rad's
+ring. Pinned, it rests as a title bar across the navy above the rack, saying
+what the rack is and what the app last answered; hold it and the ring blooms;
+double-tap and drag moves it, which detaches it into a panel the width of its
+own contents.
 
 ## Validated Commands
 
@@ -146,16 +111,20 @@ A browser workspace for sketching rigs of real gear.
 - **n-sided devices** that turn independently and in place, gathered into rows.
 - **One menu**, implementing `quaternionmedia/rad`'s interaction contract, with
   rad's own conformance vectors vendored and passing.
-- **A floating tool palette** for what a ring cannot express - the patch name and
-  the file input. Not the device palette that was deleted; the guard on that is
-  now on shape rather than name, and was tested by routing a renamed device tray
-  around the old one.
+- **No second surface.** The floating tool palette is deleted too, and with it
+  the status bar and the info dock. A pinned ring rests as a title bar and is
+  what all of them were; the guard is on shape rather than name — the page is
+  checked for buttons, lists and device ids, so a rename cannot route around
+  it.
 - **MIDI mapping** — bind a device to a channel, note, controller or transport
   and it lights when that arrives. Works with no hardware via a synthetic
   source.
 - **Two display modes**, `minimal` and `irl`. Everything `irl` draws does
   something: a pad sends MIDI down the real path, screens read a declared
   source, and every fader on a desk moves.
+- **The opening rack is a file.** `catalogue/opening.json`, served from
+  `/api/opening` — every device, three rows, seventeen leads, two of them
+  carrying MIDI channels and drawn as the channels they carry.
 - **An interop seam** — callable over REST+JSON+OpenAPI, five transforms, and
   outbound calls that are *planned* and never sent. `GET /api/cadence` tells
   another application what each call costs it and how often to ask; every
@@ -166,38 +135,51 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 
 ## Verification, As Last Run
 
+Everything below was run immediately before the handoff push, on this
+workstation, against this commit.
+
 | Check | Result |
 | --- | --- |
-| `uv run carlos check` | 289 passed |
-| `node tests/view_toggle.js` | 83/83 |
-| `node tests/rack_behaviour.js` | 95/95 |
-| `node tests/cable_tracing.js` | 52/52 |
-| `node tests/click_layers.js` | 10/10 |
-| rad conformance | 66 passed, 0 failed, 16 skipped |
-| Live end-to-end, cold start | all green, 15 OpenAPI paths |
+| `pytest tests` + four hermetic pages | 339 passed, 1439 subtests |
+| `pytest tests/browser` | 128 passed |
+| `node tests/view_toggle.js` | 92/92 |
+| `node tests/rack_behaviour.js` | 98/98 |
+| `node tests/cable_tracing.js` | 92/92 |
+| `node tests/click_layers.js` | 14/14, 0 collisions |
 | `walkthrough/05-in-the-browser.md` | real Chromium, 5 shots, console clean |
+| recorded screenshots | no drift |
+| `carlos signatures` | 71/71 signed |
+| `carlos gates` | 14 of 17 steps pass; the three reds are below |
 
-Every new check above was watched go red against the code it names before being
-kept: the fan-out assertion against a `disconnect`-based unpatch, the `irl` knob
-assertion against the selector that only read `.knob`, and C5/C6 against a
-`contextAt` that never consults the probe and a Tab handler that never yields.
+The fifth frontend harness is gone: `tests/palette.js` tested the floating
+panel, and the panel was deleted. Four remain.
 
-The 16 skipped conformance cases are rad features Carlos does not implement —
-chorded input, tempo estimation, quantized commit, the speed axes. They sit
-outside rad's three governed artifacts. Skipping them is not a gap; **claiming
-them would be a false report.**
+**A test that has not been watched fail is a test whose subject is unproven.**
+This cycle learned that the expensive way — five tests passed against a screen
+with no cables on it, because they asked where a cable was *filed* rather than
+whether it could be *seen*. Every check added since has been run against the
+code it names, red, before being kept.
 
 ## Gate Status
 
-`adr-lint` and `one-pr-check` pass. Three fail, all expected:
+Run them yourself rather than trusting this table: `carlos gates`.
 
-- **`reuse-lint`** — the licensing pass has not been done. three files carry
-  copyright information. This job got bigger as the project grew.
-- **`submodule-check`** — `project/carlos` is unpushed.
-- **`signature-check`** — asks the forge about commits it has never seen.
-  Verify locally instead, where the key exists:
-  `python governance/qm/project-seed/ci/check_signatures.py --base-ref they --head-ref HEAD --source git`
-  reports `G`, good signature, for every commit.
+Two of the three long-standing reds should have closed with the handoff push.
+Check them on the forge rather than here — this file was written before the run
+finished.
+
+- **`submodule-check`** — was red because `project/carlos` was unpushed. It is
+  pushed now (`quaternionmedia/qm`), so this should be green.
+- **`signature-check`** — was red because it asks the forge about commits it had
+  never seen. Every commit is signed and verifiable locally with
+  `carlos signatures`; with the branch pushed this should be green too.
+- **`reuse-lint`** — **still red, deliberately.** The licensing pass is gated on
+  the outbound licence class, which is a human decision nobody has made.
+  Settling a licence class to turn a check green decides the wrong question for
+  the wrong reason. Publishing with this red is the accepted state, recorded in
+  `GOVERNANCE.md`.
+
+`adr-lint` and `one-pr-check` pass.
 
 ## Cautions
 
@@ -250,52 +232,48 @@ them would be a false report.**
 
 ## Next Useful Work
 
-Ordered by what unblocks the most.
+In the order a next session would find them useful. Nothing here is blocked on
+code; the first three are decisions.
 
-1. **Push `project/carlos`** to `quaternionmedia/qm`. This is a remote write and
-   needs authorization. It closes `submodule-check` and completes fork steps 2
-   and 3.
-2. **Ratify the adoption record.** It is drafted, at
-   `governance/qm/adr/DRAFT-adopt-the-qm-constitution.md` — numberless and
-   Proposed, because a number is assigned by the index at ratification and a
-   human ratifies. It carries the component audit, the seam protocol, the
-   service inventory, the risk register and twelve named conflicts. Ratifying
-   is a human commit: flip the status, assign the number, update the index.
-3. **The licensing pass.** Settle the MIT/AGPL class question first
-   (outbound-licensing §4 puts services at AGPL-3.0-or-later), then `LICENSES/`,
-   SPDX headers, and `reuse-lint` green. `python -m reuse lint` counts what is left.
-4. **The frontend build-step conflict.** `static/` is plain modular
-   JavaScript with no build step; the house-stack set names mithril with
-   parcel. Neither the blessed answer nor a recorded exception, and the
-   adoption record names it.
-5. **Instance discovery.** `/healthz` now names the instance, its start time,
-   the port actually bound and the resolved database path, so a measurement can
-   be attributed — the identity half is done. What is not done is *discovery*:
-   a collector has to be told where to look, because the record's mechanism
-   (bind port 0, write a run-file) is declined in `GOVERNANCE.md` for costing
-   the predictable address. If the family's harness ever needs to enumerate
-   Carlos instances, that is the conversation.
-6. **Settle the frontend conflict.** `static/` is now five modules with no build
-   step; the house-stack set names mithril with parcel. Neither the blessed
-   answer nor a recorded exception.
-7. **Get a human eye on the five screenshots.** They are asserted for counts,
-   geometry and behaviour and nothing else. Nobody has judged whether the
-   shapes read as the devices they stand for.
-8. **Finish the UI pass this session started.** Left undone, in order:
-   - ~~The radial menu has no ARIA.~~ Done: the ring is a `menu`, each wedge a
-     `menuitem` that names itself and says which of how many it is, and the
-     highlighted one carries `aria-current`. The labels are hidden from a
-     reader because the wedge already carries them.
-   - **Undo.** Double-click resets one knob and that is the whole of it. Unpatch
-     and Delete are both a single act with no way back.
-   - **A browser runs now, and nobody has looked at what it drew.**
-     `walkthrough/05-in-the-browser.md` drives real Chromium and records five
-     screenshots under `walkthrough/media/`. Every *countable* claim is
-     asserted there — 88 keys as 52 naturals and 36 sharps, 21 bank faders, a
-     square Launchpad panel, an empty console. What no assertion can settle is
-     whether those shapes read as the devices they stand for. **The screenshots
-     are waiting for a human eye**, and the list of what to judge is in the
-     session notes rather than here.
+### Decisions, not tasks
+
+1. **The outbound licence class — MIT or AGPL.** One red gate is waiting on it,
+   and so is the licensing pass behind it.
+2. **Ratify the adoption record**, or don't. `governance/qm/adr/` holds it,
+   numberless and Proposed. The branch merges either way; ratification is what
+   lets Carlos be described as carrying governance rather than improvising it.
+3. **Two things the deleted panel took with it.** The key hints are gone
+   entirely — the ring is the reference now — and the patch name is only visible
+   inside `Patch ▸ Name`, where it used to sit on screen. Either can come back
+   in the bar; neither has been missed yet on one workstation, which is not
+   evidence.
+
+### Work with a clear shape
+
+4. **Multiple palettes.** rad-android's own record (§12) has several
+   independently configured rings, each with its own arrangement and contrast
+   choice. The per-ring store and the arrangement mechanism both exist here now,
+   which was the prerequisite. What it needs first is an answer to *what a
+   second ring points at* — a second rack, a second view of one rack, or a ring
+   bound to a device.
+5. **The bar's position is not remembered** across a reload, while the hint and
+   the ring's arrangement are. The hook (`onBarMoved`) exists and is unwired.
+   One line, and an inconsistency until it is.
+6. **Device entries are still caricatures of varying depth.** Five were filled
+   out this cycle; a Launchpad X declaring one control is honest, a Qu-24
+   declaring 27 faders for a 24-channel desk is close enough, and the middle of
+   that range is where the next measuring session pays off.
+7. **`Assign function…` is deliberately not ported** from rad-android. Its verbs
+   are Android intents; this app's are its own actions and are not
+   user-composable. If Carlos ever grows composable verbs, this is where they
+   would surface.
+
+### Kept honest
+
+8. **The version tag is a human gate.** Per the version-tags record, the default
+   branch, a pull request and a local build are all drafts. A `v*` tag asserts a
+   human reviewed the change set, a human manually tested it against its real
+   runtime, and deterministic validation passed. None of that has happened.
 
 ## What Was Reported Upstream
 
