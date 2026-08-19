@@ -164,6 +164,17 @@ constants in `static/models.js` rather than per-device fudges:
 This is why the mode is called a caricature. The ordering and the obviousness of
 the difference survive; the absolute numbers do not, and the entry keeps them.
 
+### Every control a device declares has to be drawn
+
+`irl` draws the layout, so a parameter the layout does not place is a control
+nobody can reach — described carefully and absent from the panel. The reverse is
+worse: a placement naming a parameter that does not exist draws a control that
+answers to nothing.
+
+`tests/test_catalogue.py` checks both directions over every entry, because
+expanding a panel is two edits in two places and the way it goes wrong is doing
+one of them.
+
 #### `face` — the side you look at first
 
 ```json

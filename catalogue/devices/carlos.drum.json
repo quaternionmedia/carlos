@@ -84,6 +84,34 @@
       "min": 0,
       "max": 127,
       "default": 96
+    },
+    {
+      "name": "accent",
+      "label": "ACCENT",
+      "min": 0,
+      "max": 127,
+      "default": 90
+    },
+    {
+      "name": "noise",
+      "label": "NOISE",
+      "min": 0,
+      "max": 127,
+      "default": 30
+    },
+    {
+      "name": "pitch_env",
+      "label": "P.ENV",
+      "min": 0,
+      "max": 127,
+      "default": 48
+    },
+    {
+      "name": "drive",
+      "label": "DRIVE",
+      "min": 0,
+      "max": 127,
+      "default": 24
     }
   ],
   "layout": {
@@ -117,6 +145,30 @@
         "y": 0.3,
         "side": "front",
         "size": 1.0
+      },
+      "accent": {
+        "x": 0.28,
+        "y": 0.66,
+        "side": "front",
+        "size": 0.85
+      },
+      "noise": {
+        "x": 0.72,
+        "y": 0.66,
+        "side": "front",
+        "size": 0.85
+      },
+      "pitch_env": {
+        "x": 0.28,
+        "y": 0.8,
+        "side": "front",
+        "size": 0.85
+      },
+      "drive": {
+        "x": 0.72,
+        "y": 0.8,
+        "side": "front",
+        "size": 0.85
       }
     },
     "jacks": {

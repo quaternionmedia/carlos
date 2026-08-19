@@ -53,6 +53,34 @@
       "min": 0,
       "max": 127,
       "default": 32
+    },
+    {
+      "name": "mode",
+      "label": "MODE",
+      "min": 0,
+      "max": 2,
+      "default": 0
+    },
+    {
+      "name": "drive",
+      "label": "DRIVE",
+      "min": 0,
+      "max": 127,
+      "default": 20
+    },
+    {
+      "name": "env_amount",
+      "label": "ENV",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "tracking",
+      "label": "TRACK",
+      "min": 0,
+      "max": 127,
+      "default": 0
     }
   ],
   "layout": {
@@ -68,6 +96,31 @@
         "y": 0.36,
         "side": "front",
         "size": 1.2
+      },
+      "mode": {
+        "x": 0.5,
+        "y": 0.42,
+        "side": "front",
+        "size": 0.8,
+        "kind": "switch"
+      },
+      "drive": {
+        "x": 0.28,
+        "y": 0.58,
+        "side": "front",
+        "size": 0.9
+      },
+      "env_amount": {
+        "x": 0.72,
+        "y": 0.58,
+        "side": "front",
+        "size": 0.9
+      },
+      "tracking": {
+        "x": 0.5,
+        "y": 0.72,
+        "side": "front",
+        "size": 0.8
       }
     },
     "jacks": {

@@ -39,7 +39,11 @@
         "tempo": 112,
         "main_level": 96,
         "fx_amount": 34,
-        "filter": 70
+        "filter": 70,
+        "fader": 108,
+        "knob_a": 80,
+        "knob_b": 44,
+        "knob_c": 96
       }
     },
     {
@@ -71,7 +75,11 @@
       "view": "front",
       "parameters": {
         "frequency": 48,
-        "fine": 62
+        "fine": 62,
+        "waveform": 1,
+        "octave": 0,
+        "pulse_width": 70,
+        "fm_amount": 22
       }
     },
     {
@@ -80,7 +88,11 @@
       "view": "front",
       "parameters": {
         "cutoff": 74,
-        "resonance": 38
+        "resonance": 38,
+        "mode": 0,
+        "drive": 34,
+        "env_amount": 88,
+        "tracking": 40
       }
     },
     {
@@ -91,7 +103,11 @@
         "tune": 22,
         "decay": 66,
         "snap": 88,
-        "level": 104
+        "level": 104,
+        "accent": 110,
+        "noise": 40,
+        "pitch_env": 72,
+        "drive": 30
       }
     },
     {
@@ -115,7 +131,11 @@
         "gain_1": 58,
         "gain_2": 58,
         "monitor_level": 84,
-        "direct_monitor": 0
+        "direct_monitor": 0,
+        "inst_1": 1,
+        "air_1": 1,
+        "phantom": 1,
+        "phones_level": 70
       }
     }
   ],

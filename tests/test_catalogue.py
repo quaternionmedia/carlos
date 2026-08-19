@@ -57,6 +57,46 @@ class CatalogueLoadTests(unittest.TestCase):
             with self.subTest(device.id):
                 self.assertTrue((directory / f"{device.id}.json").is_file())
 
+    def test_every_control_a_device_declares_is_drawn_on_its_panel(self):
+        """A parameter with no placement is a control nobody can reach.
+
+        `irl` draws the layout, so a parameter the layout does not place is
+        absent from the panel however carefully it was described - and the
+        reverse, a placement naming a parameter that does not exist, draws a
+        control that answers to nothing.
+
+        Checked because expanding a panel is two edits in two places, and the
+        way it goes wrong is doing one of them.
+        """
+        for device in self.devices.values():
+            if not device.layout:
+                continue
+            declared = {p.name for p in device.parameters}
+            placed = set(device.layout.controls)
+            with self.subTest(device.id):
+                self.assertEqual(
+                    declared - placed, set(),
+                    f"{device.id} declares controls its panel does not draw")
+                self.assertEqual(
+                    placed - declared, set(),
+                    f"{device.id} draws controls it does not declare")
+
+    def test_a_laid_out_device_is_more_than_a_logo(self):
+        # A panel with nothing on it but its own name is a placeholder wearing
+        # a layout. Every entry here describes real hardware; the least any of
+        # them carries is a control or a socket you could point at.
+        for device in self.devices.values():
+            if not device.layout:
+                continue
+            with self.subTest(device.id):
+                furniture = (
+                    len(device.layout.controls)
+                    + len(device.layout.jacks)
+                    + len([f for f in device.layout.features
+                           if f.kind not in ("logo", "label", "plate")])
+                )
+                self.assertGreater(furniture, 2, f"{device.id} is nearly bare")
+
     def test_every_device_has_something_on_the_face_it_opens_on(self):
         """The face a device opens on is never a blank rectangle.
 

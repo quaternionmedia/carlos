@@ -88,6 +88,48 @@
       "min": 0,
       "max": 127,
       "default": 0
+    },
+    {
+      "name": "inst_1",
+      "label": "INST 1",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "inst_2",
+      "label": "INST 2",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "air_1",
+      "label": "AIR 1",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "air_2",
+      "label": "AIR 2",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "phantom",
+      "label": "48V",
+      "min": 0,
+      "max": 1,
+      "default": 0
+    },
+    {
+      "name": "phones_level",
+      "label": "PHONES",
+      "min": 0,
+      "max": 127,
+      "default": 70
     }
   ],
   "layout": {
@@ -115,6 +157,47 @@
         "y": 0.72,
         "side": "front",
         "size": 0.8
+      },
+      "inst_1": {
+        "x": 0.14,
+        "y": 0.56,
+        "side": "front",
+        "size": 0.7,
+        "kind": "switch"
+      },
+      "inst_2": {
+        "x": 0.38,
+        "y": 0.56,
+        "side": "front",
+        "size": 0.7,
+        "kind": "switch"
+      },
+      "air_1": {
+        "x": 0.24,
+        "y": 0.56,
+        "side": "front",
+        "size": 0.7,
+        "kind": "switch"
+      },
+      "air_2": {
+        "x": 0.48,
+        "y": 0.56,
+        "side": "front",
+        "size": 0.7,
+        "kind": "switch"
+      },
+      "phantom": {
+        "x": 0.62,
+        "y": 0.56,
+        "side": "front",
+        "size": 0.7,
+        "kind": "switch"
+      },
+      "phones_level": {
+        "x": 0.88,
+        "y": 0.34,
+        "side": "front",
+        "size": 1.1
       }
     },
     "jacks": {
@@ -197,6 +280,15 @@
         "w": 0.2,
         "h": 0.12,
         "side": "back"
+      },
+      {
+        "kind": "label",
+        "text": "48V",
+        "x": 0.62,
+        "y": 0.44,
+        "w": 0.1,
+        "h": 0.05,
+        "side": "front"
       }
     ]
   }

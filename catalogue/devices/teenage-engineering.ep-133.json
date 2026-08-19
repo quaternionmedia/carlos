@@ -87,6 +87,34 @@
       "min": 0,
       "max": 127,
       "default": 64
+    },
+    {
+      "name": "fader",
+      "label": "FADER",
+      "min": 0,
+      "max": 127,
+      "default": 96
+    },
+    {
+      "name": "knob_a",
+      "label": "A",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "knob_b",
+      "label": "B",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "knob_c",
+      "label": "C",
+      "min": 0,
+      "max": 127,
+      "default": 64
     }
   ],
   "layout": {
@@ -128,6 +156,33 @@
         "y": 0.18,
         "side": "top",
         "size": 0.9
+      },
+      "fader": {
+        "x": 0.85,
+        "y": 0.62,
+        "side": "top",
+        "size": 0.9,
+        "kind": "fader",
+        "orient": "vertical",
+        "length": 0.22
+      },
+      "knob_a": {
+        "x": 0.18,
+        "y": 0.33,
+        "side": "top",
+        "size": 0.7
+      },
+      "knob_b": {
+        "x": 0.34,
+        "y": 0.33,
+        "side": "top",
+        "size": 0.7
+      },
+      "knob_c": {
+        "x": 0.5,
+        "y": 0.33,
+        "side": "top",
+        "size": 0.7
       }
     },
     "jacks": {

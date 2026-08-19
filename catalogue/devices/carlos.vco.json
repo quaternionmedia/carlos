@@ -53,6 +53,34 @@
       "min": 0,
       "max": 127,
       "default": 64
+    },
+    {
+      "name": "waveform",
+      "label": "WAVE",
+      "min": 0,
+      "max": 3,
+      "default": 0
+    },
+    {
+      "name": "octave",
+      "label": "OCT",
+      "min": -2,
+      "max": 2,
+      "default": 0
+    },
+    {
+      "name": "pulse_width",
+      "label": "PW",
+      "min": 0,
+      "max": 127,
+      "default": 64
+    },
+    {
+      "name": "fm_amount",
+      "label": "FM",
+      "min": 0,
+      "max": 127,
+      "default": 0
     }
   ],
   "layout": {
@@ -68,6 +96,32 @@
         "y": 0.36,
         "side": "front",
         "size": 1.2
+      },
+      "waveform": {
+        "x": 0.28,
+        "y": 0.42,
+        "side": "front",
+        "size": 0.8,
+        "kind": "switch"
+      },
+      "octave": {
+        "x": 0.72,
+        "y": 0.42,
+        "side": "front",
+        "size": 0.8,
+        "kind": "switch"
+      },
+      "pulse_width": {
+        "x": 0.28,
+        "y": 0.58,
+        "side": "front",
+        "size": 0.9
+      },
+      "fm_amount": {
+        "x": 0.72,
+        "y": 0.58,
+        "side": "front",
+        "size": 0.9
       }
     },
     "jacks": {
