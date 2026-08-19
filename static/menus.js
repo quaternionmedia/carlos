@@ -39,8 +39,37 @@ function packRing(items, moreLabel = 'More') {
 // place ever has to be wide enough to read.
 const WEDGE_MAX = 12;
 
+// What a wedge says when the name is too long for one.
+//
+// The mechanism existed for a while before anything used it, which is its own
+// small lesson: a rule with no enforcement is a paragraph. Fourteen labels were
+// over the limit while the docs said none were, and `test_no_wedge_label_is_too
+// _long` now walks every context and fails on a new one.
+//
+// Every entry here is a name somebody would recognise, not a name with letters
+// removed - the hub spells the full one out the moment you aim at it, which is
+// the whole reason a wedge is allowed to be short. Nothing is elided, because
+// an ellipsis is what the contract bans and an abbreviation that reads like one
+// is the same lie with better manners.
+const SHORT = {
+    'audio-interface': 'Interfaces',
+    'semi-modular': 'Semi-mod',
+    'EP-133 K.O. II': 'K.O. II',
+    'Subharmonicon': 'Subharm',
+    'Send test note': 'Test note',
+    'Clear bindings': 'Unbind all',
+    'Bind next message': 'Bind next',
+    'Nothing patched': 'No cables',
+    'Add Device': 'Add',
+};
+
 function item(id, label, action, extra = {}) {
-    return { id, label, action, enabled: true, destructive: false, ...extra };
+    const short = extra.short || SHORT[label];
+    return {
+        id, label, action, enabled: true, destructive: false,
+        ...(short ? { short } : {}),
+        ...extra,
+    };
 }
 
 // What a wedge says, which is never longer than the ring can draw.

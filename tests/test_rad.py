@@ -460,6 +460,89 @@ class ResolverTests(unittest.TestCase):
                  if c["label"] == "Show"]
         self.assertEqual(len(shows), 6)
 
+    def test_no_wedge_label_is_too_long(self):
+        """Twelve characters, in every context and at every depth.
+
+        The docs claimed this for a while before anything enforced it, and
+        fourteen labels were over — a rule with no enforcement is a paragraph.
+        Enforced by the resolver rather than by a reviewer, the same way the
+        ring ceiling is.
+
+        A wedge is allowed to be short because the hub spells the full name out
+        the moment you aim at it. Nothing is elided to get there: an ellipsis is
+        what the contract bans, and an abbreviation that reads like one is the
+        same lie with better manners.
+        """
+        for kind in ("canvas", "node", "edge", "row", "selection"):
+            with self.subTest(kind):
+                spec = self.resolve(self.fake_state(devices=12, groups=3) + """
+                state.modules.set('m1', {
+                    id: 'm1', name: 'One', jacks: new Map(),
+                    view: 'front', sides: ['front', 'back'],
+                    drawnSides: () => ['front', 'back'],
+                });
+                const spec = m.carlosResolve(
+                    {type:'%s', targetIds:['m1'], position:{x:0,y:0}}, state);
+                console.log(JSON.stringify(spec));
+                """ % kind)
+
+                over = []
+
+                def walk(items, trail=""):
+                    for entry in items or []:
+                        shown = entry.get("short") or entry["label"]
+                        if len(shown) > 12:
+                            over.append(f"{trail}{entry['label']} -> {shown}")
+                        walk(entry.get("children"), f"{trail}{entry['label']} > ")
+
+                walk(spec["items"])
+                self.assertEqual(over, [], f"{kind}: labels a wedge cannot draw")
+
+    def test_no_wedge_label_is_elided(self):
+        for kind in ("canvas", "node", "row"):
+            with self.subTest(kind):
+                spec = self.resolve(self.fake_state(devices=12, groups=3) + """
+                state.modules.set('m1', {
+                    id: 'm1', name: 'One', jacks: new Map(),
+                    view: 'front', sides: ['front', 'back'],
+                    drawnSides: () => ['front', 'back'],
+                });
+                const spec = m.carlosResolve(
+                    {type:'%s', targetIds:['m1'], position:{x:0,y:0}}, state);
+                console.log(JSON.stringify(spec));
+                """ % kind)
+
+                def walk(items):
+                    for entry in items or []:
+                        shown = entry.get("short") or entry["label"]
+                        self.assertNotIn("…", shown)
+                        self.assertNotIn("...", shown)
+                        walk(entry.get("children"))
+
+                walk(spec["items"])
+
+    def test_a_shortened_wedge_still_knows_its_real_name(self):
+        # The hub reads `label`, so shortening a wedge must never be the only
+        # copy of the name - that would be truncation with extra steps.
+        spec = self.resolve(self.fake_state() + """
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+
+        found = []
+
+        def walk(items):
+            for entry in items or []:
+                if entry.get("short"):
+                    found.append(entry)
+                    self.assertTrue(entry["label"])
+                    self.assertNotEqual(entry["short"], entry["label"])
+                walk(entry.get("children"))
+
+        walk(spec["items"])
+        self.assertTrue(found, "nothing is shortened, so this proves nothing")
+
     def test_a_row_resolves_as_its_own_context(self):
         # rad names four context types and this is a fifth. The contract permits
         # extension and forbids repurposing, and a row is not a node: it has no
