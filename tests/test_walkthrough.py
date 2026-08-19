@@ -251,6 +251,97 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(len(collected), len(pages()), result.stdout)
 
 
+class ReleaseGateTests(unittest.TestCase):
+    """What a version tag asserts, and which part of it a machine can do.
+
+    `DRAFT-version-tags-are-claims.md` §2 names three claims. Only the third is
+    mechanical. These tests are mostly about the other two staying *un*claimed:
+    a gate that exits zero without saying what it did not check is a gate that
+    lets a green tick assert diligence nobody performed.
+    """
+
+    def cli(self):
+        return Path("tools/cli.py").read_text(encoding="utf-8")
+
+    def test_the_command_exists_and_runs_everything(self):
+        # `tests` alone would drop the browser suite and the pages, which is
+        # most of what a reader would assume a release was validated against.
+        body = self.cli()
+        self.assertIn("release-check", body)
+        self.assertIn("RELEASE_CHECK", body)
+        for named in ("tests", "walkthrough"):
+            self.assertIn(named, body)
+
+    def test_a_skip_is_refused(self):
+        # §3: a skipped test is an absent test that has announced itself. The
+        # suite skips whole classes without `node` and the whole browser suite
+        # without a browser, so this is the clause that decides whether a green
+        # run on a bare machine can be read as validation.
+        body = self.cli()
+        self.assertIn("skipped", body)
+        for word in ("rerun", "retried"):
+            with self.subTest(word):
+                self.assertIn(word, body)
+
+    def test_it_does_not_claim_the_human_half(self):
+        # The whole point. Exiting zero is allowed to mean "validation passed";
+        # it is not allowed to mean "reviewed and manually tested".
+        body = self.cli()
+        self.assertIn("human", body)
+        self.assertIn("manually test", body)
+
+    def test_there_is_no_flag_to_skip_the_gate(self):
+        # A flag to skip it would be the failure the record describes, arriving
+        # by the front door.
+        body = self.cli()
+        for escape in ("--no-skip-check", "--allow-skips", "--force"):
+            with self.subTest(escape):
+                self.assertNotIn(escape, body)
+
+    def test_releasing_names_what_a_tag_asserts(self):
+        doc = Path("RELEASING.md").read_text(encoding="utf-8")
+        for claim in ("reviewed", "manually tested", "deterministic"):
+            with self.subTest(claim):
+                self.assertIn(claim, doc.lower())
+        # And that nothing untagged is a release.
+        self.assertIn("carries no release claim", doc.lower())
+
+    def test_releasing_says_a_human_cuts_the_tag(self):
+        # Whitespace-normalised: these sentences wrap, and a test that breaks
+        # on a reflow is a test that gets reflowed away.
+        doc = " ".join(
+            Path("RELEASING.md").read_text(encoding="utf-8").lower().split())
+        self.assertIn("a human, and only a human", doc)
+        self.assertIn("never cuts the tag", doc)
+
+    def test_the_workflow_triggers_on_a_tag_and_creates_none(self):
+        flow = Path(".github/workflows/release-gate.yml").read_text(
+            encoding="utf-8")
+        self.assertIn("tags:", flow)
+        self.assertIn("'v*'", flow)
+        # §7: release automation triggers on the tag and never creates one.
+        self.assertNotIn("git tag", flow)
+        self.assertNotIn("create-release", flow)
+
+    def test_the_workflow_says_what_it_did_not_assert(self):
+        flow = Path(".github/workflows/release-gate.yml").read_text(
+            encoding="utf-8").lower()
+        self.assertIn("what it did not", flow)
+        self.assertIn("manually tested", flow)
+
+    def test_this_project_makes_no_release_claim_yet(self):
+        # Carlos has never been tagged. If that changes, this test should be
+        # the thing that makes somebody say so here rather than let the
+        # documentation quietly go stale.
+        found = subprocess.run(
+            ["git", "tag", "--list", "v*"],
+            capture_output=True, text=True, timeout=30)
+        self.assertEqual(
+            found.stdout.strip(), "",
+            "there is a version tag now; RELEASING.md's closing section and "
+            "this test both need to say so")
+
+
 class ContributingTests(unittest.TestCase):
     """Onboarding lives in one place, and it is the page that runs.
 
@@ -302,7 +393,7 @@ class ContributingTests(unittest.TestCase):
         # rather than a seed script, so "calls into project-seed/ci" is not the
         # discriminator it looks like - and a workflow added later has to be
         # put in a bucket deliberately rather than silently counted as a gate.
-        ours = {"tests.yml"}
+        ours = {"tests.yml", "release-gate.yml"}
         present = {p.name for p in Path(".github/workflows").glob("*.yml")}
         gates = present - ours
 

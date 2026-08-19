@@ -277,10 +277,16 @@ code; the first three are decisions.
 
 ### Kept honest
 
-8. **The version tag is a human gate.** Per the version-tags record, the default
-   branch, a pull request and a local build are all drafts. A `v*` tag asserts a
-   human reviewed the change set, a human manually tested it against its real
-   runtime, and deterministic validation passed. None of that has happened.
+8. **The version tag is a human gate, and now has a machine half.**
+   `RELEASING.md` is the record applied to this project: what a `v*` tag
+   asserts, who may cut one, and the annotation form. `carlos release-check`
+   runs the whole suite and **fails on a skip** — a skipped test is an absent
+   test that has announced itself, and this suite skips whole classes without
+   `node` and the entire browser suite without a browser.
+
+   It asserts one of the three claims and says in its own output that it has
+   not made the other two. Carlos has never been tagged; nothing here is a
+   release.
 
 ## What Was Reported Upstream
 

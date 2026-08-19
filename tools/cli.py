@@ -245,6 +245,114 @@ def gates(ctx: click.Context) -> None:
     ctx.exit(run(SEED + [GATES, "--base-ref", BASE_REF], **_opts(ctx)))
 
 
+# Everything, including the parts that skip themselves when a fixture is
+# missing. A release gate that quietly drops the browser suite because no
+# browser was provisioned is the exact failure the version-tags record names.
+RELEASE_CHECK = (
+    "pytest", "tests", "walkthrough", "--doctest-glob=*.md",
+    "-q", "-rs", "-p", "no:randomly",
+)
+
+
+@main.command("release-check")
+@click.option("--tag", default=None,
+              help="Also check this tag's annotation says what it asserts.")
+@click.pass_context
+def release_check(ctx: click.Context, tag: str | None) -> None:
+    """The machine half of what a `v*` tag asserts.
+
+    `DRAFT-version-tags-are-claims.md` section 2 says a tag asserts three things: a
+    human reviewed the change set, a human manually tested it against its real
+    runtime, and automated validation passed *and is deterministic*.
+
+    Only the third is mechanical, and this is it. The first two are human acts
+    and this command cannot perform them, check them, or stand in for them —
+    section 1 draws that line and it is the same line as ratification.
+
+    What it does check is section 3, which is the clause with teeth: **a skipped test
+    is an absent test that has announced itself.** This suite skips whole
+    classes when `node` is missing and the whole browser suite when no browser
+    was provisioned, so a run that looks green on a bare machine has verified
+    a fraction of what a reader would assume. A skip here is a failure.
+
+    Reruns and retries are refused for the same reason: a suite whose result
+    changes between runs on unchanged input is not evidence of anything.
+    """
+    root, dry_run = ctx.obj["root"], ctx.obj["dry_run"]
+    argv = here(list(RELEASE_CHECK))
+
+    if dry_run:
+        click.echo(f"$ {' '.join(uv(list(RELEASE_CHECK)))}")
+        if tag:
+            click.echo(f"$ git tag -n99 --list {tag}")
+        ctx.exit(0)
+
+    completed = subprocess.run(
+        argv, cwd=root, text=True, capture_output=True,
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+    )
+    report = (completed.stdout or "") + (completed.stderr or "")
+    click.echo(report.rstrip())
+
+    problems = []
+    if completed.returncode != 0:
+        problems.append("the suite did not pass")
+
+    summary = report.strip().splitlines()[-1] if report.strip() else ""
+    for word in ("skipped", "rerun", "retried", "xfailed", "xpassed"):
+        if word in summary:
+            problems.append(f"the run reports {word}, which is not validation")
+
+    if tag:
+        problems.extend(_tag_problems(root, tag))
+
+    if problems:
+        for problem in problems:
+            click.secho(f"  not a release: {problem}", fg="red")
+        click.secho(
+            "\nsection 3 counts only deterministic validation. Provision what the "
+            "suite needs and run it again.", fg="red")
+        ctx.exit(1)
+
+    click.secho("\nDeterministic validation passed, with nothing skipped.",
+                fg="green")
+    click.echo(
+        "That is one of the three claims a `v*` tag makes. The other two are\n"
+        "human acts and this command has not made them: a human reviews the\n"
+        "change set, and a human manually tests it against its real runtime.\n"
+        "See RELEASING.md.")
+    ctx.exit(0)
+
+
+def _tag_problems(root: Path, tag: str) -> list[str]:
+    """Whether a tag records its own basis, per section 6.
+
+    Annotated, never lightweight, and the annotation names who reviewed, what
+    was manually tested, and what the automated gate covered. A tag whose
+    annotation cannot state the manual test performed is a tag that should not
+    exist yet — so this checks the words are there rather than trusting that
+    somebody meant them.
+    """
+    kind = subprocess.run(
+        ["git", "cat-file", "-t", tag], cwd=root, text=True, capture_output=True)
+    if kind.returncode != 0:
+        return [f"there is no tag {tag!r}"]
+    if kind.stdout.strip() != "tag":
+        return [f"{tag} is lightweight; section 6 requires an annotated tag"]
+
+    message = subprocess.run(
+        ["git", "tag", "-n99", "--list", tag],
+        cwd=root, text=True, capture_output=True).stdout.lower()
+
+    missing = [need for need, words in (
+        ("who reviewed it", ("reviewed",)),
+        ("what was manually tested", ("manually tested", "manual test")),
+        ("what the automated gate covered", ("automated", "validation")),
+    ) if not any(word in message for word in words)]
+
+    return [f"{tag}'s annotation does not say {need}" for need in missing]
+
+
 @main.command()
 @click.pass_context
 def signatures(ctx: click.Context) -> None:

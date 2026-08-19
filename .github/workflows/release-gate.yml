@@ -1,0 +1,66 @@
+# The gate a version tag has to pass, run where nobody's workstation is.
+#
+# `DRAFT-version-tags-are-claims.md` §7: release automation triggers on the tag
+# and never creates one, and CI fails a release build whose test run reports a
+# skip, a rerun, or a retry — so §3 cannot be satisfied by a suite that merely
+# looks green.
+#
+# This job asserts exactly one of the three claims a tag makes. The other two
+# are human acts, and the record draws that line in §1: an assistant prepares a
+# release, a human cuts the tag. Nothing here can perform, check, or stand in
+# for a review or a manual test, and the summary it writes says so rather than
+# leaving a green check to imply otherwise.
+name: Release gate
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deterministic-validation:
+    name: Automated validation, with nothing skipped
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          # The tag's own annotation is checked below, and a shallow fetch
+          # arrives without it.
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Sync
+        run: uv sync --all-groups
+
+      # Everything the suite needs, so that nothing skips for want of it. A
+      # release gate that drops the browser suite because no browser was
+      # provisioned is the exact failure §3 names.
+      - name: Provision Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: The whole suite, and no skips
+        run: uv run carlos release-check --tag "${GITHUB_REF_NAME}"
+
+      - name: Say what this did and did not assert
+        if: always()
+        run: |
+          {
+            echo "## What this gate asserted"
+            echo
+            echo "Deterministic automated validation for \`${GITHUB_REF_NAME}\`,"
+            echo "with nothing skipped, reran or retried."
+            echo
+            echo "## What it did not"
+            echo
+            echo "- that a human **reviewed** the change set"
+            echo "- that a human **manually tested** it against its real runtime"
+            echo
+            echo "Both are human acts. See \`RELEASING.md\`; the tag's own"
+            echo "annotation is where they are recorded."
+          } >> "$GITHUB_STEP_SUMMARY"

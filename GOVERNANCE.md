@@ -155,7 +155,12 @@ below needs a person, and two of the three are remote writes.
    record is what lets Carlos be described as carrying governance rather than
    improvising it.
 
-**Merging into the default branch is not a release.** Per the version-tags
+**Merging into the default branch is not a release.** `RELEASING.md` is where
+that is written down for this project, with the gate that enforces the half of
+it a machine can hold: `carlos release-check`, which runs everything and refuses
+a skip.
+
+ Per the version-tags
 record, the default branch, a pull request and a local build are all drafts.
 The two human gates are ratification, for what a record says, and the version
 tag, for what this project ships — a `v*` tag asserts a human reviewed the

@@ -35,8 +35,8 @@ other, so a round the CLI grows and this page does not name is a failing test:
 
 ```python
 >>> sorted(cli.main.commands)
-['browser', 'check', 'gates', 'harness', 'serve', 'shots', 'signatures',
- 'status', 'stop']
+['browser', 'check', 'gates', 'harness', 'release-check', 'serve', 'shots',
+ 'signatures', 'status', 'stop']
 
 ```
 
