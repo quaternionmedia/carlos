@@ -21,6 +21,8 @@ const RAD_SVG_NS = 'http://www.w3.org/2000/svg';
 // ordinary press-and-drag that works the ring keeps its exact shape and never
 // has to know a second gesture exists.
 const RAD_BAR_HEIGHT = 30;
+// Drag it back within this of the top and it docks again.
+const RAD_BAR_DOCK_WITHIN = 26;
 const RAD_DOUBLE_TAP_MS = 320;
 const RAD_DOUBLE_TAP_SLOP = 24;
 
@@ -81,7 +83,20 @@ class RadMenu {
         // the rack is - and blooms into the ring itself only while held. That
         // is what keeps it out of the way: at rest it covers a strip nothing
         // is drawn in, rather than a corner of the rack.
+        // Docked, or floating.
+        //
+        // `barX` is `null` while the bar is docked along the top: it spans the
+        // window, sits in the strip above the rack, and the body reserves it.
+        // Move it and it detaches - a panel the width of what it says, which is
+        // the only shape that can go anywhere without being in the way.
+        //
+        // A full-width strip in the middle of a rack claims every press at that
+        // height, knobs and sockets included, because a bar is hit-tested by
+        // geometry rather than by what is under the pointer. Docked that costs
+        // nothing, since nothing else is up there. Moved, it was a wall.
+        this.barX = null;
         this.barY = 0;
+        this.barWidth = 0;
         this.lastBarTap = 0;
         this.moving = null;
         // What the app last answered, and whether anybody has held the bar yet.
@@ -157,10 +172,35 @@ class RadMenu {
         return !this.pinned || this.engaged;
     }
 
+    // The rack makes room for the bar only while the bar is docked along the
+    // top. A floating one is over the rack by choice and reserves nothing.
+    reserveStrip() {
+        if (!document.body?.setAttribute) return;
+        if (this.pinned && this.docked) {
+            document.body.setAttribute('data-ring', 'pinned');
+        } else {
+            document.body.removeAttribute('data-ring');
+        }
+    }
+
+    get docked() {
+        return this.barX === null;
+    }
+
     // The bar's box, in viewport coordinates.
     barBox() {
-        const width = (typeof window !== 'undefined' && window.innerWidth) || 0;
-        return { x: 0, y: this.barY, width, height: RAD_BAR_HEIGHT };
+        const window_ = (typeof window !== 'undefined' && window.innerWidth) || 0;
+        if (this.docked) {
+            return { x: 0, y: this.barY, width: window_, height: RAD_BAR_HEIGHT };
+        }
+        return {
+            x: this.barX,
+            y: this.barY,
+            // Until it has been drawn once there is nothing to measure, so it
+            // starts at a width that holds a line and settles on the real one.
+            width: this.barWidth || 320,
+            height: RAD_BAR_HEIGHT,
+        };
     }
 
     // Is this press on the bar? Asked of the geometry for the same reason the
@@ -327,7 +367,13 @@ class RadMenu {
             // enough that it can never be reached by accident from the press
             // that opens the ring, which is rad-android's whole reason for
             // putting reposition behind this gesture rather than a drag.
-            this.moving = { from: event.clientY, at: this.barY };
+            const box = this.barBox();
+            this.moving = {
+                fromX: event.clientX,
+                fromY: event.clientY,
+                atX: this.docked ? box.x : this.barX,
+                atY: this.barY,
+            };
             this.layer?.classList.add('is-moving');
             event.preventDefault();
             return;
@@ -399,7 +445,19 @@ class RadMenu {
 
     onPointerMove(event) {
         if (this.moving) {
-            this.barY = Math.max(0, this.moving.at + (event.clientY - this.moving.from));
+            const x = this.moving.atX + (event.clientX - this.moving.fromX);
+            const y = this.moving.atY + (event.clientY - this.moving.fromY);
+
+            // Back to the top edge and it docks again: the one gesture that
+            // moves it is the one that puts it back, so there is nothing to
+            // find in a menu.
+            if (y <= RAD_BAR_DOCK_WITHIN) {
+                this.barX = null;
+                this.barY = 0;
+            } else {
+                this.barX = x;
+                this.barY = y;
+            }
             this.render();
             return;
         }
@@ -415,6 +473,7 @@ class RadMenu {
             this.moving = null;
             this.layer?.classList.remove('is-moving');
             if (this.onBarMoved) this.onBarMoved(this.barY);
+            this.reserveStrip();
             this.render();
             return;
         }
@@ -594,7 +653,7 @@ class RadMenu {
         if (this.layer) this.layer.classList.add('is-pinned');
         // The rack makes room for the bar. It is the one thing that gets any of
         // the navy the rack floats in.
-        document.body?.setAttribute?.('data-ring', 'pinned');
+        this.reserveStrip();
         // Resolve *after* the flag, not before. `openAt` resolves as it opens,
         // and at that moment this ring was still unpinned - so the menu it
         // built offered to pin a ring that already was, and there was no way
@@ -628,6 +687,9 @@ class RadMenu {
         this.layer.setAttribute('aria-label', 'Rack');
 
         const box = this.barBox();
+        this.layer.classList.toggle('is-docked', this.docked);
+        this.layer.classList.toggle('is-floating', !this.docked);
+
         const bar = document.createElementNS(RAD_SVG_NS, 'rect');
         bar.setAttribute('x', box.x);
         bar.setAttribute('y', box.y);
@@ -648,8 +710,9 @@ class RadMenu {
         const facts = this.readout ? this.readout() : '';
         const said = this.saidLately || '';
 
+        const left = box.x + 16;
         const text = document.createElementNS(RAD_SVG_NS, 'text');
-        text.setAttribute('x', 16);
+        text.setAttribute('x', left);
         text.setAttribute('y', middle);
         text.setAttribute('class', 'rad-bar-text');
         text.setAttribute('id', 'rad-bar-text');
@@ -676,7 +739,8 @@ class RadMenu {
         const measured = typeof text.getComputedTextLength === 'function'
             ? text.getComputedTextLength()
             : 0;
-        let next = 16 + (measured || 300) + 18;
+        let next = left + (measured || 300) + 18;
+        let end = next;
 
         if (said) {
             const rule = document.createElementNS(RAD_SVG_NS, 'line');
@@ -689,12 +753,17 @@ class RadMenu {
 
             const answer = document.createElementNS(RAD_SVG_NS, 'text');
             answer.setAttribute('x', next + 14);
+            end = next + 14;
             answer.setAttribute('y', middle);
             answer.setAttribute('class', 'rad-bar-said');
             answer.setAttribute('id', 'rad-bar-said');
             answer.setAttribute('aria-hidden', 'true');
             answer.textContent = said;
             this.layer.appendChild(answer);
+            const saidWide = typeof answer.getComputedTextLength === 'function'
+                ? answer.getComputedTextLength()
+                : 0;
+            end = next + 14 + (saidWide || 200);
         }
 
         // The hint retires itself. It is worth a strip of the bar exactly until
@@ -702,13 +771,32 @@ class RadMenu {
         // they already know how to open.
         if (!this.hintLearned) {
             const hint = document.createElementNS(RAD_SVG_NS, 'text');
-            hint.setAttribute('x', box.width - 16);
+            // Far right while docked, where there is a window's worth of room.
+            // Straight after the rest while floating, where there is not.
+            hint.setAttribute('x', this.docked ? box.x + box.width - 16 : end + 18);
             hint.setAttribute('y', middle);
             hint.setAttribute('class', 'rad-bar-hint');
             hint.setAttribute('id', 'rad-bar-hint');
             hint.setAttribute('aria-hidden', 'true');
+            hint.setAttribute('text-anchor', this.docked ? 'end' : 'start');
             hint.textContent = 'hold for the menu';
             this.layer.appendChild(hint);
+
+            const hintWide = typeof hint.getComputedTextLength === 'function'
+                ? hint.getComputedTextLength()
+                : 0;
+            if (!this.docked) end += 18 + (hintWide || 110);
+        }
+
+        // Floating, the bar is the width of what it says. Measured after
+        // drawing because the figures and the answer both change width, and a
+        // panel wider than its contents is a panel taking room it is not using.
+        if (!this.docked) {
+            const wide = Math.round(end - box.x + 16);
+            if (wide !== this.barWidth) {
+                this.barWidth = wide;
+                bar.setAttribute('width', wide);
+            }
         }
         return this.layer;
     }

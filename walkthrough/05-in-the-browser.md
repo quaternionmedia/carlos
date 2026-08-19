@@ -330,6 +330,14 @@ Double-tap it and drag, and it moves — rad-android's own reposition gesture,
 behind a deliberate second press so the one that works the ring keeps its exact
 shape and never has to know this exists.
 
+Moving it **detaches** it: docked it spans the window, and floating it is a panel
+the width of what it says. That is not decoration. A bar is hit-tested by
+geometry rather than by what is under the pointer, so a full-width strip in the
+middle of a rack claimed every press at that height — knobs and sockets included.
+Docked along the top that costs nothing, because nothing else is up there. Moved,
+it was a wall. Dragging it back to the top docks it again, so the gesture that
+moves it is the gesture that puts it back.
+
 ```python
 >>> before = page.locator('.rad-bar').bounding_box()
 >>> _ = page.mouse.move(500, 15)

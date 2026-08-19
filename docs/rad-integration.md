@@ -164,7 +164,14 @@ Three gestures, and nothing else:
   letting go committed `Add` every time.
 - **Double-tap and drag** moves it. rad-android's own reposition gesture, behind
   a deliberate second press so the press that works the ring keeps its exact
-  shape and never has to know this exists.
+  shape and never has to know this exists. Moving it detaches it: docked it
+  spans the window, floating it is a panel the width of what it says, and
+  dragging it back to the top docks it again.
+
+  The two shapes are not cosmetic. A bar is hit-tested by geometry rather than
+  by what is under the pointer, so a full-width strip claims every press at its
+  own height. Along the top that costs nothing; anywhere else it was a wall
+  across the rack, taking knobs and sockets with it.
 - **Everything else belongs to the rack.** A ring that simply stayed open owned
   the keyboard and swallowed every click for as long as it was up: arrows
   stopped reaching knobs, Enter stopped patching, Escape stopped deselecting. A

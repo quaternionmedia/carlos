@@ -377,21 +377,106 @@ class TestTheBar:
             timeout=5_000)
         assert page.locator("#view-indicator").inner_text() != facing
 
-    def test_double_tap_and_drag_moves_it(self, page):
-        # rad-android's own reposition gesture, chosen so the press that works
-        # the ring keeps its exact shape and never has to know this exists.
+    def move(self, page, dx, dy, steps=10):
+        """Double-tap the bar and drag it."""
         start = self.bar(page).bounding_box()
-        x, y = 500, start["y"] + start["height"] / 2
-
+        x = start["x"] + 60
+        y = start["y"] + start["height"] / 2
         page.mouse.move(x, y)
         page.mouse.down()
         page.mouse.up()
         page.mouse.down()
-        page.mouse.move(x, y + 180, steps=10)
+        page.mouse.move(x + dx, y + dy, steps=steps)
         page.mouse.up()
+        page.wait_for_timeout(150)
+        return start
 
-        moved = self.bar(page).bounding_box()
-        assert round(moved["y"] - start["y"]) == 180
+    def test_double_tap_and_drag_moves_it(self, page):
+        # rad-android's own reposition gesture, chosen so the press that works
+        # the ring keeps its exact shape and never has to know this exists.
+        start = self.move(page, 0, 180)
+        assert round(self.bar(page).bounding_box()["y"] - start["y"]) == 180
+
+    def test_docked_it_spans_the_window(self, page):
+        assert page.locator(".rad-layer.is-docked").count() == 1
+        box = self.bar(page).bounding_box()
+        assert box["width"] >= page.viewport_size["width"] - 1
+
+    def test_moved_it_becomes_a_panel_the_size_of_what_it_says(self, page):
+        # A full-width strip in the middle of a rack claims every press at that
+        # height - knobs and sockets included, because a bar is hit-tested by
+        # geometry rather than by what is under the pointer. Docked that costs
+        # nothing. Moved, it was a wall.
+        self.move(page, 220, 400)
+        box = self.bar(page).bounding_box()
+        assert page.locator(".rad-layer.is-floating").count() == 1
+        assert box["width"] < page.viewport_size["width"] / 2
+        assert box["x"] > 0
+
+    def test_it_stops_claiming_the_whole_row_it_sits_in(self, page):
+        # The bug this fixes, asked the way the bar itself asks it. A press is
+        # the bar's when it lands inside the bar - and while it spanned the
+        # window, that was every press at that height, knobs and sockets
+        # included.
+        self.move(page, 300, 400)
+        box = self.bar(page).bounding_box()
+        middle = box["y"] + box["height"] / 2
+
+        claims = page.evaluate(
+            "([x, y]) => radMenu.aimedAtBar(x, y)", [box["x"] + 40, middle])
+        assert claims, "it does not claim a press on itself"
+
+        for beside in (20, box["x"] - 40, box["x"] + box["width"] + 40):
+            assert not page.evaluate(
+                "([x, y]) => radMenu.aimedAtBar(x, y)", [beside, middle]), (
+                f"still claims x={beside} at its own height")
+
+    def test_the_rack_answers_beside_a_floated_bar(self, page):
+        # And the other half of it: something on the rack at that height is
+        # still something you can point at.
+        self.move(page, 300, 400)
+        box = self.bar(page).bounding_box()
+        middle = box["y"] + box["height"] / 2
+
+        found = page.evaluate(
+            """(y) => {
+                for (let x = 20; x < window.innerWidth; x += 20) {
+                    const el = document.elementFromPoint(x, y);
+                    if (el && el.closest('.module')) return true;
+                }
+                return false;
+            }""", middle)
+        assert found, "nothing on the rack is reachable at the bar's height"
+
+    def test_moving_it_gives_the_strip_back(self, page):
+        assert page.evaluate(
+            "() => getComputedStyle(document.body).paddingTop") == "46px"
+        self.move(page, 200, 400)
+        assert page.evaluate(
+            "() => getComputedStyle(document.body).paddingTop") != "46px"
+
+    def test_dragging_it_to_the_top_docks_it_again(self, page):
+        # The gesture that moves it is the gesture that puts it back, so there
+        # is nothing to find in a menu.
+        self.move(page, 200, 400)
+        assert page.locator(".rad-layer.is-floating").count() == 1
+
+        box = self.bar(page).bounding_box()
+        x = box["x"] + 60
+        y = box["y"] + box["height"] / 2
+        page.mouse.move(x, y)
+        page.mouse.down()
+        page.mouse.up()
+        page.mouse.down()
+        page.mouse.move(x, 6, steps=8)
+        page.mouse.up()
+        page.wait_for_timeout(150)
+
+        assert page.locator(".rad-layer.is-docked").count() == 1
+        assert self.bar(page).bounding_box()["width"] >= (
+            page.viewport_size["width"] - 1)
+        assert page.evaluate(
+            "() => getComputedStyle(document.body).paddingTop") == "46px"
 
     def test_one_tap_does_not_move_it(self, page):
         start = self.bar(page).bounding_box()
