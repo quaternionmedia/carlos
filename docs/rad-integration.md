@@ -115,6 +115,23 @@ app with rad's menu in it, and repainting the gear would be claiming otherwise.
 The one place the violet leaves the ring is the palette's grip, which is the
 other thing you grab.
 
+### High contrast
+
+rad-android holds its high-contrast mode as a correctness contract rather than a
+theme: colour comes out of every signal without the signal coming out with it.
+Idle and highlighted become black-fill and white-fill, the text inverts to match,
+the hub does the same swap, and the decorative board goes entirely — that mode is
+for the things a person has to read, and the board carries nothing.
+
+Carlos resolves it from `prefers-contrast`, which is this platform's version of
+the device setting rad-android reads, and answers `forced-colors: active` from
+the same block. There is no in-app toggle: a preference the browser already knows
+is not one this app should ask for a second time.
+
+Destructive is the interesting case. Normally it is the push-zone lime; here the
+dashes that accompany it become the whole signal rather than half of it, because
+a mark that survives the loss of colour is the only kind this mode can use.
+
 ### Wedges are short; the hub reads the name
 
 rad-android's surfaces record settles what to do about names of arbitrary

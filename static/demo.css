@@ -815,6 +815,74 @@ kbd {
     font-size: 9px;
 }
 
+/* High contrast, the way rad-android does it.
+
+   Its rule is the whole point: colour comes out of every signal without the
+   signal coming out with it. Idle and highlighted become black-fill and
+   white-fill, and the text inverts to match; the hub does the same swap; the
+   decorative board goes entirely, because that mode is a correctness contract
+   for things you have to read and the board carries nothing.
+
+   Resolved from `prefers-contrast`, which is this platform's version of the
+   device setting rad-android reads. There is no in-app toggle: a preference
+   the browser already knows is not one this app should ask for a second time.
+
+   `forced-colors` is the stronger case - the browser is repainting everything
+   itself - so the same block answers both. Under it the system's own palette
+   wins whatever is written here, which is correct: those users chose their
+   colours and this file is not entitled to overrule them. */
+@media (prefers-contrast: more), (forced-colors: active) {
+    .rad-wedge {
+        fill: #000000;
+        stroke: #ffffff;
+        stroke-width: 2;
+    }
+
+    .rad-wedge.is-highlighted {
+        fill: #ffffff;
+        stroke: #ffffff;
+        /* The shadow was depth for a colour swap that no longer happens, and
+           a grey blur under a white shape is the one thing this mode cannot
+           afford. */
+        filter: none;
+    }
+
+    /* Destructive keeps a mark that is not a colour: the dashes stay, and are
+       the whole signal here rather than half of it. */
+    .rad-wedge.is-destructive {
+        stroke: #ffffff;
+        stroke-dasharray: 4 3;
+    }
+
+    .rad-wedge.is-destructive.is-highlighted {
+        stroke: #000000;
+        stroke-dasharray: 4 3;
+    }
+
+    .rad-label {
+        fill: #ffffff;
+    }
+
+    .rad-wedge.is-highlighted + .rad-label {
+        fill: #000000;
+    }
+
+    .rad-hub {
+        fill: #000000;
+        stroke: #ffffff;
+    }
+
+    .rad-title,
+    .rad-title:not([data-highlighted]) {
+        fill: #ffffff;
+    }
+
+    /* Decoration only, and this mode is for the things that are not. */
+    .rad-backing {
+        fill: transparent;
+    }
+}
+
 /* rad honours reduced motion: the menu still works, it just stops moving. */
 @media (prefers-reduced-motion: reduce) {
     .rad-wedge {

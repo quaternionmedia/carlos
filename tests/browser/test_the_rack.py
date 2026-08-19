@@ -208,6 +208,87 @@ class TestThePanelIsAnOverlaySurface:
         assert page.errors == []
 
 
+class TestHighContrast:
+    """Colour comes out of every signal; the signal stays.
+
+    rad-android's rule, and the reason its high-contrast mode is a correctness
+    contract rather than a theme: idle and highlighted become black and white,
+    the text inverts to match, and the decoration goes entirely because it
+    carries nothing anyone has to read.
+
+    Resolved from `prefers-contrast` — the browser already knows, and asking a
+    second time in an app toggle would be a second answer to the same question.
+    """
+
+    @pytest.fixture
+    def hard(self, page):
+        page.emulate_media(contrast="more")
+        yield page
+        page.emulate_media(contrast="no-preference")
+
+    def paint(self, page, selector):
+        return page.locator(selector).first.evaluate(
+            """el => ({ fill: getComputedStyle(el).fill,
+                        stroke: getComputedStyle(el).stroke,
+                        filter: getComputedStyle(el).filter })"""
+        )
+
+    def test_the_wedges_lose_their_colour(self, hard):
+        open_menu(hard, *bare_rack(hard))
+        wedge = self.paint(hard, ".rad-wedge")
+        assert wedge["fill"] == "rgb(0, 0, 0)"
+        assert wedge["stroke"] == "rgb(255, 255, 255)"
+
+    def test_but_not_the_signal(self, hard):
+        # Idle and highlighted still differ - that is the whole contract.
+        open_menu(hard, *bare_rack(hard))
+        idle = self.paint(hard, ".rad-wedge")
+        picked = hard.locator(".rad-label", has_text="View").first.bounding_box()
+        hard.mouse.move(picked["x"] + picked["width"] / 2,
+                        picked["y"] + picked["height"] / 2)
+        hot = self.paint(hard, ".rad-wedge.is-highlighted")
+        assert hot["fill"] == "rgb(255, 255, 255)"
+        assert hot["fill"] != idle["fill"]
+
+    def test_the_shadow_goes(self, hard):
+        # Depth for a colour swap that no longer happens, and a grey blur under
+        # a white shape is the one thing this mode cannot afford.
+        open_menu(hard, *bare_rack(hard))
+        target = hard.locator(".rad-label", has_text="View").first.bounding_box()
+        hard.mouse.move(target["x"] + target["width"] / 2,
+                        target["y"] + target["height"] / 2)
+        assert self.paint(hard, ".rad-wedge.is-highlighted")["filter"] == "none"
+
+    def test_the_decoration_goes(self, hard):
+        open_menu(hard, *bare_rack(hard))
+        board = hard.locator(".rad-backing").evaluate(
+            "el => getComputedStyle(el).fill")
+        assert board == "rgba(0, 0, 0, 0)"
+
+    def test_destructive_is_still_marked_without_colour(self, hard):
+        # The dashes were half the signal and are now all of it.
+        open_menu(hard, *bare_rack(hard))
+        pick(hard, "All Devices")
+        marked = hard.locator(".rad-wedge.is-destructive")
+        assert marked.count() == 1
+        dashes = marked.evaluate("el => getComputedStyle(el).strokeDasharray")
+        assert dashes not in ("none", "")
+
+    def test_the_ring_still_works(self, hard):
+        # A mode that changes what things look like must not change what they
+        # do. This is the same gesture, driven the same way.
+        open_menu(hard, *bare_rack(hard))
+        pick(hard, "View")
+        labels = hard.locator(".rad-label").all_text_contents()
+        assert any("Minimal" in text for text in labels)
+
+    def test_ordinary_contrast_keeps_the_family_colours(self, page):
+        # The other side of it: nothing above leaks into the normal mode.
+        open_menu(page, *bare_rack(page))
+        assert page.locator(".rad-wedge").first.evaluate(
+            "el => getComputedStyle(el).fill") == "rgb(75, 59, 117)"
+
+
 class TestTheRingLooksLikeRad:
     """The ring follows the family rather than this app.
 
