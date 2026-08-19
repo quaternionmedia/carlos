@@ -115,6 +115,35 @@ app with rad's menu in it, and repainting the gear would be claiming otherwise.
 The one place the violet leaves the ring is the palette's grip, which is the
 other thing you grab.
 
+### `Edit ▸`: the ring is a thing you can arrange
+
+rad-android's §8 builds editing additively — the root ring gains exactly one
+fixed `Edit ▸`, nothing about the ordinary commit path changes shape, and
+nothing under it is reachable without committing it first. Carlos follows that
+exactly: seven wedges now, six families and the door.
+
+Under it, one wedge per family offering **Move up**, **Move down** and
+**Hide**/**Show**, plus **Reset ring**. The arrangement lives in `localStorage`
+under `carlos.ring`, and **absence means "as declared"** — a ring nobody has
+edited has no entry at all and resolves exactly as it did before this existed,
+so the feature costs nothing to anyone who never opens it. That is rad-android's
+rule for an unassigned wedge, applied to a whole ring.
+
+Two things cannot happen, both for the same reason: `Edit` is never hidden, and
+`Edit` is built from the **declared** ring rather than the arranged one. The
+first was obvious. The second was not, and it shipped broken for one commit:
+building `Edit` from the arranged ring meant a hidden family vanished from
+`Edit` too, so the way to bring it back disappeared the moment you used it. A
+ring you can arrange has to keep the door you arrange it through — at every
+level, not just the top one.
+
+Local, and deliberately: an arrangement is a fact about this person at this
+screen, and sending it anywhere would make it a fact about an account.
+
+**Not ported:** rad-android's `Assign function…`, which rebinds what committing
+a wedge *does*. Its verbs are Android intents; Carlos's are its own actions and
+are not user-composable, so there is nothing here to offer.
+
 ### Getting back out
 
 rad-android's §9 records two failures real-device use found, neither of them in

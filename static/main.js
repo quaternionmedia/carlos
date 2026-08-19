@@ -285,11 +285,73 @@ function cableState() {
     return { cables, cableCounts };
 }
 
-const radMenu = new RadMenu({
-    resolve: (context) => carlosResolve(context, {
+// ===================================
+// HOW THIS RING IS ARRANGED
+// ===================================
+// One small store, on this browser, holding what somebody has done to their
+// own ring: which families are hidden and what order the rest are in.
+//
+// rad-android keeps the same thing keyed per palette, and the same rule
+// governs it: absence means "as declared". A ring nobody has edited has no
+// entry here at all and resolves exactly as it did before this existed, so
+// the feature costs nothing to anyone who never opens it.
+//
+// Local, and deliberately: an arrangement is a fact about this person at this
+// screen. Sending it anywhere would make it a fact about an account.
+const RING_STORE = 'carlos.ring';
+
+function ringConfig() {
+    try {
+        return JSON.parse(localStorage.getItem(RING_STORE) || '{}') || {};
+    } catch {
+        // A corrupt entry is not worth a broken menu. As declared, then.
+        return {};
+    }
+}
+
+function saveRing(config) {
+    try {
+        const empty = !(config.hidden || []).length && !(config.order || []).length;
+        // Nothing to say is said by saying nothing, so a reset leaves no
+        // residue behind to be read back as an arrangement.
+        if (empty) localStorage.removeItem(RING_STORE);
+        else localStorage.setItem(RING_STORE, JSON.stringify(config));
+    } catch {
+        // Private mode, a full quota: the ring still works, it just forgets.
+        system.status.update('This browser will not store the arrangement');
+    }
+}
+
+// The order the ring is in right now, named rather than implied: moving an
+// item needs a list to move it within, and an unedited ring has never written
+// one down.
+function ringOrder() {
+    const spec = carlosResolve(
+        { type: 'canvas', targetIds: [], position: { x: 0, y: 0 } },
+        radState()
+    );
+    return spec.items.map(entry => entry.id).filter(id => id !== 'edit');
+}
+
+function moveInRing(itemId, step) {
+    const order = ringOrder();
+    const at = order.indexOf(itemId);
+    if (at < 0) return null;
+    const to = at + step;
+    if (to < 0 || to >= order.length) return null;
+
+    order.splice(to, 0, ...order.splice(at, 1));
+    const config = { ...ringConfig(), order };
+    saveRing(config);
+    return order;
+}
+
+function radState() {
+    return {
         definitions: ModuleFactory.definitions,
         groups: system.groups,
         modules: system.modules,
+        ringConfig: ringConfig(),
         // Read at resolve time rather than held: the panel's own class is the
         // one copy of whether it is on screen, and a second would be a second
         // answer to the same question.
@@ -297,7 +359,11 @@ const radMenu = new RadMenu({
             document.getElementById('tool-palette')
                 ?.classList.contains('is-dismissed')),
         ...cableState(),
-    }),
+    };
+}
+
+const radMenu = new RadMenu({
+    resolve: (context) => carlosResolve(context, radState()),
     onIntent: (intent) => routeIntent(intent),
 });
 
@@ -399,6 +465,32 @@ function routeIntent(intent) {
         case 'display:minimal':
         case 'display:irl':
             system.setMode(action.endsWith('irl') ? 'irl' : 'minimal');
+            break;
+
+        case 'edit:up':
+        case 'edit:down': {
+            const moved = moveInRing(payload.itemId, action === 'edit:up' ? -1 : 1);
+            system.status.update(
+                moved ? `Moved ${payload.itemId} in the ring` : 'It is already there');
+            break;
+        }
+
+        case 'edit:hide': {
+            const config = ringConfig();
+            const hidden = new Set(config.hidden || []);
+            if (hidden.has(payload.itemId)) hidden.delete(payload.itemId);
+            else hidden.add(payload.itemId);
+            saveRing({ ...config, hidden: [...hidden] });
+            system.status.update(
+                hidden.has(payload.itemId)
+                    ? `${payload.itemId} hidden - Edit brings it back`
+                    : `${payload.itemId} is back on the ring`);
+            break;
+        }
+
+        case 'edit:reset':
+            saveRing({});
+            system.status.update('Ring back to how it ships');
             break;
 
         case 'palette:toggle': {

@@ -48,6 +48,79 @@ function wedgeLabel(menuItem) {
     return menuItem.short || menuItem.label;
 }
 
+// The one entry that is never hidden and never moves.
+//
+// rad-android builds editing additively: the root ring gains exactly one fixed
+// `Edit ▸`, nothing about the ordinary commit path changes shape, and nothing
+// under it is reachable without committing it first. The same reasoning makes
+// it unhideable here - a ring you can arrange has to keep the door you arrange
+// it through, or the last thing you hide is the way back.
+const EDIT_ID = 'edit';
+
+// Apply a stored arrangement to a ring.
+//
+// Hidden items are dropped and the rest are put in the stored order; anything
+// the store has never heard of keeps its declared place at the end. Absence
+// means "as declared", so a rack that has never been edited resolves exactly as
+// it did before this existed - the same rule rad-android uses for an
+// unassigned wedge.
+//
+// Pure, and takes the config rather than reading it: the resolver stays a
+// function of its arguments, which is what lets the whole ring be tested
+// without a rack or a browser behind it.
+function arrange(items, config = {}) {
+    const hidden = new Set(config.hidden || []);
+    const order = config.order || [];
+
+    const kept = items.filter(entry => entry.id === EDIT_ID || !hidden.has(entry.id));
+    const placed = order
+        .map(id => kept.find(entry => entry.id === id))
+        .filter(Boolean);
+    const rest = kept.filter(entry => !order.includes(entry.id));
+    return [...placed, ...rest];
+}
+
+// `Edit ▸` itself: one wedge per family, plus the way back to as it shipped.
+//
+// Built from the **declared** ring rather than the arranged one, which is the
+// whole of what makes hiding reversible. Built from the arranged one first,
+// and a hidden family vanished from here too - so the way to bring it back was
+// gone the moment you used it. The same trap as an unhideable `Edit`, one
+// level down, and found the same way: by asking what happens after.
+//
+// `showing` is the arranged ring, and only decides whether Move up and Move
+// down are offered live. A family that is hidden has no position to move
+// within, so both are disabled rather than absent - a menu whose items move
+// depending on state is a menu you cannot learn.
+function editTree(declared, showing, config = {}) {
+    const hidden = new Set(config.hidden || []);
+    const order = showing.map(entry => entry.id);
+
+    return packRing([
+        ...declared
+            .filter(entry => entry.id !== EDIT_ID)
+            .map(entry => {
+                const at = order.indexOf(entry.id);
+                const away = hidden.has(entry.id);
+                return item(`edit:${entry.id}`, entry.label, null, {
+                    children: [
+                        item(`edit:up:${entry.id}`, 'Move up', 'edit:up',
+                             { payload: { itemId: entry.id },
+                               enabled: !away && at > 0 }),
+                        item(`edit:down:${entry.id}`, 'Move down', 'edit:down',
+                             { payload: { itemId: entry.id },
+                               enabled: !away && at >= 0 && at < order.length - 1 }),
+                        item(`edit:hide:${entry.id}`,
+                             away ? 'Show' : 'Hide',
+                             'edit:hide',
+                             { payload: { itemId: entry.id } }),
+                    ],
+                });
+            }),
+        item('edit:reset', 'Reset ring', 'edit:reset', { destructive: true }),
+    ]);
+}
+
 // Devices grouped by category, as a submenu tree. Used by more than one menu,
 // so it is built once and parameterised by the action it commits - and by
 // whether committing it costs the caller what is already on screen.
@@ -122,9 +195,8 @@ function carlosResolve(context, state) {
     // ceiling has nowhere to grow, and the next good idea would have to
     // displace one of these rather than join it.
     if (context.type === 'canvas') {
-        return {
-            title: 'Rack',
-            items: [
+        const config = state.ringConfig || {};
+        const declared = [
                 // What is in the rack.
                 item('add', 'Add', null, {
                     children: deviceTree(definitions, 'add-node'),
@@ -188,6 +260,18 @@ function carlosResolve(context, state) {
                         item('clear', 'Clear Rack', 'rack:clear',
                              { destructive: true }),
                     ],
+                }),
+        ];
+        const showing = arrange(declared, config);
+
+        return {
+            title: 'Rack',
+            // `Edit ▸` last and always present. Hiding every other family is
+            // allowed - the ring is yours - and this is what you get back to.
+            items: [
+                ...showing,
+                item(EDIT_ID, 'Edit', null, {
+                    children: editTree(declared, showing, config),
                 }),
             ],
         };
@@ -307,5 +391,8 @@ function carlosResolve(context, state) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { carlosResolve, packRing, deviceTree, rowTree, MENU_MAX };
+    module.exports = {
+        carlosResolve, packRing, deviceTree, rowTree, editTree, arrange,
+        MENU_MAX, WEDGE_MAX, EDIT_ID,
+    };
 }

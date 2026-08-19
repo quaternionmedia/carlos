@@ -218,10 +218,10 @@ class ResolverTests(unittest.TestCase):
         """)
         self.assertTrue(outcome["threw"])
 
-    def test_the_rack_ring_is_six_families(self):
-        # Six rather than eight because the ceiling is eight: a ring at the
-        # ceiling has nowhere to grow, and the next good idea would have to
-        # displace something rather than join it.
+    def test_the_rack_ring_is_six_families_and_the_door(self):
+        # Six families, plus the one fixed `Edit` that arranges them. Still
+        # under the ceiling of eight, which is the point of having stopped at
+        # six: there was somewhere for this to go without displacing anything.
         for devices in (1, 9, 40):
             with self.subTest(devices=devices):
                 spec = self.resolve(self.fake_state(devices=devices, groups=2) + """
@@ -229,7 +229,8 @@ class ResolverTests(unittest.TestCase):
                     {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
                 console.log(JSON.stringify(spec));
                 """)
-                self.assertEqual(len(spec["items"]), 6)
+                self.assertEqual(len(spec["items"]), 7)
+                self.assertEqual(spec["items"][-1]["label"], "Edit")
 
     def test_every_family_opens_something_and_none_of_them_fires(self):
         # The ring used to mix families with actions, and which was which you
@@ -248,7 +249,7 @@ class ResolverTests(unittest.TestCase):
     def test_the_families_are_the_same_six_whatever_the_rack_holds(self):
         # Permanent, so north is always the same thing. The old ring moved as
         # items were added.
-        wanted = ["Add", "Rows", "View", "Patch", "MIDI", "All Devices"]
+        wanted = ["Add", "Rows", "View", "Patch", "MIDI", "All Devices", "Edit"]
         for devices, groups in ((1, 0), (9, 3), (40, 8)):
             with self.subTest(devices=devices, groups=groups):
                 spec = self.resolve(
@@ -302,6 +303,162 @@ class ResolverTests(unittest.TestCase):
                     walk(entry["children"], f"{path} > {entry['label']}")
 
         walk(spec["items"])
+
+    def test_an_unedited_ring_resolves_as_it_always_did(self):
+        # Absence means "as declared". Someone who never opens Edit pays
+        # nothing for it existing - the same rule rad-android uses for a wedge
+        # nobody has assigned a function to.
+        plain = self.resolve(self.fake_state() + """
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items.map(i => i.id)));
+        """)
+        empty = self.resolve(self.fake_state() + """
+        state.ringConfig = {};
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items.map(i => i.id)));
+        """)
+        self.assertEqual(plain, empty)
+
+    def test_a_hidden_family_leaves_the_ring(self):
+        ids = self.resolve(self.fake_state() + """
+        state.ringConfig = { hidden: ['midi', 'rows'] };
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items.map(i => i.id)));
+        """)
+        self.assertNotIn("midi", ids)
+        self.assertNotIn("rows", ids)
+        self.assertIn("add", ids)
+
+    def test_the_door_cannot_be_hidden(self):
+        # A ring you can arrange has to keep the door you arrange it through,
+        # or the last thing you hide is the way back.
+        ids = self.resolve(self.fake_state() + """
+        state.ringConfig = {
+            hidden: ['add','rows','view','patch','midi','all','edit'] };
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items.map(i => i.id)));
+        """)
+        self.assertEqual(ids, ["edit"])
+
+    def test_a_stored_order_is_honoured(self):
+        ids = self.resolve(self.fake_state() + """
+        state.ringConfig = { order: ['midi', 'view'] };
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items.map(i => i.id)));
+        """)
+        self.assertEqual(ids[0], "midi")
+        self.assertEqual(ids[1], "view")
+
+    def test_anything_the_store_never_heard_of_keeps_its_place(self):
+        # A partial order is not a licence to drop what it does not name.
+        ids = self.resolve(self.fake_state() + """
+        state.ringConfig = { order: ['midi'] };
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items.map(i => i.id)));
+        """)
+        self.assertEqual(ids[0], "midi")
+        for family in ("add", "rows", "view", "patch", "all", "edit"):
+            self.assertIn(family, ids)
+
+    def test_edit_offers_every_family_and_a_way_back(self):
+        spec = self.resolve(self.fake_state() + """
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items[spec.items.length - 1]));
+        """)
+        labels = [entry["label"] for entry in spec["children"]]
+        self.assertIn("Reset ring", labels)
+        for family in ("Add", "Rows", "View", "Patch", "MIDI", "All Devices"):
+            self.assertIn(family, labels)
+
+    def test_edit_does_not_offer_to_edit_itself(self):
+        spec = self.resolve(self.fake_state() + """
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items[spec.items.length - 1]));
+        """)
+        self.assertNotIn("Edit", [entry["label"] for entry in spec["children"]])
+
+    def test_the_ends_of_the_ring_cannot_be_moved_off_it(self):
+        # Offered and disabled rather than absent: a menu whose items move
+        # depending on state is a menu you cannot learn.
+        spec = self.resolve(self.fake_state() + """
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items[spec.items.length - 1]));
+        """)
+        first = spec["children"][0]["children"]
+        by_action = {entry["action"]: entry for entry in first}
+        self.assertFalse(by_action["edit:up"]["enabled"])
+        self.assertTrue(by_action["edit:down"]["enabled"])
+
+    def test_a_hidden_family_offers_to_come_back(self):
+        spec = self.resolve(self.fake_state() + """
+        state.ringConfig = { hidden: ['midi'] };
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items[spec.items.length - 1]));
+        """)
+        # Hidden from the ring, still listed in Edit - or it would be gone for
+        # good, which is not what hiding means.
+        midi = [e for e in spec["children"] if e["label"] == "MIDI"]
+        self.assertEqual(len(midi), 1)
+        self.assertIn("Show", [c["label"] for c in midi[0]["children"]])
+
+    def test_an_arranged_ring_still_fits(self):
+        # Every level of it, with the biggest catalogue and the most rows.
+        spec = self.resolve(self.fake_state(devices=40, groups=8) + """
+        state.ringConfig = { hidden: ['add'], order: ['midi','view'] };
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+
+        def walk(items, path="ring"):
+            self.assertLessEqual(len(items), 8, f"{path} overflows")
+            self.assertGreaterEqual(len(items), 1, f"{path} is empty")
+            for entry in items:
+                if entry.get("children"):
+                    walk(entry["children"], f"{path} > {entry['label']}")
+
+        walk(spec["items"])
+
+    def test_a_hidden_family_cannot_be_moved(self):
+        # It has no position to move within. Offered and disabled rather than
+        # absent, so the submenu is the same shape either way.
+        spec = self.resolve(self.fake_state() + """
+        state.ringConfig = { hidden: ['midi'] };
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec.items[spec.items.length - 1]));
+        """)
+        midi = [e for e in spec["children"] if e["label"] == "MIDI"][0]
+        by_action = {c["action"]: c for c in midi["children"]}
+        self.assertFalse(by_action["edit:up"]["enabled"])
+        self.assertFalse(by_action["edit:down"]["enabled"])
+        self.assertTrue(by_action["edit:hide"]["enabled"])
+
+    def test_hiding_everything_still_leaves_a_way_back(self):
+        # The end state somebody will reach by trying it: every family hidden.
+        # The ring is `Edit` alone, and Edit still lists all six to show.
+        spec = self.resolve(self.fake_state() + """
+        state.ringConfig = {
+            hidden: ['add','rows','view','patch','midi','all'] };
+        const spec = m.carlosResolve(
+            {type:'canvas', targetIds:[], position:{x:0,y:0}}, state);
+        console.log(JSON.stringify(spec));
+        """)
+        self.assertEqual([i["id"] for i in spec["items"]], ["edit"])
+        offered = spec["items"][0]["children"]
+        shows = [c for e in offered for c in (e.get("children") or [])
+                 if c["label"] == "Show"]
+        self.assertEqual(len(shows), 6)
 
     def test_a_row_resolves_as_its_own_context(self):
         # rad names four context types and this is a fifth. The contract permits

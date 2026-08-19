@@ -150,6 +150,9 @@ uv run carlos serve --port 8123
   there — somewhere the menu is always reachable when what is under your hand is
   not what you want to act on. It can be hidden and brought back from that same
   ring, and it keeps where you left it.
+- **The ring is yours to arrange.** `Edit ▸` moves families round the ring,
+  hides the ones you never use, and puts it all back. It remembers on this
+  browser; a ring nobody has edited resolves exactly as it ships.
 - **One ring of six.** Right-click the rack and every wedge opens something:
   Add, Rows, View, Patch, MIDI, All Devices. The ring used to mix families with
   actions, and which was which you learned by trying.

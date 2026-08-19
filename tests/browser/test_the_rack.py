@@ -23,19 +23,19 @@ def ready(page, fragment: str, timeout: int = 8_000) -> None:
 
 
 class TestTheMenu:
-    def test_right_click_opens_a_ring_of_six_families(self, page):
-        # Six rather than eight, and every one of them opens something. The
-        # ring used to mix families with actions, and which was which you
-        # learned by trying.
+    def test_right_click_opens_the_six_families_and_the_door(self, page):
+        # Six families, and every one of them opens something. Plus the one
+        # fixed `Edit` that arranges them - still under the ceiling of eight,
+        # which is why stopping at six was worth doing.
         open_menu(page, *bare_rack(page))
-        assert page.locator(".rad-wedge").count() == 6
+        assert page.locator(".rad-wedge").count() == 7
 
         # Each label carries a chevron because each opens a submenu. Asserted
         # on the whole set: it is the one thing all six have in common, and
         # the reason the ring is learnable.
         labels = page.locator(".rad-label").all_text_contents()
         assert [text.rstrip(" ▸") for text in labels] == [
-            "Add", "Rows", "View", "Patch", "MIDI", "All Devices"]
+            "Add", "Rows", "View", "Patch", "MIDI", "All Devices", "Edit"]
 
     def test_a_family_says_it_opens_something(self, page):
         # `▸` is the mark rad-android puts on a verb that opens a ring rather
@@ -99,7 +99,7 @@ class TestThePanelIsAnOverlaySurface:
         grip = page.locator("#tool-palette-grip").bounding_box()
         page.mouse.click(grip["x"] + 40, grip["y"] + 10, button="right")
         page.wait_for_selector(".rad-wedge", timeout=5_000)
-        assert page.locator(".rad-wedge").count() == 6
+        assert page.locator(".rad-wedge").count() == 7
 
     def test_it_opens_at_the_touch_point_pulled_in_to_fit(self, page):
         # Summon opens the ring at the touch point, which is the whole of
@@ -333,7 +333,7 @@ class TestGettingBackOut:
 
         labels = page.locator(".rad-label").all_text_contents()
         assert [text.rstrip(" ▸") for text in labels] == [
-            "Add", "Rows", "View", "Patch", "MIDI", "All Devices"]
+            "Add", "Rows", "View", "Patch", "MIDI", "All Devices", "Edit"]
 
     def test_a_summon_always_opens_at_the_root(self, page):
         # rad-android's real footgun: closing never reset the navigation stack,
@@ -349,7 +349,7 @@ class TestGettingBackOut:
         open_menu(page, *bare_rack(page))
         labels = page.locator(".rad-label").all_text_contents()
         assert [text.rstrip(" ▸") for text in labels] == [
-            "Add", "Rows", "View", "Patch", "MIDI", "All Devices"]
+            "Add", "Rows", "View", "Patch", "MIDI", "All Devices", "Edit"]
 
     def test_even_after_committing_from_a_submenu(self, page):
         open_menu(page, *bare_rack(page))
@@ -358,7 +358,7 @@ class TestGettingBackOut:
         ready(page, "minimally")
 
         open_menu(page, *bare_rack(page))
-        assert page.locator(".rad-wedge").count() == 6
+        assert page.locator(".rad-wedge").count() == 7
 
 
 class TestTheRingLooksLikeRad:
