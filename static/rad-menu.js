@@ -298,7 +298,26 @@ class RadMenu {
         }
         const intent = radIntent(chosen.action, this.context, chosen.id);
         if (chosen.payload) intent.payload = chosen.payload;
-        this.settle();
+
+        // Order matters, and only when pinned.
+        //
+        // Unpinned the ring closes and then dispatches, which is right: the
+        // gesture is over, and the handler is free to open a prompt or a file
+        // dialog without a ring hanging behind it.
+        //
+        // Pinned it has to dispatch *first*. A pinned ring is drawn from state
+        // the intent is about to change, so settling before dispatch redraws it
+        // from the world as it was - and it showed the previous answer to
+        // everything. Hiding a family left it on the ring until the next
+        // commit, at which point it vanished and looked like that commit had
+        // done it.
+        if (this.pinned) {
+            this.onIntent(intent);
+            this.settle();
+            return;
+        }
+
+        this.close();
         this.onIntent(intent);
     }
 

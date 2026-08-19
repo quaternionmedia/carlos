@@ -325,6 +325,48 @@ class TestAPinnedRingIsThePanel:
         labels = page.locator(".rad-label").all_text_contents()
         assert any("Unpin" in text for text in labels)
 
+    def test_a_pinned_ring_shows_the_world_after_the_verb_not_before(self, page):
+        """The ordering bug a demo dry-run found.
+
+        A pinned ring is drawn from state the intent is about to change, and it
+        used to re-resolve *before* dispatching — so it showed the previous
+        answer to everything. Hiding a family left it on the ring until the next
+        commit, at which point it vanished and looked like that commit had done
+        it.
+        """
+        self.pin(page)
+        labels = lambda: [t.rstrip(" ▸")
+                          for t in page.locator(".rad-label").all_text_contents()]
+        assert "MIDI" in labels()
+
+        pick(page, "Edit")
+        pick(page, "MIDI")
+        pick(page, "Hide")
+        page.wait_for_function(
+            "() => ![...document.querySelectorAll('.rad-label')]"
+            ".some(l => l.textContent.trim().startsWith('MIDI'))",
+            timeout=5_000)
+        assert "MIDI" not in labels()
+
+        pick(page, "Edit")
+        pick(page, "Reset ring")
+        page.wait_for_function(
+            "() => [...document.querySelectorAll('.rad-label')]"
+            ".some(l => l.textContent.trim().startsWith('MIDI'))",
+            timeout=5_000)
+        assert "MIDI" in labels()
+
+    def test_the_readout_follows_the_verb_immediately(self, page):
+        # Same ordering, seen through the hub: clearing the rack has to be
+        # visible in the readout without a second commit to shake it loose.
+        self.pin(page)
+        assert "11 devices" in self.hub(page)
+        page.evaluate("() => system.addModule('moog.dfam')")
+        pick(page, "View")
+        pick(page, "As laid out")
+        page.wait_for_timeout(250)
+        assert "12 devices" in self.hub(page)
+
     def test_nothing_throws_through_any_of_it(self, page):
         self.pin(page)
         pick(page, "View")
