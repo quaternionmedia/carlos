@@ -115,6 +115,30 @@ app with rad's menu in it, and repainting the gear would be claiming otherwise.
 The one place the violet leaves the ring is the palette's grip, which is the
 other thing you grab.
 
+### Getting back out
+
+rad-android's §9 records two failures real-device use found, neither of them in
+the ported reducer and both in what the host does around it. Carlos is a host,
+so both were worth checking here.
+
+**A working back was invisible.** Releasing on the hub inside a submenu ascends,
+and always did, with nothing on screen saying so — the way out was something you
+knew or you did not. The hub now reads `◂ Back` whenever a tap there would step
+back rather than commit forward, and stops saying so the moment you aim at a
+wedge, because then a release commits that wedge instead.
+
+Their other affordance — a lighter arc marking where the push-past-the-edge
+drill threshold sits — is **not** ported, because this app has no such gesture.
+Carlos drills by committing a wedge that has children. An arc marking a
+threshold nothing here responds to would be decoration pretending to be a
+control.
+
+**Closing never reset the navigation stack**, so drilling into a deep ring and
+closing left every future summon opening there — a dead end with no memory of
+how it happened. Carlos resets on *open* rather than on close and so never had
+it. Two tests assert it anyway, because "never had it" and "cannot grow it" are
+different claims.
+
 ### High contrast
 
 rad-android holds its high-contrast mode as a correctness contract rather than a

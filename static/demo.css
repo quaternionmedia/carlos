@@ -815,6 +815,12 @@ kbd {
     font-size: 9px;
 }
 
+/* Inside a submenu, releasing on the hub steps back. Saying so is the whole
+   of rad-android's fix for a back that worked and was invisible. */
+.rad-title[data-back] {
+    fill: var(--rad-push);
+}
+
 /* High contrast, the way rad-android does it.
 
    Its rule is the whole point: colour comes out of every signal without the

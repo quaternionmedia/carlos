@@ -388,17 +388,28 @@ class RadMenu {
         //
         // With nothing highlighted it falls back to what the ring is *of*,
         // which is the question you have before you have aimed at anything.
+        // `◂ Back` whenever a tap on the hub would step back rather than
+        // commit forward.
+        //
+        // rad-android found this by using the thing: back already worked and
+        // had no affordance at all, so the way out of a submenu was something
+        // you knew or did not. Here it is the same gesture - release on the
+        // hub inside a submenu ascends - and it was equally unmarked. The
+        // ring's own title moves into the line below it, so nothing is lost.
         const highlighted = this.spec.items[this.machine.highlight];
         const heading = highlighted
             ? highlighted.label
             : (this.stack.length
-                ? `‹ ${this.spec.title || ''}`
+                ? `◂ Back  ${this.spec.title || ''}`
                 : (this.spec.title || ''));
 
         const title = document.createElementNS(RAD_SVG_NS, 'text');
         title.setAttribute('class', 'rad-title');
         title.setAttribute('id', 'rad-menu-title');
         if (highlighted) title.setAttribute('data-highlighted', 'true');
+        if (!highlighted && this.stack.length) {
+            title.setAttribute('data-back', 'true');
+        }
 
         // Word boundaries only, and never mid-word: a break that falls inside a
         // word reads as a truncation, which is the thing being avoided.

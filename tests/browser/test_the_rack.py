@@ -289,6 +289,78 @@ class TestHighContrast:
             "el => getComputedStyle(el).fill") == "rgb(75, 59, 117)"
 
 
+class TestGettingBackOut:
+    """Two failures rad-android found by using the thing, checked here.
+
+    Neither was in the ported reducer; both were in what the host does around
+    it, which is exactly where this app's version of them would live too.
+    """
+
+    def hub_text(self, page):
+        return " ".join(
+            page.locator("#rad-menu-title tspan").all_text_contents()).strip()
+
+    def test_the_hub_says_a_tap_there_goes_back(self, page):
+        # Back already worked and had no affordance at all, so the way out of
+        # a submenu was something you knew or you did not.
+        open_menu(page, *bare_rack(page))
+        assert "Back" not in self.hub_text(page)
+
+        pick(page, "View")
+        assert self.hub_text(page).startswith("◂ Back")
+        assert page.locator("#rad-menu-title").get_attribute("data-back") == "true"
+
+    def test_it_stops_saying_so_once_you_aim(self, page):
+        # Aiming at a wedge means a release commits that wedge, not a step
+        # back, and the hub has to stop promising otherwise.
+        open_menu(page, *bare_rack(page))
+        pick(page, "View")
+        target = page.locator(".rad-label", has_text="Minimal").first.bounding_box()
+        page.mouse.move(target["x"] + target["width"] / 2,
+                        target["y"] + target["height"] / 2)
+        assert "Back" not in self.hub_text(page)
+        assert page.locator("#rad-menu-title").get_attribute("data-back") is None
+
+    def test_the_hub_takes_you_back(self, page):
+        open_menu(page, *bare_rack(page))
+        pick(page, "View")
+        assert page.locator(".rad-wedge").count() == 5
+
+        hub = page.locator(".rad-hub").bounding_box()
+        page.mouse.move(hub["x"] + hub["width"] / 2, hub["y"] + hub["height"] / 2)
+        page.mouse.down()
+        page.mouse.up()
+
+        labels = page.locator(".rad-label").all_text_contents()
+        assert [text.rstrip(" ▸") for text in labels] == [
+            "Add", "Rows", "View", "Patch", "MIDI", "All Devices"]
+
+    def test_a_summon_always_opens_at_the_root(self, page):
+        # rad-android's real footgun: closing never reset the navigation stack,
+        # so drilling into a deep ring and then closing left every future
+        # summon opening on that same deep ring - a dead end with no memory of
+        # how you got there. This app resets on open rather than on close, so
+        # it never had it; asserted so it never grows one.
+        open_menu(page, *bare_rack(page))
+        pick(page, "View")
+        assert page.locator(".rad-wedge").count() == 5
+        page.keyboard.press("Escape")
+
+        open_menu(page, *bare_rack(page))
+        labels = page.locator(".rad-label").all_text_contents()
+        assert [text.rstrip(" ▸") for text in labels] == [
+            "Add", "Rows", "View", "Patch", "MIDI", "All Devices"]
+
+    def test_even_after_committing_from_a_submenu(self, page):
+        open_menu(page, *bare_rack(page))
+        pick(page, "View")
+        pick(page, "Minimal")
+        ready(page, "minimally")
+
+        open_menu(page, *bare_rack(page))
+        assert page.locator(".rad-wedge").count() == 6
+
+
 class TestTheRingLooksLikeRad:
     """The ring follows the family rather than this app.
 
