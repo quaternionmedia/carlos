@@ -146,6 +146,10 @@ uv run carlos serve --port 8123
   which way it faces, and what just happened — devices, leads and rows counted
   off the rack itself. The status line used to be a bar pinned across the top of
   the window; it is a line in the panel now, and the rack got the strip back.
+- **A pinned ring is the panel.** `View ▸ Pin ring` leaves the menu open over
+  the rack; it stays through whatever you do with it, and its hub reads the rack
+  — devices, leads, rows, facing. One menu surface in two states rather than a
+  ring and a panel that both claim to be the menu.
 - **The panel is an overlay surface.** Right-click it and the rack's ring opens
   there — somewhere the menu is always reachable when what is under your hand is
   not what you want to act on. It can be hidden and brought back from that same

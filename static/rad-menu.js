@@ -24,7 +24,8 @@ const RAD_SVG_NS = 'http://www.w3.org/2000/svg';
 // Characters rather than measured text, because this runs per frame while a
 // finger is moving and the hub is a fixed width in a fixed family. Three lines
 // is the ceiling: past that the name is not the problem the hub can solve.
-function wrapHubLabel(text, r0, perLine = Math.max(6, Math.floor(r0 / 4.1))) {
+function wrapHubLabel(text, r0, perLine = Math.max(6, Math.floor(r0 / 4.1)),
+                      maxLines = 3) {
     const words = String(text || '').split(/\s+/).filter(Boolean);
     if (!words.length) return [''];
 
@@ -40,7 +41,7 @@ function wrapHubLabel(text, r0, perLine = Math.max(6, Math.floor(r0 / 4.1))) {
         }
     });
     if (line) lines.push(line);
-    return lines.slice(0, 3);
+    return lines.slice(0, maxLines);
 }
 
 class RadMenu {
@@ -56,6 +57,13 @@ class RadMenu {
         this.context = null;
         this.centre = { x: 0, y: 0 };
         this.stack = [];          // submenu breadcrumbs
+        // Pinned: the ring stays open over the rack instead of closing when it
+        // has done something. There is no second surface here - a pinned ring
+        // *is* what a floating panel was, which is why this is a state of the
+        // menu rather than a window beside it. Two menu systems would be two
+        // answers to a question rad's contract already settles.
+        this.pinned = false;
+        this.readout = null;      // what a pinned hub shows, if the host says
         this.longPressTimer = null;
         this.pressOrigin = null;
 
@@ -111,6 +119,7 @@ class RadMenu {
     }
 
     close({ silent = false } = {}) {
+        this.pinned = false;
         this.disarm();
         if (this.layer) {
             this.layer.remove();
@@ -249,6 +258,9 @@ class RadMenu {
             // Backing out of a submenu returns to its parent rather than
             // closing the whole menu.
             if (this.stack.length) return this.ascend();
+            // A pinned ring at its root has nowhere to back out to, and taking
+            // it away would make every stray release a dismissal.
+            if (this.pinned) return this.settle();
             this.close();
             return;
         }
@@ -281,13 +293,74 @@ class RadMenu {
 
     emit(chosen) {
         if (!chosen || chosen.enabled === false) {
-            this.close();
+            this.settle();
             return;
         }
         const intent = radIntent(chosen.action, this.context, chosen.id);
         if (chosen.payload) intent.payload = chosen.payload;
-        this.close();
+        this.settle();
         this.onIntent(intent);
+    }
+
+    // What happens after the ring has done something.
+    //
+    // Unpinned it closes, which is the ordinary atomic gesture: press, choose,
+    // release, gone. Pinned it goes back to its root and stays, because the
+    // whole point of pinning is that the next thing you want is usually also on
+    // it - and a ring that vanished after every commit would be a panel that
+    // closed itself whenever you used it.
+    settle() {
+        if (!this.pinned) {
+            this.close();
+            return;
+        }
+        this.stack = [];
+        this.spec = this.resolve(this.context);
+        this.machine = new RadMachine(this.spec.items.length, {
+            geometry: this.geometry,
+            labels: this.spec.items.map(i => i.label),
+        });
+        this.machine.open('tap');
+        this.render();
+    }
+
+    // Pin the ring open, or let it go.
+    //
+    // Pinning re-resolves rather than freezing what is on screen: a pinned ring
+    // is a live thing, and the rack it describes goes on changing underneath
+    // it.
+    pin(on = true) {
+        if (!on) {
+            if (this.open) this.close();
+            this.pinned = false;
+            return false;
+        }
+
+        // Pinning happens from inside the ring it pins, so by the time this
+        // runs the commit has already closed it. Reopening where it stood is
+        // the honest reading of "leave this one up" - it is the same ring in
+        // the same place, in its other state.
+        if (!this.open) {
+            const where = this.centre || { x: 0, y: 0 };
+            const context = this.context
+                || { type: 'canvas', targetIds: [], position: where };
+            this.openAt(context, where.x, where.y, 'tap');
+        }
+        this.pinned = true;
+        if (this.layer) this.layer.classList.add('is-pinned');
+        // Resolve *after* the flag, not before. `openAt` resolves as it opens,
+        // and at that moment this ring was still unpinned - so the menu it
+        // built offered to pin a ring that already was, and there was no way
+        // back off it. Settling re-asks with the flag set.
+        this.settle();
+        return true;
+    }
+
+    // What the hub says when a pinned ring is idle. Set by the host, read at
+    // render time: the ring holds no copy of the rack's state, it asks.
+    showsReadout(fn) {
+        this.readout = fn;
+        return this;
     }
 
     // --- rendering --------------------------------------------------------
@@ -369,8 +442,15 @@ class RadMenu {
             group.appendChild(text);
         });
 
+        // A pinned hub is bigger, because it has something to say. Only the
+        // *drawn* radius grows: the dead zone the machine cancels inside is
+        // `r0` and stays `r0`, so the gesture is identical whether or not the
+        // ring is pinned. Same split rad-android makes between the shape a
+        // wedge appears to have and the band it answers to.
+        const hubR = this.pinned ? r0 * 1.6 : r0;
+
         const hub = document.createElementNS(RAD_SVG_NS, 'circle');
-        hub.setAttribute('r', r0);
+        hub.setAttribute('r', hubR);
         hub.setAttribute('class', 'rad-hub');
         group.appendChild(hub);
 
@@ -396,12 +476,17 @@ class RadMenu {
         // you knew or did not. Here it is the same gesture - release on the
         // hub inside a submenu ascends - and it was equally unmarked. The
         // ring's own title moves into the line below it, so nothing is lost.
+        // A pinned ring is idle most of the time, and an idle hub that only
+        // repeats the ring's own name is a hub wasted. It reads the rack
+        // instead - what is in it and which way it faces - which is what the
+        // panel this replaced was for.
         const highlighted = this.spec.items[this.machine.highlight];
+        const idle = this.pinned && this.readout
+            ? (this.readout() || this.spec.title || '')
+            : (this.spec.title || '');
         const heading = highlighted
             ? highlighted.label
-            : (this.stack.length
-                ? `◂ Back  ${this.spec.title || ''}`
-                : (this.spec.title || ''));
+            : (this.stack.length ? `◂ Back  ${this.spec.title || ''}` : idle);
 
         const title = document.createElementNS(RAD_SVG_NS, 'text');
         title.setAttribute('class', 'rad-title');
@@ -413,7 +498,10 @@ class RadMenu {
 
         // Word boundaries only, and never mid-word: a break that falls inside a
         // word reads as a truncation, which is the thing being avoided.
-        const lines = wrapHubLabel(heading, r0);
+        // Four lines when pinned: the readout is four facts and dropping one
+        // silently would be the truncation this contract bans, wearing a
+        // different hat.
+        const lines = wrapHubLabel(heading, hubR, undefined, this.pinned ? 4 : 3);
         const first = 4 - ((lines.length - 1) * 7);
         lines.forEach((line, index) => {
             const span = document.createElementNS(RAD_SVG_NS, 'tspan');

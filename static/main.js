@@ -352,12 +352,10 @@ function radState() {
         groups: system.groups,
         modules: system.modules,
         ringConfig: ringConfig(),
-        // Read at resolve time rather than held: the panel's own class is the
-        // one copy of whether it is on screen, and a second would be a second
-        // answer to the same question.
-        panelHidden: Boolean(
-            document.getElementById('tool-palette')
-                ?.classList.contains('is-dismissed')),
+        // Read at resolve time rather than held: the menu's own flag is the one
+        // copy of whether it is pinned, and a second would be a second answer
+        // to the same question.
+        pinned: Boolean(radMenu?.pinned),
         ...cableState(),
     };
 }
@@ -365,6 +363,17 @@ function radState() {
 const radMenu = new RadMenu({
     resolve: (context) => carlosResolve(context, radState()),
     onIntent: (intent) => routeIntent(intent),
+});
+
+// What a pinned hub reads. Asked at render time rather than pushed, so the
+// ring holds no copy of a rack that goes on changing underneath it.
+radMenu.showsReadout(() => {
+    const leads = system.patchBay.connections.length;
+    // Four short facts rather than a sentence: the hub wraps at word
+    // boundaries, so short words are what make it read as a readout instead of
+    // as a paragraph that happens to be round.
+    return `${system.modules.size} devices | ${leads} leads | `
+        + `${system.groups.length} rows | ${system.viewSummary().toLowerCase()}`;
 });
 
 function routeIntent(intent) {
@@ -493,16 +502,18 @@ function routeIntent(intent) {
             system.status.update('Ring back to how it ships');
             break;
 
-        case 'palette:toggle': {
-            const panel = document.getElementById('tool-palette');
-            if (!panel) break;
-            const hidden = panel.classList.toggle('is-dismissed');
-            system.status.update(
-                hidden
-                    ? 'Panel hidden - the rack menu brings it back'
-                    : 'Panel back');
+        case 'ring:pin':
+            // Pinned from inside the ring it pins, so this runs as the menu is
+            // settling. Deferred by a frame for that reason: pinning during
+            // its own commit would re-render the thing mid-dispatch.
+            requestAnimationFrame(() => {
+                const on = radMenu.pin(!radMenu.pinned);
+                system.status.update(
+                    on
+                        ? 'Ring pinned - it stays until you unpin it'
+                        : 'Ring let go');
+            });
             break;
-        }
 
         case 'palette:reset':
             palette.reset();

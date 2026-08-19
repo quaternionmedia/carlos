@@ -281,7 +281,7 @@ class ResolverTests(unittest.TestCase):
         for was_there in (
             "add-node", "example:complex", "row:new", "patch:export",
             "patch:import", "display:minimal", "display:irl", "turn-all",
-            "palette:reset", "midi:connect", "midi:status", "midi:test",
+            "ring:pin", "midi:connect", "midi:status", "midi:test",
             "randomize", "rack:clear",
         ):
             with self.subTest(was_there):

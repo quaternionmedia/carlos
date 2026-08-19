@@ -70,9 +70,7 @@ class TestTheMenu:
         pick(page, "View")
         labels = page.locator(".rad-label").all_text_contents()
         assert any("Minimal" in text for text in labels)
-        assert any("Reset panel" in text for text in labels)
-        # The overlay's own exit, and the way back is this same ring.
-        assert any("Hide panel" in text for text in labels)
+        assert any("Pin ring" in text for text in labels)
 
     def test_a_right_click_on_a_device_opens_that_device_s_menu(self, page):
         module = page.locator(".module").first.bounding_box()
@@ -135,48 +133,8 @@ class TestThePanelIsAnOverlaySurface:
         page.wait_for_timeout(300)
         assert page.locator(".rad-wedge").count() == 0
 
-    def test_the_panel_can_be_dismissed(self, page):
-        assert page.locator("#tool-palette").is_visible()
-        open_menu(page, *bare_rack(page))
-        pick(page, "View")
-        pick(page, "Hide panel")
-        ready(page, "Panel hidden")
-        assert page.locator("#tool-palette").is_visible() is False
 
-    def test_the_ring_brings_it_back(self, page):
-        open_menu(page, *bare_rack(page))
-        pick(page, "View")
-        pick(page, "Hide panel")
-        ready(page, "Panel hidden")
 
-        # The way back is the same ring, which the rack always answers to.
-        open_menu(page, *bare_rack(page))
-        pick(page, "View")
-        labels = page.locator(".rad-label").all_text_contents()
-        assert any("Show panel" in text for text in labels)
-        pick(page, "Show panel")
-        ready(page, "Panel back")
-        assert page.locator("#tool-palette").is_visible()
-
-    def test_dismissing_it_keeps_where_it_was(self, page):
-        # Dismissed, not deleted: it keeps its position and its state.
-        grip = page.locator("#tool-palette-grip").bounding_box()
-        page.mouse.move(grip["x"] + 40, grip["y"] + 10)
-        page.mouse.down()
-        page.mouse.move(grip["x"] + 40 - 120, grip["y"] + 10 + 90, steps=8)
-        page.mouse.up()
-        moved = page.locator("#tool-palette").bounding_box()
-
-        open_menu(page, *bare_rack(page))
-        pick(page, "View")
-        pick(page, "Hide panel")
-        ready(page, "Panel hidden")
-        open_menu(page, *bare_rack(page))
-        pick(page, "View")
-        pick(page, "Show panel")
-        ready(page, "Panel back")
-
-        assert page.locator("#tool-palette").bounding_box() == moved
 
     def test_the_ring_sits_on_a_board(self, page):
         # rad-android draws one soft, low-alpha blob behind its nodes - the
@@ -324,7 +282,7 @@ class TestGettingBackOut:
     def test_the_hub_takes_you_back(self, page):
         open_menu(page, *bare_rack(page))
         pick(page, "View")
-        assert page.locator(".rad-wedge").count() == 5
+        assert page.locator(".rad-wedge").count() == 4
 
         hub = page.locator(".rad-hub").bounding_box()
         page.mouse.move(hub["x"] + hub["width"] / 2, hub["y"] + hub["height"] / 2)
@@ -343,7 +301,7 @@ class TestGettingBackOut:
         # it never had it; asserted so it never grows one.
         open_menu(page, *bare_rack(page))
         pick(page, "View")
-        assert page.locator(".rad-wedge").count() == 5
+        assert page.locator(".rad-wedge").count() == 4
         page.keyboard.press("Escape")
 
         open_menu(page, *bare_rack(page))
@@ -359,6 +317,100 @@ class TestGettingBackOut:
 
         open_menu(page, *bare_rack(page))
         assert page.locator(".rad-wedge").count() == 7
+
+
+class TestAPinnedRingIsThePanel:
+    """One object in two states.
+
+    A ring you can leave open over the rack *is* what a floating panel was, so
+    there is no second surface: pinning is a state of the menu rather than a
+    window beside it. Two menu systems would be two answers to a question rad's
+    contract already settles.
+    """
+
+    def pin(self, page):
+        open_menu(page, *bare_rack(page))
+        pick(page, "View")
+        pick(page, "Pin ring")
+        page.wait_for_selector(".rad-layer.is-pinned", timeout=5_000)
+
+    def hub(self, page):
+        return " ".join(
+            page.locator("#rad-menu-title tspan").all_text_contents()).strip()
+
+    def test_it_stays_open(self, page):
+        self.pin(page)
+        assert page.locator(".rad-wedge").count() == 7
+
+    def test_it_survives_being_used(self, page):
+        # A ring that vanished after every commit would be a panel that closed
+        # itself whenever you used it.
+        self.pin(page)
+        pick(page, "View")
+        pick(page, "Minimal")
+        ready(page, "minimally")
+        assert page.locator(".rad-wedge").count() == 7
+
+    def test_using_it_returns_it_to_its_root(self, page):
+        self.pin(page)
+        pick(page, "View")
+        pick(page, "Minimal")
+        ready(page, "minimally")
+        labels = [t.rstrip(" ▸")
+                  for t in page.locator(".rad-label").all_text_contents()]
+        assert labels[0] == "Add"
+
+    def test_the_hub_reads_the_rack(self, page):
+        # What the panel was for. Asked at render time rather than pushed, so
+        # the ring holds no copy of a rack that changes underneath it.
+        self.pin(page)
+        hub = self.hub(page)
+        assert "11 devices" in hub
+        assert "17 leads" in hub
+        assert "3 rows" in hub
+
+    def test_the_readout_is_live(self, page):
+        self.pin(page)
+        assert "11 devices" in self.hub(page)
+        page.evaluate("() => system.addModule('moog.dfam')")
+        pick(page, "View")
+        pick(page, "As laid out")
+        page.wait_for_timeout(200)
+        assert "12 devices" in self.hub(page)
+
+    def test_nothing_of_the_readout_is_dropped(self, page):
+        # Four facts, and silently losing one would be the truncation the
+        # contract bans wearing a different hat.
+        self.pin(page)
+        assert self.hub(page).count("|") == 3
+
+    def test_the_gesture_is_unchanged_by_pinning(self, page):
+        # Only the drawn hub grows. The dead zone the machine cancels inside is
+        # the contract's `r0` and stays it.
+        self.pin(page)
+        geometry = page.evaluate("() => radMenu.geometry.r0")
+        drawn = float(page.locator(".rad-hub").get_attribute("r"))
+        assert drawn > geometry
+        assert page.evaluate("() => radMenu.machine.geometry?.r0 ?? radMenu.geometry.r0") == geometry
+
+    def test_it_lets_go(self, page):
+        self.pin(page)
+        pick(page, "View")
+        pick(page, "Unpin ring")
+        ready(page, "let go")
+        assert page.locator(".rad-wedge").count() == 0
+
+    def test_it_offers_to_let_go_while_pinned(self, page):
+        self.pin(page)
+        pick(page, "View")
+        labels = page.locator(".rad-label").all_text_contents()
+        assert any("Unpin" in text for text in labels)
+
+    def test_nothing_throws_through_any_of_it(self, page):
+        self.pin(page)
+        pick(page, "View")
+        pick(page, "Unpin ring")
+        assert page.errors == []
 
 
 class TestTheRingLooksLikeRad:
@@ -774,18 +826,3 @@ class TestThePalette:
         assert after["y"] >= 0
         assert after["x"] < viewport["width"]
 
-    def test_the_menu_puts_it_back(self, page):
-        default = page.locator("#tool-palette").bounding_box()
-        grip = page.locator("#tool-palette-grip").bounding_box()
-
-        page.mouse.move(grip["x"] + 40, grip["y"] + 10)
-        page.mouse.down()
-        page.mouse.move(grip["x"] - 160, grip["y"] + 120, steps=8)
-        page.mouse.up()
-        assert page.locator("#tool-palette").bounding_box() != default
-
-        open_menu(page, *bare_rack(page))
-        pick(page, "View")
-        pick(page, "Reset panel")
-        ready(page, "back to where it starts")
-        assert page.locator("#tool-palette").bounding_box() == default

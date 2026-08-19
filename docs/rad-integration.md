@@ -144,6 +144,30 @@ screen, and sending it anywhere would make it a fact about an account.
 a wedge *does*. Its verbs are Android intents; Carlos's are its own actions and
 are not user-composable, so there is nothing here to offer.
 
+### A pinned ring is the panel
+
+There is one menu surface, and it is the ring. A ring left open over the rack is
+what a floating panel was, which is why pinning is a **state of the menu** rather
+than a window beside it — two menu systems would be two answers to a question
+rad's contract already settles.
+
+`View ▸ Pin ring` leaves it up. Pinned it does not close when it has done
+something; it returns to its root and stays, because the next thing you want is
+usually also on it, and a ring that vanished after every commit would be a panel
+that closed itself whenever you used it. `Unpin ring` lets it go.
+
+Its idle hub reads the rack — devices, leads, rows, which way it faces — asked at
+render time rather than pushed, so the ring holds no copy of a rack that changes
+underneath it. The hub is drawn larger when pinned, and **only drawn** larger:
+the dead zone the machine cancels inside is the contract's `r0` and stays `r0`,
+so the gesture is identical either way. Same split rad-android makes between the
+shape a wedge appears to have and the band it answers to.
+
+One ordering trap, found by the tests: `openAt` resolves as it opens, so pinning
+resolved the ring while it was still unpinned and built a menu offering to pin a
+ring that already was — with no way back off it. Pinning sets the flag and then
+re-asks.
+
 ### Getting back out
 
 rad-android's §9 records two failures real-device use found, neither of them in
