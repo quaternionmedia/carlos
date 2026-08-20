@@ -53,19 +53,36 @@ python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they
 
 | Gate | State | Why |
 | --- | --- | --- |
-| `adr-lint` | pass | |
+| `adr-lint` | pass | Now also refuses a commit trailer or author field naming a tool, or standing on an address nobody reads — see below |
 | `one-pr-check` | pass | |
-| `signature-check` | **fail** under the runner, passes locally | The runner uses the CI path, which asks the forge about a commit the forge has never seen and reports `E` — "could not be checked", not "bad signature". With `--source git`, on a machine holding the key, the same commit reports `G` |
-| `reuse-lint` | **fail** | The licensing pass has not been done — **three** files carry copyright information and the rest do not (`python -m reuse lint` for the current total, which moves with every file added) and there is no `LICENSES/` directory. The ratio has worsened as the project grew, which is the cost of deferring it |
-| `submodule-check` | **fail** | `project/carlos` exists only locally |
+| `signature-check` | pass | Was failing under the runner while passing locally, because the CI path asks the forge about commits the forge had never seen and reports `E` — "could not be checked", not "bad signature". Closed when the branch was pushed |
+| `submodule-check` | pass | Closed when `project/carlos` was pushed to `quaternionmedia/qm` |
+| `tests` / `image` | pass | This project's own, not gates out of the corpus |
+| `reuse-lint` | **fail** | The licensing pass has not been done, and is gated on the outbound licence class — a human decision nobody has made. Settling one to turn a check green decides the wrong question for the wrong reason. Publishing with this red is the accepted state |
 | `tag-claims` | skipped | Only fires on a `v*` tag |
 
-All three failures are expected, and two of them are useful rather than
-regrettable. The corpus says to start `reuse-lint` in reporting mode precisely
-because a project that has not had its licensing pass fails it immediately, and
-`submodule-check` is correctly reporting an unpushed branch. `signature-check`
-is the odd one out: it is asking the forge about a commit the forge has never
-seen, so it is reporting an absence of evidence rather than a defect.
+One red, on purpose. `carlos gates` reports a second — `image.yml :: Start it`
+wants a running Docker daemon — which is a missing local runtime rather than a
+finding; the same job passes on the forge.
+
+### The attribution gate, and where its upstream lives
+
+`adr-lint` gained a step that runs `check_attribution.py` over the pull
+request's own commits. Until it did, **no seed workflow invoked that script at
+all** — an adopting project received it and no gate that ran it — and the script
+read commit subjects and record prose, never a trailer. Three documents describe
+the co-author rule as enforced; none of them was a detector. Found by acting on
+it: three commits here carried a vendor `noreply@` trailer through a full set of
+green checks.
+
+**The upstream change is on `quaternionmedia/qm` `project/carlos` only, and its
+`namespace` gate is red there on purpose.** That gate's refusal is correct — a
+`project/*` branch may only touch `adr/`, and org-level content added there is
+stranded because propagation is one-directional. Landing it there anyway was a
+deliberate call, taken because the alternative was merging 35 unrelated org
+commits into this project's line. It is recorded in the corpus's `ledger.yaml`
+as `2026-08-20-002`, with what it costs: **no other project receives this fix**,
+and giving it to them needs a second, deliberate branch targeting `main`.
 
 ## Known Conflicts With Org Records
 

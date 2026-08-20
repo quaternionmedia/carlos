@@ -550,6 +550,46 @@ class ContributingTests(unittest.TestCase):
             ours <= present, f"{ours - present} is named here and is not there"
         )
 
+    def test_every_seed_workflow_is_still_the_seed(self):
+        """A copy that drifted is a gate nobody notices going quiet.
+
+        The corpus names this failure with an instance: a sibling project
+        inlined a check instead of calling the shared one, froze at that day's
+        seed, and sits several revisions behind while the generated status
+        document counts the gate as present. The seed files say "copy verbatim
+        into .github/workflows/" and that instruction has been held here by
+        discipline and by nothing else.
+
+        It matters more now than it did. `adr-lint.yml` carries the attribution
+        step, and a copy that fell behind would keep reporting a gate that had
+        stopped reading half of what it claims to.
+        """
+        seed = Path("governance/qm/project-seed/ci")
+        self.assertTrue(
+            seed.is_dir(),
+            "the governance submodule is not checked out: "
+            "git submodule update --init --recursive",
+        )
+
+        copied = 0
+        for ours in sorted(Path(".github/workflows").glob("*.yml")):
+            theirs = seed / ours.name
+            if not theirs.is_file():
+                continue          # a workflow of this project's own
+            copied += 1
+            with self.subTest(ours.name):
+                # Compared as text, not as bytes: a checkout on Windows can
+                # hand back CRLF for one and LF for the other, and a guard that
+                # failed on that would be about the checkout rather than the
+                # copy.
+                self.assertEqual(
+                    theirs.read_text(encoding="utf-8").splitlines(),
+                    ours.read_text(encoding="utf-8").splitlines(),
+                    f"{ours.name} has drifted from the seed. Copy it again: "
+                    f"cp {theirs} {ours}",
+                )
+        self.assertTrue(copied, "no workflow here is a seed copy any more")
+
     def test_the_project_runs_its_own_tests_in_ci(self):
         # Every other workflow is a governance gate. Until one of them ran the
         # suite, a reviewer seeing green checks was reading six gates about
