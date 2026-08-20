@@ -393,11 +393,20 @@ svg {
     outline-offset: 1px;
 }
 
-/* Being carried. Dimmed rather than hidden: you are moving *this* one, and a
-   device that vanished while you dragged it would leave you guessing which. */
+/* Being carried.
+   Not dimmed to a ghost: this is the device, lifted out of the flow and put
+   under the hand, and the rack behind it has already closed the gap it left.
+   Slightly lifted and slightly transparent, so what is underneath stays
+   readable while you aim. */
 .module.is-moving {
-    opacity: 0.4;
+    opacity: 0.9;
     cursor: grabbing;
+    z-index: 50;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+    /* It is under the hand, so it must not be what the hand is over: the drop
+       target is asked of the page, and a carried device would answer every
+       time. */
+    pointer-events: none;
 }
 
 .module.is-moving .module-move {
@@ -408,13 +417,19 @@ svg {
 /* Where it will land. A bar between two devices rather than a highlight on one,
    because the answer is a gap and not a neighbour. */
 .rack-drop {
-    width: 3px;
+    /* As wide as the device it is making room for, so the rack shows the room
+       rather than a line between two things. Falls back to a bar for anything
+       that sets no width. */
+    /* Neither shrunk nor stretched by the shelf: a gap that the flexbox was
+       free to squeeze would show you room the device will not get. */
+    flex: 0 0 var(--held-width, 3px);
+    width: var(--held-width, 3px);
+    border: 1px dashed var(--rad-hub-live);
+    background: color-mix(in oklab, var(--rad-hub-live) 12%, transparent);
     align-self: stretch;
     min-height: 40px;
     margin: 10px 0;
-    border-radius: 2px;
-    background: var(--rad-hub-live);
-    box-shadow: 0 0 6px var(--rad-hub-live);
+    border-radius: 4px;
     pointer-events: none;
 }
 

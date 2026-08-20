@@ -1070,14 +1070,53 @@ class EurorackModule {
             if (!system) return;
 
             grip.setPointerCapture?.(event.pointerId);
+
+            // Carry the device itself.
+            //
+            // The same reasoning as the cable preview: that one is drawn by the
+            // routine that draws the real cable, so it cannot disagree with
+            // what it is previewing. A device is already a rendered thing, so
+            // the honest preview is not a copy of it - it is *it*, lifted out
+            // of the flow and put under the hand. A cloned node would be a
+            // second copy whose screens and lit pads could drift from the
+            // original's within one drag.
+            const held = this.element.getBoundingClientRect();
+            const from = { x: event.clientX, y: event.clientY };
+
             this.element.classList.add('is-moving');
+            this.element.style.position = 'fixed';
+            this.element.style.left = `${held.left}px`;
+            this.element.style.top = `${held.top}px`;
+            this.element.style.width = `${held.width}px`;
+            this.element.style.height = `${held.height}px`;
+            this.element.style.margin = '0';
 
             const bar = document.createElement('div');
             bar.className = 'rack-drop';
+            // The gap it would land in is the width it would take, so the bar
+            // is that wide rather than a hairline: the rack shows you the room
+            // being made rather than a line between two things.
+            bar.style.setProperty('--held-width', `${Math.round(held.width)}px`);
 
             let landing = null;
+            let pending = null;
 
             const move = (moveEvent) => {
+                this.element.style.transform =
+                    `translate(${moveEvent.clientX - from.x}px, `
+                    + `${moveEvent.clientY - from.y}px)`;
+
+                // The cables come with it, because they are drawn from where
+                // the sockets actually are and the sockets have moved. Coalesced
+                // to a frame: seventeen leads redrawn per pointer event is a
+                // redraw per pixel.
+                if (!pending) {
+                    pending = requestAnimationFrame(() => {
+                        pending = null;
+                        system.patchBay.redrawAll();
+                    });
+                }
+
                 landing = dropTarget(
                     moveEvent.clientX, moveEvent.clientY, this.id);
                 if (!landing) {
@@ -1094,8 +1133,18 @@ class EurorackModule {
                 grip.removeEventListener('pointermove', move);
                 grip.removeEventListener('pointerup', up);
                 grip.removeEventListener('pointercancel', up);
+                if (pending) cancelAnimationFrame(pending);
+                pending = null;
                 bar.remove();
+
                 this.element.classList.remove('is-moving');
+                // Put it back in the flow. `renderRack` moves elements rather
+                // than recreating them, so a style left here would outlive the
+                // gesture that set it.
+                ['position', 'left', 'top', 'width', 'height', 'margin',
+                 'transform'].forEach(named => {
+                    this.element.style.removeProperty(named);
+                });
 
                 // The click that follows this release would reach the device
                 // and select it. Moving something is not choosing it, and a
@@ -1108,6 +1157,8 @@ class EurorackModule {
                 grip.addEventListener('click', swallow, { capture: true, once: true });
 
                 if (!landing) {
+                    // The cables were following it and it has just gone home.
+                    system.patchBay.redrawAll();
                     system.status.update(`${this.name} stayed where it was`);
                     return;
                 }

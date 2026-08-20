@@ -186,9 +186,12 @@ uv run carlos serve --port 8123
   the blank lip under a Launchpad's pads — is not drawn and not turned to. What
   the entry names as the face is where the controls go, in both display modes.
 - **Move a device by its handle.** Top-left corner, opposite the flip: drag it
-  and a bar shows the gap it will land in — along a row, into another row, or
-  out among the loose. The arrow keys do the same, because a grip you can only
-  drag is a grip a keyboard cannot reach.
+  and you are carrying the device itself, leads and all, with a gap its own
+  width open where it would land — along a row, into another row, or out among
+  the loose. Previewed the way a cable drag is: the preview is the thing, not a
+  drawing of it, so it cannot disagree with what it is previewing. The arrow
+  keys do the same, because a grip you can only drag is a grip a keyboard
+  cannot reach.
 - **Turn devices individually.** `t` turns the whole rack, `Shift`+`T` goes
   back; click a device to select it and `t` turns just that one (`Esc`
   deselects). Turning is on a letter rather than on `Tab` because `Tab` is how
