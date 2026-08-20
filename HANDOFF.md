@@ -25,10 +25,10 @@ before your first commit.
 
 ## Current State
 
-Branch: `adopt/qm-governance`, cut from `they`. **Every commit is signed** —
-71 of them, all verified by `carlos signatures`. The branch and the
-`governance/qm` submodule branch are both **pushed**; see Gate Status for what
-that closed.
+Branch: `they`, the default branch — `adopt/qm-governance` merged and the
+work since has landed through pull requests off it. **Every commit is signed**,
+all verified by `carlos signatures`. The `governance/qm` submodule branch is
+**pushed**; see Gate Status for what that closed.
 
 `RETROSPECTIVE.md` is the account of how this cycle went, and is the more useful
 read if you are picking the work up rather than operating it.
@@ -120,6 +120,12 @@ A browser workspace for sketching rigs of real gear.
   sides of the seam and validated server-side. Reads v1 and v2 through named
   upgrade steps; refuses v4.
 - **n-sided devices** that turn independently and in place, gathered into rows.
+  Each carries two corner handles: the flip on the right, and on the left a grip
+  that picks the whole device up. Dragging it carries the device itself — leads
+  attached and bending as it goes, a gap its own width open where it would land
+  — rather than drawing a stand-in, so the preview cannot disagree with what it
+  previews. The arrow keys do the same, because a grip you can only drag is a
+  grip a keyboard cannot reach.
 - **One menu**, implementing `quaternionmedia/rad`'s interaction contract, with
   rad's own conformance vectors vendored and passing.
 - **No second surface.** The floating tool palette is deleted too, and with it
@@ -146,20 +152,27 @@ Docs: `docs/patch-format.md`, `docs/catalogue.md`, `docs/interop.md`,
 
 ## Verification, As Last Run
 
-Everything below was run immediately before the handoff push, on this
-workstation, against this commit.
+Everything below was run on this workstation against this commit.
 
 | Check | Result |
 | --- | --- |
-| `pytest tests` + four hermetic pages | 339 passed, 1439 subtests |
-| `pytest tests/browser` | 128 passed |
+| `pytest tests` + four hermetic pages | 354 passed, 1450 subtests |
+| `pytest tests/browser` | 161 passed |
 | `node tests/view_toggle.js` | 92/92 |
 | `node tests/rack_behaviour.js` | 98/98 |
 | `node tests/cable_tracing.js` | 92/92 |
 | `node tests/click_layers.js` | 14/14, 0 collisions |
 | `walkthrough/05-in-the-browser.md` | real Chromium, 5 shots, console clean |
-| `carlos signatures` | 71/71 signed |
-| `carlos gates` | 14 of 17 steps pass; the three reds are below |
+| `carlos release-check` | 516 passed, nothing skipped, reran or retried |
+| `carlos gates` | 18 of 20 steps pass; the two reds are below |
+
+And, which is the part no workstation can supply, **it has run where people
+merge**: run
+[32367009542](https://github.com/quaternionmedia/carlos/actions/runs/32367009542)
+on `they`, both jobs green. That identifier is what satisfies
+`DRAFT-one-executable-walkthrough.md` decision 7 — a page that ran on a branch
+no remote carries has not run, and a workflow file that would have run is not a
+run.
 
 The fifth frontend harness is gone: `tests/palette.js` tested the floating
 panel, and the panel was deleted. Four remain.
@@ -173,17 +186,25 @@ code it names, red, before being kept.
 ## Gate Status
 
 Run them yourself rather than trusting this table: `carlos gates`. What follows
-is the state on the forge after the handoff push, not a prediction.
+is the state on the forge, not a prediction — run
+[32367009542](https://github.com/quaternionmedia/carlos/actions/runs/32367009542)
+on `they` and the checks on the pull request before it.
 
 | Gate | State |
 | --- | --- |
 | `Suite and hermetic pages` | pass |
-| `The browser page` | pass — 129 browser tests, on Linux |
+| `The browser page` | pass — 161 browser tests, on Linux |
+| `It builds, and it answers` | pass |
 | `adr-lint` | pass |
 | `check-submodule-refs` | pass |
 | `signatures` | pass |
 | `one-pr-check` (`slot`) | pass |
 | `reuse` | **fail, deliberately** |
+
+`carlos gates` runs the same workflows locally and reports one more red:
+`image.yml :: Start it` wants a running Docker daemon. That is a missing local
+runtime rather than a finding — the same job passes on the forge, which is
+where it counts.
 
 `reuse` is red because the licensing pass is gated on the outbound licence
 class, which is a human decision nobody has made. Settling one to turn a check
@@ -251,7 +272,7 @@ tests down.
 ## Next Useful Work
 
 In the order a next session would find them useful. Nothing here is blocked on
-code; the first three are decisions.
+code; the first four are decisions, and one of them needs repository admin.
 
 ### Decisions, not tasks
 
@@ -260,7 +281,14 @@ code; the first three are decisions.
 2. **Ratify the adoption record**, or don't. `governance/qm/adr/` holds it,
    numberless and Proposed. The branch merges either way; ratification is what
    lets Carlos be described as carrying governance rather than improvising it.
-3. **Two things the deleted panel took with it.** The key hints are gone
+3. **Apply the tag-protection ruleset, or decide not to.** §7 of the
+   version-tags record asks for one restricting who may create `v*`, so that
+   "a human cuts the tag" is a permission rather than a custom. The payload is
+   `.github/tag-ruleset.json` and `RELEASING.md` carries the one-line call; it
+   needs admin on the repository, which is why it is a decision here rather
+   than a task. `gh api repos/quaternionmedia/carlos/rulesets` returns empty
+   today.
+4. **Two things the deleted panel took with it.** The key hints are gone
    entirely — the ring is the reference now — and the patch name is only visible
    inside `Patch ▸ Name`, where it used to sit on screen. Either can come back
    in the bar; neither has been missed yet on one workstation, which is not
@@ -268,27 +296,27 @@ code; the first three are decisions.
 
 ### Work with a clear shape
 
-4. **Multiple palettes.** rad-android's own record (§12) has several
+5. **Multiple palettes.** rad-android's own record (§12) has several
    independently configured rings, each with its own arrangement and contrast
    choice. The per-ring store and the arrangement mechanism both exist here now,
    which was the prerequisite. What it needs first is an answer to *what a
    second ring points at* — a second rack, a second view of one rack, or a ring
    bound to a device.
-5. **The bar's position is not remembered** across a reload, while the hint and
+6. **The bar's position is not remembered** across a reload, while the hint and
    the ring's arrangement are. The hook (`onBarMoved`) exists and is unwired.
    One line, and an inconsistency until it is.
-6. **Device entries are still caricatures of varying depth.** Five were filled
+7. **Device entries are still caricatures of varying depth.** Five were filled
    out this cycle; a Launchpad X declaring one control is honest, a Qu-24
    declaring 27 faders for a 24-channel desk is close enough, and the middle of
    that range is where the next measuring session pays off.
-7. **`Assign function…` is deliberately not ported** from rad-android. Its verbs
+8. **`Assign function…` is deliberately not ported** from rad-android. Its verbs
    are Android intents; this app's are its own actions and are not
    user-composable. If Carlos ever grows composable verbs, this is where they
    would surface.
 
 ### Kept honest
 
-8. **The version tag is a human gate, and now has a machine half.**
+9. **The version tag is a human gate, and now has a machine half.**
    `RELEASING.md` is the record applied to this project: what a `v*` tag
    asserts, who may cut one, and the annotation form. `carlos release-check`
    runs the whole suite and **fails on a skip** — a skipped test is an absent

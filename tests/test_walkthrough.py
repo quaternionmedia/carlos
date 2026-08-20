@@ -7,6 +7,7 @@ declares a runtime it does not have, and whether the media a page shows is
 media a page produced.
 """
 
+import json
 import re
 import subprocess
 import sys
@@ -164,6 +165,38 @@ class MediaTests(unittest.TestCase):
             with self.subTest(path.name):
                 self.assertIn(path.name, shown, "recorded but shown by no page")
 
+    def test_the_readme_shows_a_screen_the_walkthrough_recorded(self):
+        """The homepage picture is the walkthrough's, not a second one.
+
+        A README screenshot taken by hand is a picture of whatever the program
+        looked like the day somebody remembered - and nothing turns red when it
+        stops being true. Pointing at the recorded artifact makes the homepage
+        ride decision 5's regeneration: the screen changes, the file changes,
+        and `git status` says so.
+
+        This is the joint from the README's side. `walkthrough/media` is the
+        registry; a path spelled by hand into another surface is exactly the
+        shadowing decision 6 forbids unless it bottoms out in the registry.
+        """
+        readme = Path("README.md").read_text(encoding="utf-8")
+        shown = re.findall(r"!\[[^\]]*\]\(walkthrough/media/([^)]+)\)", readme)
+
+        self.assertTrue(
+            shown,
+            "the README shows no recorded screen. The project's subject is a "
+            f"user interface: {self.REGENERATE}",
+        )
+        for name in shown:
+            with self.subTest(name):
+                self.assertTrue(
+                    (MEDIA / name).is_file(),
+                    f"the README shows {name} and nothing recorded it: "
+                    f"{self.REGENERATE}",
+                )
+                # And it is recorded by a page, so it cannot be a stray file
+                # somebody dropped in beside the real ones.
+                self.assertIn(name, self.shown(), "shown by no page")
+
     def test_the_recorder_never_compares(self):
         # The clause the record is emphatic about. A test that diffs images
         # fails on a font and gets switched off, taking the assertions beside
@@ -297,6 +330,43 @@ class ReleaseGateTests(unittest.TestCase):
         for escape in ("--no-skip-check", "--allow-skips", "--force"):
             with self.subTest(escape):
                 self.assertNotIn(escape, body)
+
+    def test_the_tag_ruleset_would_do_what_releasing_says(self):
+        """§7's ruleset, written down so applying it is one command.
+
+        Nothing here applies it — that is repository settings and an admin's
+        act, and `gh api .../rulesets` returns empty today. What this checks is
+        that the payload sitting in the repository is not a no-op waiting to be
+        pasted: a ruleset that targeted the wrong refs or carried no `creation`
+        rule would leave §1 exactly as customary as it is now, while looking
+        like it had been dealt with.
+        """
+        payload = json.loads(
+            Path(".github/tag-ruleset.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["target"], "tag")
+        self.assertEqual(payload["enforcement"], "active")
+        self.assertEqual(
+            payload["conditions"]["ref_name"]["include"], ["refs/tags/v*"],
+            "the record restricts `v*`; a wider pattern restricts unrelated "
+            "tags and a narrower one restricts nothing",
+        )
+        # Creation is the clause §7 asks for. Update and deletion are here
+        # because a tag that can be moved after the fact asserts whatever the
+        # mover wants it to.
+        self.assertEqual(
+            {rule["type"] for rule in payload["rules"]},
+            {"creation", "update", "deletion"},
+        )
+        # And somebody can still cut a release. A ruleset nobody can bypass is
+        # not enforcement of "a human cuts the tag"; it is a project that
+        # cannot tag.
+        self.assertTrue(payload["bypass_actors"], "nobody could cut a tag")
+
+        # RELEASING.md has to point at this file, or it is a payload nobody
+        # finds at the moment they need it.
+        doc = Path("RELEASING.md").read_text(encoding="utf-8")
+        self.assertIn(".github/tag-ruleset.json", doc)
 
     def test_releasing_names_what_a_tag_asserts(self):
         doc = Path("RELEASING.md").read_text(encoding="utf-8")
