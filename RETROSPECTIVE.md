@@ -1,4 +1,11 @@
-# Retrospective — the `adopt/qm-governance` cycle
+# Retrospectives
+
+Two cycles, newest last. Each is an account of **how the work went wrong and how
+it was caught**, because that is the part a diff does not carry.
+
+---
+
+# 1. The `adopt/qm-governance` cycle
 
 Seventy-five commits, one branch, and — right at the end — a second machine. Written at the handoff, from
 the log rather than from memory.
@@ -208,3 +215,138 @@ check green would decide the wrong question for the wrong reason.
 found by someone — or something — actually operating the thing: a real browser,
 a measurement, a demo walk-through, or a person looking at the screen. The
 suite is what stops those defects coming back. It is not what finds them.
+
+---
+
+# 2. The compliance cycle — 2026-08-20
+
+Six pull requests here and two in the corpus, in one day. Written from the log
+and the run outputs rather than from memory.
+
+The theme is narrow enough to state in a sentence: **almost every defect this
+cycle was a rule that everybody believed was enforced, and nothing enforced.**
+
+---
+
+## 1. Three rules with no detector
+
+| Rule | Who said it was enforced | What actually checked it |
+| --- | --- | --- |
+| No vendor `noreply@` co-author trailer | the record, the seed `AGENTS.md`, and the corpus's own workflow comment saying it "was already forbidden" | nothing, anywhere in the corpus |
+| A branch outside the five namespaces "is a mistake, not a variation" | `docs/ref/namespaces.md`, marked **canonical** | nothing — `check_pr_base.py` reads the base and the head's `project/` prefix, never the namespace |
+| Screenshots regenerate with the ordinary test command | the walkthrough record, and the README | the command did, and nothing asserted it would keep doing so |
+
+The first two were found by breaking them. Three commits went through a full set
+of green checks carrying the trailer the rule forbids, in a session that had
+read the rule. Two branches were pushed outside the namespaces by someone who
+had been pointed at the canonical page in `AGENTS.md` item 1 and had not opened
+it.
+
+**The agreement between documents is what made them look settled.** Three
+sources saying the same thing reads as corroboration, and all three were
+restatements of one unenforced sentence.
+
+---
+
+## 2. The gate that asserted determinism contained a flaky test
+
+`carlos release-check` exists to assert one clause of a version tag: automated
+validation passed **and is deterministic**. It refuses a run reporting a skip, a
+rerun or a retry.
+
+Inside it, a walkthrough example read a CSS class that a 220ms timer takes away,
+and one browser test did the same. Both were measuring how busy the machine was.
+It passed three times in a row on this workstation and failed once under the
+gate runner, which had just executed a three-minute browser suite in the same
+job.
+
+A gate that refuses nondeterminism, containing nondeterminism, is worse than no
+gate: it is a green check standing exactly where a reader believes something was
+proven. The fix records the transition rather than sampling the state, and it
+was demonstrated in both directions — disable the lamp and the assertion fails;
+shorten the lamp to `0ms`, the worst race available, and it still passes.
+
+---
+
+## 3. Two documents describing one endpoint, both wrong, differently
+
+`DEPLOYING.md` showed eight of `/healthz`'s ten keys, missing `ok` — the field a
+health probe is most likely to read — and `app`. `docs/interop.md` showed nine,
+missing `pid`. Neither was stale in the ordinary way. Both were hand-written
+from a payload that had since grown, and nothing compared either with it.
+
+Found by starting the app and reading what it answers. That is the only way this
+class surfaces: every sample was well-formed, plausible, and describing an
+endpoint that answers something else.
+
+---
+
+## 4. The mistakes worth naming
+
+**A version was two literals.** `pyproject.toml` and a default on `Settings`,
+with nothing comparing them — the one fact a release is named after, stored
+twice. It was behind a ticked checklist box, and it was found by auditing the
+checklist against the tree instead of reading it. The fix went in backwards
+first: installed metadata is a *copy* taken at install time, and preferring the
+copy is the same mistake in a smaller place.
+
+**A picture was taken two mutations after the assertions it illustrated.** The
+file called `boot` showed twelve devices under a caption saying eleven, and the
+README showed it as the homepage. Nothing was individually wrong — the picture
+was correct for the state it was taken in, the assertions were true where they
+stood, the caption was true of a state the file did not hold. **The defect was
+an order, and no test can see an order.**
+
+**A branch name invited the confusion it caused.** `roster/carlos` reads as a
+sibling of `project/carlos` and is close to its opposite: one is permanent,
+submodule-pinned and may never flow to `main`; the other was org content whose
+whole purpose was to flow to `main` and then be deleted.
+
+**I said a rename would carry the pull request across, and it closed it.**
+Stated as fact, not measured first. #82 is closed and #83 replaces it.
+
+**Exit codes were read through a pipe.** `pytest ... | tail -4` reports `tail`'s
+status. The corpus's own runner header warns about exactly this — "a pipe
+replaces the exit code and this corpus has read a failing check as passing twice
+that way" — and the numbers reported survived only because pytest prints its
+summary as text.
+
+---
+
+## 5. What governance actually caught
+
+Worth recording, because the cycle's other findings are all about governance
+that did not fire.
+
+- The **namespace guard** refused org content on a `project/*` branch, correctly,
+  and the reason it gave was the real one: propagation is one-directional, so
+  what lands there is stranded. That refusal was accepted deliberately and
+  recorded in the corpus ledger as `2026-08-20-002`, with its cost written down
+  rather than argued away.
+- **`check_pr_base.py`** was run before every pull request and was right every
+  time about what it does check.
+- **The one-PR rule** held across eight pull requests with no overlap, which is
+  the only reason the sequencing stayed legible.
+- The **uncommitted-diff signal** worked twice without being asked: the
+  re-version changed four screenshots because the bar shows the version, and the
+  corrected shutter changed one.
+
+---
+
+## 6. If the next cycle reads one thing
+
+**A rule every document agrees about is the one to check has a detector.**
+Corroboration between restatements is not enforcement, and it reads exactly like
+it. The question worth asking of any rule this corpus states is not "is this
+written down" but "what would go red if I broke it, and have I watched it do
+that".
+
+---
+
+## Where this belongs, and does not yet
+
+`AGENTS.md` item 7 puts every *why* in `governance/qm/perspectives/`, dated and
+attributed, with a `Tools:` row the directory requires. That is this document's
+proper home, and it is not there: the corpus's one-PR slot is held by the draft
+roster claim, and opening a second would break the rule this cycle is about.
+Queued behind it deliberately rather than routed around.
