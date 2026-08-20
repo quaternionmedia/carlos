@@ -15,7 +15,12 @@ underway and not finished, and this page is the honest state of it.
 ## Publish-Readiness Checklist
 
 - [x] README describes the current prototype truthfully.
-- [x] Project metadata names Carlos and uses the declared package version.
+- [x] Project metadata names Carlos and uses the declared package version —
+      **one** declaration. It was two literals, `pyproject.toml` and a default
+      on `Settings`, with nothing comparing them: the number in the bar and on
+      `/healthz` is what a person reads, the number in the package is what a
+      `v*` tag is cut against, and a bump in either would have shown the wrong
+      one in the other with nothing going red.
 - [x] License file exists.
 - [x] Contributing, security, and code-of-conduct files exist.
 - [x] Issue and pull request templates exist.
