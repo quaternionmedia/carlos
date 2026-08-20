@@ -47,6 +47,17 @@ what the rack is and what the app last answered; hold it and the ring blooms;
 double-tap and drag moves it, which detaches it into a panel the width of its
 own contents.
 
+## Running It Somewhere Else
+
+`DEPLOYING.md` is the answer: a two-stage image built from the same lockfile the
+tests ran under, running as a non-root user, with the environment variables that
+decide the bind, the database and which proxies are believed.
+
+`.github/workflows/image.yml` builds it on every pull request and proves it
+answers — a `Dockerfile` nobody has run is a `Dockerfile` that does not work
+yet. **That workflow has not run on this workstation**: the Docker daemon was
+not up when it was written, so CI is the first thing to build this image.
+
 ## Validated Commands
 
 `uv` is at `C:\Users\peter\.local\bin\uv.exe`. It resolves as a bare `uv` under

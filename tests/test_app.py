@@ -146,6 +146,77 @@ class AppSmokeTests(unittest.TestCase):
         if found is not None:
             self.assertRegex(found, r"^\d+\.\d+\.\d+\.\d+$")
 
+    def test_the_bare_port_keeps_the_query_it_was_given(self):
+        """A shared link with something in it opens the page it was sent for.
+
+        The redirect dropped the query. Nothing notices that until somebody
+        shares an address with a parameter on it and the person opening it gets
+        a different page than the one they were sent.
+        """
+        import asyncio
+
+        from src.main import home
+
+        class _Asked:
+            def __init__(self, query):
+                self.url = type("U", (), {"query": query})()
+
+        landed = asyncio.run(home(_Asked("patch=demo&mode=irl")))
+        self.assertEqual(landed.headers["location"], "/rack?patch=demo&mode=irl")
+
+        bare = asyncio.run(home(_Asked("")))
+        self.assertEqual(bare.headers["location"], "/rack")
+
+    def test_the_redirect_is_relative(self):
+        # A proxy in front of this should not have to be believed about its own
+        # hostname, and an absolute redirect is this build guessing at one.
+        import asyncio
+
+        from src.main import home
+
+        class _Asked:
+            url = type("U", (), {"query": ""})()
+
+        landed = asyncio.run(home(_Asked()))
+        self.assertTrue(landed.headers["location"].startswith("/"))
+        self.assertNotIn("://", landed.headers["location"])
+
+    def test_the_pages_and_the_probe_answer_head(self):
+        """A GET-only route answers HEAD with 405.
+
+        FastAPI adds neither for you, and the things that send HEAD are exactly
+        the things met on the way to a deployment: load balancer probes, uptime
+        monitors, link checkers, `curl -I`. A 405 to a health probe is an
+        instance marked down.
+        """
+        from src.main import app
+
+        wanted = {"/": {"GET", "HEAD"}, "/rack": {"GET", "HEAD"},
+                  "/healthz": {"GET", "HEAD"}}
+        found = {
+            route.path: set(route.methods)
+            for route in app.routes
+            if getattr(route, "path", None) in wanted
+        }
+        for path, methods in wanted.items():
+            with self.subTest(path):
+                self.assertTrue(methods <= found.get(path, set()),
+                                f"{path} answers {found.get(path)}")
+
+    def test_which_proxies_are_believed_is_settable(self):
+        # Loopback by default, which is right for a workstation and a sidecar.
+        # A proxy on another host has to be named rather than assumed.
+        import os
+
+        from src.main import Settings
+
+        self.assertEqual(Settings().forwarded_allow_ips, "127.0.0.1")
+        os.environ["CARLOS_FORWARDED_ALLOW_IPS"] = "10.0.0.0/8"
+        try:
+            self.assertEqual(Settings().forwarded_allow_ips, "10.0.0.0/8")
+        finally:
+            del os.environ["CARLOS_FORWARDED_ALLOW_IPS"]
+
     def test_reload_is_off_by_default(self):
         # It does not reload here, and the reloader process it adds owns the
         # socket and hands it to a child — so killing the server that answers
