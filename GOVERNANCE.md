@@ -86,7 +86,7 @@ Enumerating a conflict is not waiving it.
 | `static/anime-shim.js` is a local stand-in | house-stack §1 | The set names vendored `anime.js`; a 25-line reimplementation is neither vendored nor anime.js |
 | Declared licence is MIT | outbound-licensing §4 | Services and control planes are AGPL-3.0-or-later. The declared licence is a reviewed output, not an inherited default |
 | No SPDX headers, no `LICENSES/` | outbound-licensing §12 | What `reuse-lint` is failing on |
-| ~~No `walkthrough/`~~ | one-executable-walkthrough §1 | **Closed.** Five pages, four hermetic and one runtime-bound, executed by the ordinary test command. Decision 7 is not satisfied yet: a page that ran on a branch no remote carries has not run, and nothing here is pushed |
+| ~~No `walkthrough/`~~ | one-executable-walkthrough §1 | **Closed, including decision 7.** Five pages, four hermetic and one runtime-bound, executed by the ordinary test command. The pages have now run on the default branch: run [32367009542](https://github.com/quaternionmedia/carlos/actions/runs/32367009542) at `80c7c5e`, jobs `96418600755` (hermetic pages) and `96418600498` (the runtime-bound one, in real Chromium). The identifier is the evidence; a workflow file that would have run is not a run |
 | Frontend is plain modular JS, no build step | house-stack §1 | The set names mithril with a parcel build for frontend applications. Carlos ships no build step at all, which is neither the blessed answer nor a recorded exception |
 | No dependency-manifest licence gate | open-license §4 | Required per package ecosystem shipped |
 | No service inventory | open-license §6 | No scanner can produce it, which is why it is written down |
@@ -147,10 +147,11 @@ below needs a person, and two of the three are remote writes.
    `signature-check` passes once the forge can see the commits — every one is
    signed, verifiable now with `carlos signatures`. `submodule-check` passes
    once step 1 lands. `reuse-lint` stays red, by the decision recorded above.
-4. **The tests run remotely for the first time.** They have only ever run on
-   one workstation. That run is also what satisfies the walkthrough record's
-   decision 7, which no file can satisfy: a page that ran where nobody merges
-   has not run.
+4. ~~**The tests run remotely for the first time.**~~ **Done.** They had only
+   ever run on one workstation. Run
+   [32367009542](https://github.com/quaternionmedia/carlos/actions/runs/32367009542)
+   on `they` is what satisfies the walkthrough record's decision 7, which no
+   file can satisfy: a page that ran where nobody merges has not run.
 5. **Ratify the adoption record**, or don't. The branch merges either way; the
    record is what lets Carlos be described as carrying governance rather than
    improvising it.
@@ -166,6 +167,25 @@ The two human gates are ratification, for what a record says, and the version
 tag, for what this project ships — a `v*` tag asserts a human reviewed the
 change set, a human manually tested it against its real runtime, and
 deterministic validation passed.
+
+## Version Tags
+
+`RELEASING.md` is this project's application of
+`DRAFT-version-tags-are-claims.md`. The state of its enforcement, which is the
+part worth stating here because it is the part that decays:
+
+| §  | What it asks | State |
+| -- | --- | --- |
+| §1 | a human cuts the tag, never an assistant | **Customary.** The one gap below makes it so |
+| §2 | the tag asserts review, manual test, deterministic validation | The third is green at `80c7c5e`: `carlos release-check` — 514 passed, nothing skipped, reran or retried. The first two are unmade; nobody has done them |
+| §3 | only deterministic validation counts | **Mechanical.** `carlos release-check` fails the run on a skip, a rerun, a retry, an xfail or an xpass, and this suite really does skip whole classes on a bare machine |
+| §6 | annotated tags naming their own basis | **Mechanical.** `tag-claims.yml` fails a pushed `v*` that is lightweight, misnamed, or missing one of the four annotation fields |
+| §7 | release automation triggers on the tag, never creates one | **Met.** `release-gate.yml` re-runs the gate on a clean machine and writes a summary saying which of the three claims it did *not* assert |
+| §7 | a tag-protection ruleset restricting who may create `v*` | **Missing.** `GET /repos/quaternionmedia/carlos/rulesets` returns an empty list. This is repository settings, not a workflow, and no workflow can substitute — `tag-claims.yml` runs *after* the tag exists. `RELEASING.md` carries the exact call |
+
+**Carlos has never been tagged.** Nothing in the repository is a release, and
+the absence is correct rather than an oversight: what blocks a tag is that
+nobody has yet reviewed a change set and driven the thing on a real screen.
 
 ## Local Rule
 

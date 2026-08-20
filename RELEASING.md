@@ -84,13 +84,39 @@ should not exist yet.
 setting, and it needs someone with admin on `quaternionmedia/carlos`. Until it
 exists, clause 1 of this file is a convention held by the people reading it.
 
+The call is written down so it is one command rather than a form somebody fills
+in from memory. The payload is [.github/tag-ruleset.json](.github/tag-ruleset.json),
+kept in this repository rather than in the corpus because the bypass actors are
+this repository's:
+
+```sh
+gh api -X POST repos/quaternionmedia/carlos/rulesets     --input .github/tag-ruleset.json
+gh api repos/quaternionmedia/carlos/rulesets --jq '.[] | .name'
+```
+
+It restricts creating, moving and deleting `refs/tags/v*` to repository and
+organisation admins, so §1 stops being a convention and starts being a
+permission. Deleting the ruleset undoes it; nothing about it is one-way.
+
+**Check the state rather than trusting this paragraph.** The second command is
+the check, and an empty result means the setting is not there — which is what
+it returns today.
+
 `.github/workflows/release-gate.yml` runs on a `v*` tag and re-runs the gate on
 a clean machine, which is the other half of §7. It cannot create a tag and does
 not try to.
 
 ## The current state of this project
 
-**Carlos has never been tagged, and nothing here is a release.** The
+The machine half is currently green. At `80c7c5e` on `they`:
+
+```
+514 passed, 1449 subtests passed in 159.70s
+Deterministic validation passed, with nothing skipped.
+```
+
+That is clause 3 and only clause 3. **Carlos has never been tagged, and nothing
+here is a release.** The
 publish-readiness checklist in `GOVERNANCE.md` has two human items open — the
 adoption record is unratified and the outbound licence class is unchosen — and
 `reuse-lint` is red on purpose because of the second.

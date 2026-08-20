@@ -7,6 +7,18 @@ are actually on. Devices turn individually, so you can work on the back of one
 while the rest face forward, and gather into rows. A whole rig exports to and
 imports from a single versioned JSON document.
 
+![Carlos on opening: eleven devices across three rows, seventeen leads between them, and the bar along the top saying what is there](walkthrough/media/05-in-the-browser-boot.png)
+
+Nobody took that picture by hand. It is written by
+[walkthrough/05-in-the-browser.md](walkthrough/05-in-the-browser.md) in the same
+run, against the same render, at the moment that page asserts what the opening
+rack contains — so it shows the program the tests passed against rather than
+the program somebody last remembered to photograph. Regeneration rides `carlos
+check`, which means a screen that changes and a screenshot that does not turn up
+as an uncommitted diff. It is recorded and never compared: a test that diffs
+images fails on a font and gets switched off, taking the assertions beside it
+with it.
+
 Carlos is named for Wendy Carlos, whose work helped bring electronic music and
 synthesizers into wider public view.
 
