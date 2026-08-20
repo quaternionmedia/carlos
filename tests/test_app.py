@@ -1,4 +1,5 @@
 import asyncio
+import json
 from pathlib import Path
 import re
 import unittest
@@ -440,6 +441,59 @@ class PatchEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
         self.assertIn(b"version 99", response.body)
+
+
+class DocumentedHealthTests(unittest.TestCase):
+    """A probe's contract is the payload, so the docs get held to it.
+
+    Two documents show a `/healthz` sample and both were wrong, differently:
+    `DEPLOYING.md` had eight of the ten keys, missing `ok` and `app` -- and `ok`
+    is the one a health probe is most likely to read -- while `docs/interop.md`
+    had nine, missing `pid`. Neither was stale in the ordinary way; they were
+    hand-written from a payload that had since grown, and nothing compared them
+    with it.
+
+    Found by starting the app and reading what it answers rather than by reading
+    the documents, which is the only way this class of error surfaces: every
+    sample was well-formed, plausible, and describing an endpoint that answers
+    something else.
+    """
+
+    SAMPLE = re.compile(r"```json\n(\{.*?\})\n```", re.DOTALL)
+
+    def answered(self) -> set[str]:
+        return set(asyncio.run(healthz(_arrived_on(("127.0.0.1", 8123)))))
+
+    def documented(self):
+        """Every fenced JSON block that is a health payload, by filename."""
+        for name in ("DEPLOYING.md", "docs/interop.md"):
+            body = Path(name).read_text(encoding="utf-8")
+            for block in self.SAMPLE.findall(body):
+                # A health sample is the one carrying the identity pair. Keyed
+                # on content rather than on position, so moving the section does
+                # not quietly drop it from the check.
+                if '"instance"' in block and '"generated_at"' in block:
+                    yield name, block
+
+    def test_the_documents_show_a_health_payload_at_all(self):
+        # Guarding an empty set is how a check that stopped finding its subject
+        # keeps reporting green.
+        self.assertEqual(
+            sorted(name for name, _ in self.documented()),
+            ["DEPLOYING.md", "docs/interop.md"],
+        )
+
+    def test_every_documented_payload_has_the_keys_it_answers(self):
+        answered = self.answered()
+        for name, block in self.documented():
+            with self.subTest(name):
+                shown = set(json.loads(block))
+                self.assertEqual(
+                    shown, answered,
+                    f"{name} documents {sorted(shown)} and /healthz answers "
+                    f"{sorted(answered)}. Missing: {sorted(answered - shown)}; "
+                    f"invented: {sorted(shown - answered)}",
+                )
 
 
 class OneDeclaredVersionTests(unittest.TestCase):
