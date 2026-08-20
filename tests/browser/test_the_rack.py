@@ -278,6 +278,139 @@ class TestGettingBackOut:
         assert page.locator(".rad-wedge").count() == 7
 
 
+class TestMovingADevice:
+    """A handle in the corner opposite the flip.
+
+    Turning a device and moving it are the two things you do to a whole device
+    rather than to something on it, so they take the two top corners and each
+    keeps its own. A grip sharing a corner with a button would be a grip that
+    sometimes turned the device instead.
+    """
+
+    def layout(self, page):
+        return page.evaluate(
+            """() => [...document.querySelectorAll('.rack-group, .rack-loose')]
+                .map(shelf => ({
+                    row: shelf.dataset.groupId || 'loose',
+                    devices: [...shelf.querySelectorAll(':scope .module')]
+                        .map(m => m.dataset.moduleId),
+                }))"""
+        )
+
+    def row(self, page, name):
+        for shelf in self.layout(page):
+            if shelf["row"] == name:
+                return shelf["devices"]
+        return []
+
+    def drag(self, page, moving, onto, steps=10):
+        grip = page.locator(f'[data-module-id="{moving}"] .module-move').bounding_box()
+        target = page.locator(f'[data-module-id="{onto}"]').bounding_box()
+        page.mouse.move(grip["x"] + 9, grip["y"] + 9)
+        page.mouse.down()
+        page.mouse.move(target["x"] + 6, target["y"] + 40, steps=steps)
+        page.mouse.up()
+        page.wait_for_timeout(200)
+
+    def test_every_device_has_one(self, page):
+        assert page.locator(".module-move").count() == page.locator(".module").count()
+
+    def test_it_is_in_the_corner_opposite_the_flip(self, page):
+        corners = page.evaluate(
+            """() => {
+                const m = document.querySelector('.module');
+                const box = m.getBoundingClientRect();
+                const grip = m.querySelector('.module-move').getBoundingClientRect();
+                const flip = m.querySelector('.module-flip').getBoundingClientRect();
+                return {
+                    gripFromLeft: Math.round(grip.left - box.left),
+                    flipFromRight: Math.round(box.right - flip.right),
+                    gripFromTop: Math.round(grip.top - box.top),
+                    flipFromTop: Math.round(flip.top - box.top),
+                };
+            }"""
+        )
+        # Mirrored: the same inset from opposite sides, at the same height.
+        assert corners["gripFromLeft"] == corners["flipFromRight"]
+        assert corners["gripFromTop"] == corners["flipFromTop"]
+
+    def test_dragging_it_reorders_the_row(self, page):
+        assert self.row(page, "row-control") == ["grid", "seq", "keys"]
+        self.drag(page, "keys", "grid")
+        assert self.row(page, "row-control") == ["keys", "grid", "seq"]
+
+    def test_a_bar_shows_the_gap_it_will_land_in(self, page):
+        # A bar between two devices rather than a highlight on one, because the
+        # answer is a gap and not a neighbour.
+        grip = page.locator('[data-module-id="keys"] .module-move').bounding_box()
+        first = page.locator('[data-module-id="grid"]').bounding_box()
+        page.mouse.move(grip["x"] + 9, grip["y"] + 9)
+        page.mouse.down()
+        page.mouse.move(first["x"] + 6, first["y"] + 40, steps=10)
+
+        assert page.locator(".rack-drop").count() == 1
+        page.mouse.up()
+        page.wait_for_timeout(200)
+        assert page.locator(".rack-drop").count() == 0
+
+    def test_it_can_be_dragged_into_another_row(self, page):
+        self.drag(page, "keys", "dfam")
+        assert "keys" not in self.row(page, "row-control")
+        assert "keys" in self.row(page, "row-voices")
+
+    def test_the_cables_come_with_it(self, page):
+        before = page.locator("path.cable").evaluate_all(
+            "paths => new Set(paths.map(p => p.dataset.cable)).size")
+        self.drag(page, "keys", "dfam")
+        after = page.locator("path.cable").evaluate_all(
+            "paths => new Set(paths.map(p => p.dataset.cable)).size")
+        assert after == before == 17
+
+    def test_dropping_it_nowhere_leaves_it_alone(self, page):
+        # A drag that ends off the rack should leave everything where it was
+        # rather than guess at what was meant.
+        was = self.layout(page)
+        grip = page.locator('[data-module-id="keys"] .module-move').bounding_box()
+        page.mouse.move(grip["x"] + 9, grip["y"] + 9)
+        page.mouse.down()
+        page.mouse.move(grip["x"] + 9, 4, steps=8)   # up onto the bar
+        page.mouse.up()
+        page.wait_for_timeout(200)
+
+        assert self.layout(page) == was
+        assert "stayed where it was" in page.locator("#status").inner_text()
+
+    def test_the_arrow_keys_move_it_along_the_row(self, page):
+        # A grip you can only drag is a grip a keyboard cannot reach.
+        page.locator('[data-module-id="grid"] .module-move').focus()
+        page.keyboard.press("ArrowRight")
+        page.wait_for_timeout(150)
+        assert self.row(page, "row-control") == ["seq", "grid", "keys"]
+
+    def test_and_between_rows(self, page):
+        page.locator('[data-module-id="keys"] .module-move').focus()
+        page.keyboard.press("ArrowDown")
+        page.wait_for_timeout(150)
+        assert "keys" not in self.row(page, "row-control")
+        assert "keys" in self.row(page, "row-voices")
+
+    def test_the_ends_hold(self, page):
+        # A device at the front pressing left stays there rather than appearing
+        # at the back of somewhere else.
+        was = self.row(page, "row-control")
+        page.locator('[data-module-id="grid"] .module-move').focus()
+        page.keyboard.press("ArrowLeft")
+        page.wait_for_timeout(150)
+        assert self.row(page, "row-control") == was
+
+    def test_nothing_throws_through_any_of_it(self, page):
+        self.drag(page, "keys", "dfam")
+        page.locator('[data-module-id="keys"] .module-move').focus()
+        page.keyboard.press("ArrowLeft")
+        page.wait_for_timeout(150)
+        assert page.errors == []
+
+
 class TestEverySocketSaysWhatItIs:
     """Labels on the laid-out panels, not only the abstract ones.
 

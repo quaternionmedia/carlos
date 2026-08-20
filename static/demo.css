@@ -358,6 +358,66 @@ svg {
     box-shadow: 0 0 14px rgba(255, 224, 102, 0.35);
 }
 
+/* The handle, in the corner opposite the flip.
+   Turning a device and moving it are the two things you do to a whole device
+   rather than to something on it, so they sit at the two top corners and each
+   keeps its own. A grip that shared a corner with a button would be a grip that
+   sometimes turned the device instead. */
+.module-move {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: #1a1a1a;
+    color: #888;
+    border: 1px solid #444;
+    border-radius: 3px;
+    width: 20px;
+    height: 18px;
+    font-size: 11px;
+    line-height: 1;
+    padding: 0;
+    cursor: grab;
+    /* The browser must not claim the drag for scrolling or for selecting the
+       glyph, which is what it does to a button being dragged. */
+    touch-action: none;
+    user-select: none;
+    z-index: 3;
+}
+
+.module-move:hover {
+    color: var(--rad-hub-live);
+}
+
+.module-move:focus-visible {
+    outline: 2px solid var(--rad-hub-live);
+    outline-offset: 1px;
+}
+
+/* Being carried. Dimmed rather than hidden: you are moving *this* one, and a
+   device that vanished while you dragged it would leave you guessing which. */
+.module.is-moving {
+    opacity: 0.4;
+    cursor: grabbing;
+}
+
+.module.is-moving .module-move {
+    cursor: grabbing;
+    color: var(--rad-push);
+}
+
+/* Where it will land. A bar between two devices rather than a highlight on one,
+   because the answer is a gap and not a neighbour. */
+.rack-drop {
+    width: 3px;
+    align-self: stretch;
+    min-height: 40px;
+    margin: 10px 0;
+    border-radius: 2px;
+    background: var(--rad-hub-live);
+    box-shadow: 0 0 6px var(--rad-hub-live);
+    pointer-events: none;
+}
+
 .module-flip {
     position: absolute;
     top: 6px;
