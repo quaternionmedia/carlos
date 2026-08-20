@@ -57,8 +57,8 @@ reviewed, what was manually tested, and what the automated gate covered —
 including what it did not.**
 
 ```sh
-git tag -s v0.1.0 -F - <<'EOF'
-Carlos v0.1.0
+git tag -s v0.0.1 -F - <<'EOF'
+Carlos v0.0.1
 
 Reviewed by: <name>
 Manually tested: <what was actually driven, on what, and what was not>
@@ -70,8 +70,8 @@ EOF
 Then check the tag says what it must, and push it:
 
 ```sh
-uv run carlos release-check --tag v0.1.0
-git push origin v0.1.0
+uv run carlos release-check --tag v0.0.1
+git push origin v0.0.1
 ```
 
 A tag whose annotation cannot state the manual test performed is a tag that

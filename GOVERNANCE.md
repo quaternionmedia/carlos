@@ -9,6 +9,10 @@ underway and not finished, and this page is the honest state of it.
 - Current default branch on GitHub: `they`
 - Governance corpus: `quaternionmedia/qm`, vendored at `governance/qm`
 - Project branch: `project/carlos` — **pushed** to `quaternionmedia/qm`
+- Declared version: **`0.0.0`**. Nothing has been released and nothing has been
+  tagged, so the number says so. It was `0.1.0`, which asserted a minor release
+  that never happened — and is now read from one declaration, so this line and
+  the bar and `/healthz` cannot disagree.
 - Phase: `v0.0.1` on the corpus's project-phase ladder, which is the rung that
   means "working toward governance adoption"
 
@@ -189,6 +193,46 @@ The two human gates are ratification, for what a record says, and the version
 tag, for what this project ships — a `v*` tag asserts a human reviewed the
 change set, a human manually tested it against its real runtime, and
 deterministic validation passed.
+
+## The Version Number And The Phase Are Not The Same Signal
+
+Worth stating together, because the obvious move is to conflate them and the
+ladder rejects that move by name.
+
+**`0.0.0` is the declared package version.** It is a statement about what has
+been released: nothing. It replaced `0.1.0`, which claimed a minor release this
+project never made, and it is now read from `pyproject.toml` in one place, so
+the bar, `/healthz`, `/api/opening` and the package metadata cannot drift apart.
+
+**`v0.0.1` is the phase**, and it is a different kind of claim.
+`DRAFT-project-phase-ladder.md` §1 makes it the one rung that means the same
+thing in every QM project: records on the project's own `project/<name>` branch,
+the governance pin current, the seed files present on the default branch, and
+**a human who reviewed and manually tested that this is so.** §3 makes it the
+floor — a project with no phase stated is at `v0.0.1`, as a default rather than
+a discovery.
+
+There is no `v0.0.0` rung. The ladder's floor is `v0.0.1`, and §2 puts every
+rung *above* it in the project's own records; nothing provides for one below.
+So the package version cannot be the phase signal, and the ladder's own rejected
+alternative says why: *"a tag is cut at a commit and asserts something about
+that commit. A phase is a target a project is working toward and is true between
+tags. Merging them would leave a project with no way to say where it is going
+until it arrives."*
+
+**What actually signals that this repository has entered the compliance phase**,
+then, is two acts, and neither is a number in `pyproject.toml`:
+
+1. **A roster entry** in the corpus's `ci/workspace.yaml`, with `phase: v0.0.1`
+   and `phase_source: stated`. **Carlos is not in that roster** — it lists
+   fourteen repositories and this is not one of them. That file is org-level
+   content, so it belongs on the corpus's `main`, which this project's branch
+   may not touch.
+2. **A human cutting `v0.0.1`.** §6 is explicit that the mechanical check
+   disqualifies and never qualifies: a complete artifact set means *a human may
+   now assert this*, never that the assertion has been made. `RELEASING.md`
+   carries the form, and its worked example is now `v0.0.1` rather than a
+   version this project has no basis to cut.
 
 ## Version Tags
 

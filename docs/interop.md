@@ -79,7 +79,7 @@ over HTTP told them apart.
 
 ```json
 {
-  "ok": true, "app": "Carlos", "version": "0.1.0",
+  "ok": true, "app": "Carlos", "version": "0.0.0",
   "instance": "f537130c30f0",
   "started_at": "2026-08-18T16:09:33+00:00",
   "host": "127.0.0.1", "port": 63372,

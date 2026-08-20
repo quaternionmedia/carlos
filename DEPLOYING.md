@@ -81,7 +81,7 @@ current answer, and they are files a person handles.
 ```json
 {"instance": "8e03b9a7923b", "pid": 16108, "started_at": "...",
  "port": 8000, "host": "0.0.0.0", "database": "/app/data/db.json",
- "version": "0.1.0", "generated_at": "..."}
+ "version": "0.0.0", "generated_at": "..."}
 ```
 
 `instance` and `started_at` are the useful pair: if the id is not the one you
