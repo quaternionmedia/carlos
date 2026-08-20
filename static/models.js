@@ -367,6 +367,68 @@ function jackUnder(clientX, clientY) {
     return jack && jack.side === el.dataset.side ? jack : null;
 }
 
+// Where a device would land if it were dropped here.
+//
+// A shelf and a place in it, worked out from the devices actually on screen
+// rather than from anything stored: the answer is "before the first one whose
+// middle is to the right of the pointer", which is what a hand means by
+// dropping something between two things.
+//
+// `null` when the pointer is nowhere that takes a device - over the bar, off
+// the rack, past the bottom - so a drag that ends there can leave everything
+// where it was rather than guess.
+function dropTarget(clientX, clientY, moving) {
+    if (typeof document === 'undefined') return null;
+    const under = document.elementFromPoint(clientX, clientY);
+    if (!under?.closest) return null;
+
+    const rack = under.closest('#rack');
+    if (!rack) return null;
+
+    const shelf = under.closest('.rack-shelf, .rack-loose')
+        // Between the shelves, or on a row's header: the nearest shelf above
+        // the pointer is the one being aimed at.
+        || nearestShelf(rack, clientY);
+    if (!shelf) return null;
+
+    const others = [...shelf.querySelectorAll(':scope > .module')]
+        .filter(el => el.dataset.moduleId !== moving);
+
+    let index = others.length;
+    for (let at = 0; at < others.length; at++) {
+        const box = others[at].getBoundingClientRect();
+        if (clientX < box.left + box.width / 2) {
+            index = at;
+            break;
+        }
+    }
+
+    return {
+        shelf,
+        groupId: shelf.closest('.rack-group')?.dataset.groupId || null,
+        index,
+        before: others[index] || null,
+    };
+}
+
+function nearestShelf(rack, clientY) {
+    const shelves = [...rack.querySelectorAll('.rack-shelf, .rack-loose')];
+    let best = null;
+    let closest = Infinity;
+    shelves.forEach(shelf => {
+        const box = shelf.getBoundingClientRect();
+        const away = clientY < box.top ? box.top - clientY
+            : clientY > box.bottom ? clientY - box.bottom : 0;
+        if (away < closest) {
+            closest = away;
+            best = shelf;
+        }
+    });
+    // Only if it is actually near one. A pointer half a screen below the last
+    // shelf is not aiming at it.
+    return closest <= 80 ? best : null;
+}
+
 function hostSystem() {
     try {
         return typeof system === 'undefined' ? null : system;
@@ -654,6 +716,9 @@ class EurorackModule {
                 ${this.faceBody(side)}
             </div>
         `).join('') + `
+            <button type="button" class="module-move"
+                    title="Move this device: drag it, or use the arrow keys"
+                    aria-label="Move ${attr(this.name)}">⠿</button>
             <button type="button" class="module-flip"
                     title="${this.turns
                         ? `Turn this device (${this.drawnSides().join(' → ')})`
@@ -989,6 +1054,89 @@ class EurorackModule {
                     hostSystem()?.patchBay.handleJackClick(jack);
                 });
             }
+        });
+
+        // Move this device. The handle is its own gesture and its own corner:
+        // dragging anywhere else on a device is patching, selecting, or turning
+        // a knob, and a device you could drag by its body would be a device you
+        // moved every time you missed a socket.
+        const grip = this.element.querySelector('.module-move');
+        grip?.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+
+            const system = hostSystem();
+            if (!system) return;
+
+            grip.setPointerCapture?.(event.pointerId);
+            this.element.classList.add('is-moving');
+
+            const bar = document.createElement('div');
+            bar.className = 'rack-drop';
+
+            let landing = null;
+
+            const move = (moveEvent) => {
+                landing = dropTarget(
+                    moveEvent.clientX, moveEvent.clientY, this.id);
+                if (!landing) {
+                    bar.remove();
+                    return;
+                }
+                // Placed rather than positioned: the bar is a child of the
+                // shelf it marks, so it sits where a device would sit and moves
+                // with the layout instead of being told about it.
+                landing.shelf.insertBefore(bar, landing.before);
+            };
+
+            const up = () => {
+                grip.removeEventListener('pointermove', move);
+                grip.removeEventListener('pointerup', up);
+                grip.removeEventListener('pointercancel', up);
+                bar.remove();
+                this.element.classList.remove('is-moving');
+
+                // The click that follows this release would reach the device
+                // and select it. Moving something is not choosing it, and a
+                // drag that ended up moving nothing had still selected it -
+                // which is how this was found.
+                const swallow = (clickEvent) => {
+                    clickEvent.stopPropagation();
+                    clickEvent.preventDefault();
+                };
+                grip.addEventListener('click', swallow, { capture: true, once: true });
+
+                if (!landing) {
+                    system.status.update(`${this.name} stayed where it was`);
+                    return;
+                }
+                // No redraw here: `moveModule` renders the rack, and rendering
+                // the rack redraws the cables. Calling it again would be a
+                // second answer to the same question, and the keyboard path
+                // would still be relying on the first one.
+                system.moveModule(this.id, landing.groupId, landing.index);
+            };
+
+            grip.addEventListener('pointermove', move);
+            grip.addEventListener('pointerup', up);
+            grip.addEventListener('pointercancel', up);
+        });
+
+        // And by keyboard, because a grip you can only drag is a grip a
+        // keyboard cannot reach. Left and right along the shelf; up and down
+        // between shelves, which is how a device gets into a row without a
+        // pointer.
+        grip?.addEventListener('keydown', (event) => {
+            const steps = {
+                ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+                ArrowUp: [0, -1], ArrowDown: [0, 1],
+            };
+            const step = steps[event.key];
+            if (!step) return;
+            event.preventDefault();
+            event.stopPropagation();
+            hostSystem()?.nudgeModule(this.id, step[0], step[1]);
         });
 
         // Turn just this device to its next side.
@@ -2320,6 +2468,91 @@ class EurorackSystem {
         this.renderRack();
         this.status.update(`Removed ${group.label}; its devices are loose`);
         return group;
+    }
+
+    // Put a device somewhere: a row and a place in it, or loose and a place
+    // among the loose.
+    //
+    // One method for all three moves, because "into a row", "out of a row" and
+    // "along a row" are the same act with a different destination, and three
+    // methods would be three chances for them to disagree about what happens to
+    // the row it came from.
+    //
+    // `groupId` of `null` means loose. `index` clamps rather than refuses: a
+    // hand dropping a device past the end of a shelf means the end of the
+    // shelf, and an error there would be the app arguing with a gesture that
+    // was perfectly clear.
+    moveModule(id, groupId = null, index = Infinity) {
+        if (!this.modules.has(id)) return null;
+
+        // Out of wherever it was first, so a move within one row does not have
+        // to be a special case: it leaves and rejoins the same list.
+        this.groups.forEach(group => {
+            group.members = group.members.filter(member => member !== id);
+        });
+
+        if (groupId) {
+            const group = this.groups.find(entry => entry.id === groupId);
+            if (!group) return null;
+            const at = Math.max(0, Math.min(index, group.members.length));
+            group.members.splice(at, 0, id);
+            this.renderRack();
+            this.status.update(`${this.modules.get(id).name} moved into ${group.label}`);
+            return group;
+        }
+
+        // Loose devices have no list of their own: they are whatever the rack
+        // holds that no row claims, in the order the rack holds them. So moving
+        // one means reordering that, which means rebuilding the map — the one
+        // copy of the order, rather than a second list that could disagree with
+        // it.
+        const loose = this.ungrouped().filter(member => member !== id);
+        const at = Math.max(0, Math.min(index, loose.length));
+        loose.splice(at, 0, id);
+
+        const wanted = [...this.groups.flatMap(group => group.members), ...loose];
+        const rebuilt = new Map();
+        wanted.forEach(member => {
+            if (this.modules.has(member)) rebuilt.set(member, this.modules.get(member));
+        });
+        // Anything the walk above missed keeps its place at the end rather than
+        // being dropped. A reorder that can lose a device is not a reorder.
+        this.modules.forEach((module, member) => {
+            if (!rebuilt.has(member)) rebuilt.set(member, module);
+        });
+        this.modules = rebuilt;
+
+        this.renderRack();
+        this.status.update(`${this.modules.get(id).name} is loose in the rack`);
+        return null;
+    }
+
+    // One step, for a keyboard.
+    //
+    // The shelves in order, with `null` for loose at the end: moving up and
+    // down walks that list, and moving left and right walks the devices on one
+    // shelf. Clamped at both ends rather than wrapping — a device at the front
+    // of the first row pressing left should stay there, not appear at the back
+    // of the last.
+    nudgeModule(id, along = 0, across = 0) {
+        if (!this.modules.has(id)) return null;
+
+        const shelves = [...this.groups.map(group => group.id), null];
+        const group = this.groupOf(id);
+        const where = shelves.indexOf(group ? group.id : null);
+        const members = group ? group.members : this.ungrouped();
+        const at = members.indexOf(id);
+
+        if (across) {
+            const to = Math.max(0, Math.min(where + across, shelves.length - 1));
+            if (to === where) return null;
+            // Into the same place along the new shelf, as near as it goes.
+            return this.moveModule(id, shelves[to], at);
+        }
+
+        const to = at + along;
+        if (to < 0 || to >= members.length) return null;
+        return this.moveModule(id, group ? group.id : null, to);
     }
 
     ungrouped() {

@@ -185,6 +185,10 @@ uv run carlos serve --port 8123
   stage piano or a grid controller on its top, and a side with nothing on it —
   the blank lip under a Launchpad's pads — is not drawn and not turned to. What
   the entry names as the face is where the controls go, in both display modes.
+- **Move a device by its handle.** Top-left corner, opposite the flip: drag it
+  and a bar shows the gap it will land in — along a row, into another row, or
+  out among the loose. The arrow keys do the same, because a grip you can only
+  drag is a grip a keyboard cannot reach.
 - **Turn devices individually.** `t` turns the whole rack, `Shift`+`T` goes
   back; click a device to select it and `t` turns just that one (`Esc`
   deselects). Turning is on a letter rather than on `Tab` because `Tab` is how
