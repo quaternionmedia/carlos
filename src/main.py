@@ -1,7 +1,9 @@
 import os
+import tomllib
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version as installed_version
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
@@ -22,6 +24,44 @@ except ImportError:
     import patch_format
 
 
+def declared_version() -> str:
+    """The version `pyproject.toml` declares, read rather than restated here.
+
+    It was a second literal, and a second copy can only ever disagree with the
+    first - the project's own rule about derived state, applied to the one fact
+    a release is named after. The copy a reader sees is the one in the bar and
+    on `/healthz`; the copy a `v*` tag is cut against is the one in the package
+    metadata. Nothing compared them, so a bump in either place would have shown
+    the wrong number in the other with nothing going red.
+
+    Two routes to the same declaration, not two declarations, and the order
+    between them is the point. `pyproject.toml` is the declaration; installed
+    metadata is a copy of it taken at install time, and preferring the copy
+    would be the same mistake in a smaller place. Measured: bumping the version
+    and running under `uv run` rebuilds the project, so the two agree - but they
+    agree because something re-synced, not because the copy is authoritative.
+
+    The tree is read first, then. The app already resolves `templates/`,
+    `static/` and `catalogue/` against its working directory and the image
+    copies `pyproject.toml` beside them, so the declaration is there wherever
+    this can run at all. Metadata answers for an installed wheel with no source
+    tree. If neither can answer, that is said out loud: a version this cannot
+    establish is one nothing should guess at.
+    """
+    # Two up from `src/main.py` is the repository root.
+    config = Path(__file__).resolve().parent.parent / "pyproject.toml"
+    if config.is_file():
+        return tomllib.loads(config.read_text(encoding="utf-8"))["project"]["version"]
+
+    try:
+        return installed_version("carlos")
+    except PackageNotFoundError:
+        raise RuntimeError(
+            f"Carlos cannot read its own version: {config} is not there and the "
+            "package is not installed. Run it from a checkout, or with `uv run`."
+        ) from None
+
+
 class Settings(BaseModel):
     """Application settings.
 
@@ -38,7 +78,7 @@ class Settings(BaseModel):
     """
 
     app_name: str = "Carlos"
-    version: str = "0.1.0"
+    version: str = Field(default_factory=lambda: declared_version())
     # Read per instance, not once when this class is defined. A bare
     # `os.environ.get(...)` as a default is evaluated at import, so the
     # environment only ever reached these if it was set before the first

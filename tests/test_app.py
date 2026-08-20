@@ -439,6 +439,45 @@ class PatchEndpointTests(unittest.TestCase):
         self.assertIn(b"version 99", response.body)
 
 
+class OneDeclaredVersionTests(unittest.TestCase):
+    """The version is declared once, and the number a reader sees is that one.
+
+    It was two literals - `pyproject.toml` and a default on `Settings` - with
+    nothing comparing them. That is the project's own rule about derived state
+    applied to the one fact a release is named after: the copy in the bar and on
+    `/healthz` is what a person reads, the copy in the package metadata is what
+    a `v*` tag is cut against, and a bump in either place would have shown the
+    wrong number in the other with nothing going red.
+    """
+
+    def declared(self) -> str:
+        import tomllib
+        config = tomllib.loads(
+            Path("pyproject.toml").read_text(encoding="utf-8"))
+        return config["project"]["version"]
+
+    def test_the_app_reports_the_version_pyproject_declares(self):
+        from src.main import Settings
+        self.assertEqual(Settings().version, self.declared())
+
+    def test_the_source_carries_no_version_literal(self):
+        # The structural half. The test above passes the moment two literals
+        # happen to agree, which is exactly the state this came from - so the
+        # thing that made drift possible is refused rather than only measured.
+        source = Path("src/main.py").read_text(encoding="utf-8")
+        self.assertNotRegex(
+            source, r"""version\s*:\s*str\s*=\s*['\"]\d""",
+            "src/main.py declares a version literal again; read it from "
+            "pyproject.toml instead",
+        )
+
+    def test_what_the_endpoints_say_is_the_declared_version(self):
+        # End to end, because the two above are about the source and a reader
+        # meets the number through an endpoint.
+        health = asyncio.run(healthz(_arrived_on(("127.0.0.1", 8123))))
+        self.assertEqual(health["version"], self.declared())
+
+
 class FrontendContractTests(unittest.TestCase):
     """The browser is the other implementation of the format, so the two
     declarations are checked against each other rather than trusted."""
