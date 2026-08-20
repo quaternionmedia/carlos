@@ -353,6 +353,138 @@ class TestMovingADevice:
         page.wait_for_timeout(200)
         assert page.locator(".rack-drop").count() == 0
 
+    def test_what_you_carry_is_the_device_itself(self, page):
+        """Not a copy of it.
+
+        The cable preview is drawn by the routine that draws the real cable, so
+        it cannot disagree with what it previews. A device is already rendered,
+        so the honest preview is *it*, lifted out of the flow and put under the
+        hand. A clone would be a second copy whose screens and lit pads could
+        drift from the original's inside one drag.
+        """
+        grip = page.locator('[data-module-id="keys"] .module-move').bounding_box()
+        page.mouse.move(grip["x"] + 9, grip["y"] + 9)
+        page.mouse.down()
+        page.mouse.move(grip["x"] + 209, grip["y"] + 260, steps=10)
+
+        carried = page.evaluate(
+            """() => {
+                const all = document.querySelectorAll('[data-module-id="keys"]');
+                const style = getComputedStyle(all[0]);
+                return {
+                    copies: all.length,
+                    position: style.position,
+                    // Under the hand, so it must not be what the hand is over:
+                    // the drop target is asked of the page, and a carried
+                    // device would answer every time.
+                    events: style.pointerEvents,
+                };
+            }"""
+        )
+        page.mouse.up()
+        page.wait_for_timeout(200)
+
+        assert carried["copies"] == 1
+        assert carried["position"] == "fixed"
+        assert carried["events"] == "none"
+
+    def test_it_comes_with_the_hand(self, page):
+        before = page.locator('[data-module-id="keys"]').bounding_box()
+        grip = page.locator('[data-module-id="keys"] .module-move').bounding_box()
+        page.mouse.move(grip["x"] + 9, grip["y"] + 9)
+        page.mouse.down()
+        page.mouse.move(grip["x"] + 209, grip["y"] + 260, steps=10)
+        during = page.locator('[data-module-id="keys"]').bounding_box()
+        page.mouse.up()
+        page.wait_for_timeout(200)
+
+        # Where the hand went, to the pixel: the pointer travelled (200, 251)
+        # from where it went down, so the device did too.
+        assert round(during["x"] - before["x"]) == 209 - 9
+        assert round(during["y"] - before["y"]) == 260 - 9
+
+    def test_the_gap_is_as_wide_as_the_device(self, page):
+        # The room being made, not a line between two things: a hairline tells
+        # you the order, and the point of carrying it is to see it fit.
+        held = page.locator('[data-module-id="keys"]').bounding_box()
+        grip = page.locator('[data-module-id="keys"] .module-move').bounding_box()
+        first = page.locator('[data-module-id="grid"]').bounding_box()
+        page.mouse.move(grip["x"] + 9, grip["y"] + 9)
+        page.mouse.down()
+        page.mouse.move(first["x"] + 6, first["y"] + 40, steps=10)
+        gap = page.locator(".rack-drop").bounding_box()
+        page.mouse.up()
+        page.wait_for_timeout(200)
+
+        assert abs(gap["width"] - held["width"]) <= 4
+
+    def test_the_leads_follow_while_you_carry_it(self, page):
+        drawn = """() => {
+            const out = {};
+            document.querySelectorAll('path.cable').forEach(path => {
+                const name = path.dataset.cable || '';
+                if (name.startsWith('keys:')) out[name] = path.getAttribute('d');
+            });
+            return out;
+        }"""
+        at_rest = page.evaluate(drawn)
+        assert at_rest, "keys should have leads to follow it"
+
+        grip = page.locator('[data-module-id="keys"] .module-move').bounding_box()
+        page.mouse.move(grip["x"] + 9, grip["y"] + 9)
+        page.mouse.down()
+        page.mouse.move(grip["x"] + 9, grip["y"] + 340, steps=10)
+        page.wait_for_timeout(150)
+        carried = page.evaluate(drawn)
+        page.mouse.up()
+        page.wait_for_timeout(200)
+
+        # Every one of them, because they are drawn from where the sockets
+        # actually are and the sockets have moved.
+        assert set(carried) == set(at_rest)
+        assert all(carried[name] != at_rest[name] for name in at_rest)
+
+    def test_holding_still_holds_the_landing_still(self, page):
+        # The gap is as wide as the device, so placing it shifts the row - and a
+        # row that shifts changes the answer to where the pointer is aiming. If
+        # that fed back on itself the bar would flicker between two slots.
+        grip = page.locator('[data-module-id="keys"] .module-move').bounding_box()
+        page.mouse.move(grip["x"] + 9, grip["y"] + 9)
+        page.mouse.down()
+        page.mouse.move(grip["x"] + 9, grip["y"] + 340, steps=10)
+
+        seen = []
+        for nudge in range(4):
+            page.mouse.move(grip["x"] + 9 + nudge % 2, grip["y"] + 340)
+            page.wait_for_timeout(60)
+            seen.append(page.evaluate(
+                """() => {
+                    const bar = document.querySelector('.rack-drop');
+                    return bar ? [...bar.parentElement.children].indexOf(bar) : null;
+                }"""
+            ))
+        page.mouse.up()
+        page.wait_for_timeout(200)
+
+        assert len(set(seen)) == 1, f"the landing hunted: {seen}"
+
+    def test_it_is_put_back_in_the_flow(self, page):
+        # A guard, not a discovery: `renderRack` moves elements rather than
+        # recreating them, so anything the gesture set on the element outlives
+        # the gesture unless the gesture takes it off again.
+        self.drag(page, "keys", "dfam")
+        left_over = page.evaluate(
+            """() => {
+                const m = document.querySelector('[data-module-id="keys"]');
+                const style = m.style;
+                return ['position', 'left', 'top', 'width', 'height', 'transform']
+                    .filter(named => style.getPropertyValue(named));
+            }"""
+        )
+        assert left_over == []
+        assert page.locator('[data-module-id="keys"]').evaluate(
+            "m => getComputedStyle(m).position") == "relative"
+
     def test_it_can_be_dragged_into_another_row(self, page):
         self.drag(page, "keys", "dfam")
         assert "keys" not in self.row(page, "row-control")
