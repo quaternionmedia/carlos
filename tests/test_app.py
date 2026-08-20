@@ -27,7 +27,10 @@ class AppSmokeTests(unittest.TestCase):
 
         self.assertTrue(answered["ok"])
         self.assertEqual(answered["app"], "Carlos")
-        self.assertEqual(answered["version"], "0.1.0")
+        # The declaration, not the number. Typing it here made a third
+        # copy of the fact, which is what the class below exists to stop.
+        self.assertEqual(
+            answered["version"], OneDeclaredVersionTests().declared())
 
     def test_healthz_names_the_instance_that_answered(self):
         # A package constant is identical across every clone and every

@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from walkthrough.support import bare_rack, open_menu, pick, until
+from walkthrough.support import was_lit, watch_class
 
 
 def ready(page, fragment: str, timeout: int = 8_000) -> None:
@@ -1263,11 +1264,20 @@ class TestDrawnAsLaidOut:
         pad = drum_rig.locator('[data-module-id="grid"] .irl-pads button.irl-cell').first
         assert pad.get_attribute("title") == "note 36 ch 10"
 
+        # Watched, not sampled. The class is taken away 220ms after it lands,
+        # so reading the attribute afterwards measures how busy the machine is.
+        watch_class(drum_rig, '[data-module-id="kick"]', "is-active")
+        watch_class(drum_rig, '[data-module-id="clap"]', "is-active")
+
         pad.click()
         ready(drum_rig, "note 36")
-        assert "is-active" in drum_rig.locator('[data-module-id="kick"]').get_attribute("class")
-        # And the voice bound to a different note stays dark.
-        assert "is-active" not in drum_rig.locator('[data-module-id="clap"]').get_attribute("class")
+        assert was_lit(drum_rig, '[data-module-id="kick"]', "is-active")
+        # And the voice bound to a different note stays dark. This one is safe
+        # to read directly - it asserts an absence, and an absence does not
+        # decay - but it is watched too, so the pair is read the same way.
+        assert not drum_rig.evaluate(
+            "() => Boolean((window.__lit || {})"
+            "['[data-module-id=\"clap\"] .is-active'])")
 
     def test_the_light_goes_out_on_its_own(self, drum_rig):
         drum_rig.locator('[data-module-id="grid"] .irl-pads button.irl-cell').first.click()

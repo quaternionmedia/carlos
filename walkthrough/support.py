@@ -308,6 +308,46 @@ def open_menu(page, x: int, y: int) -> None:
     page.wait_for_selector(".rad-wedge", timeout=5_000)
 
 
+# Watch for a class that a timer takes away again.
+#
+# A momentary light is not a thing to look for after the fact. `is-active` is
+# removed 220ms after it is added, and the assertions that sampled it later
+# either won the race or reported that the light was never on -- which is a
+# statement about how busy the machine was, not about the code. Caught in a
+# gate run: the same page had just passed three times in a row on the same
+# workstation, and failed once under load, which is the shape the version-tags
+# record refuses to count as validation.
+#
+# So the *transition* is recorded. `watch_class` is installed before the thing
+# that lights it, and `was_lit` reads what the observer saw. Whether the light
+# has already gone out by then does not change the answer, because the answer
+# is about a moment that has passed rather than the state now.
+_WATCH = """([selector, name]) => {
+    const element = document.querySelector(selector);
+    if (!element) throw new Error('nothing at ' + selector);
+    window.__lit = window.__lit || {};
+    const key = selector + ' .' + name;
+    // Already on counts: the question is whether it was ever on during the
+    // window, and a watcher installed a frame late would otherwise say no.
+    window.__lit[key] = element.classList.contains(name);
+    new MutationObserver(() => {
+        if (element.classList.contains(name)) window.__lit[key] = true;
+    }).observe(element, { attributes: true, attributeFilter: ['class'] });
+}"""
+
+
+def watch_class(page, selector: str, name: str) -> None:
+    """Start recording whether `name` ever lands on `selector`."""
+    page.evaluate(_WATCH, [selector, name])
+
+
+def was_lit(page, selector: str, name: str) -> bool:
+    """Whether it did, since `watch_class` was called. Waits for it."""
+    key = f"{selector} .{name}"
+    until(page, f"() => Boolean((window.__lit || {{}})[{key!r}])")
+    return page.evaluate("(key) => Boolean((window.__lit || {})[key])", key)
+
+
 def until(page, predicate: str, timeout: int = 8_000) -> None:
     """Wait for the thing to be true, rather than for a number of milliseconds.
 

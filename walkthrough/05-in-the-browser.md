@@ -16,6 +16,7 @@ sitting beside it. The regression protection is the assertions.
 ```python
 >>> from walkthrough.support import LiveApp, Shots, chromium, open_rack, release
 >>> from walkthrough.support import bare_rack, open_menu, pick, until
+>>> from walkthrough.support import watch_class, was_lit
 >>> app = LiveApp().start()
 >>> shots = Shots('05-in-the-browser')
 >>> browser = chromium()
@@ -282,7 +283,7 @@ rather than more rules, because four rules in one strip is a strip nobody reads.
 
 ```python
 >>> page.locator('#rad-bar-text').text_content()
-'Carlos 0.1.0 · 11 devices · 17 leads · 3 rows · 6 front, 5 top'
+'Carlos 0.0.0 · 11 devices · 17 leads · 3 rows · 6 front, 5 top'
 >>> page.locator('#rad-bar-said').count()      # nothing said yet
 0
 
@@ -323,7 +324,7 @@ True
 >>> page.locator('.rad-bar-rule').count()
 1
 >>> page.locator('#rad-bar-text').text_content()
-'Carlos 0.1.0 · 12 devices · 17 leads · 3 rows · 7 front, 5 top'
+'Carlos 0.0.0 · 12 devices · 17 leads · 3 rows · 7 front, 5 top'
 
 ```
 
@@ -563,6 +564,7 @@ one sends a note down the same path a real MIDI port uses.
 Note 36 on channel 10 is what `kick` is bound to. Press it:
 
 ```python
+>>> watch_class(page, '[data-module-id="kick"]', 'is-active')
 >>> pads.first.click()
 >>> until(page, "document.querySelector('#status').textContent.includes('note 36')")
 >>> page.locator('#status').inner_text()
@@ -574,10 +576,18 @@ The binding matched, so the device it points at is lit — `is-active` is the
 class the MIDI layer adds, and nothing here reached for it directly:
 
 ```python
->>> page.locator('[data-module-id="kick"]').get_attribute('class')
-'module is-active'
+>>> was_lit(page, '[data-module-id="kick"]', 'is-active')
+True
 
 ```
+
+The watcher goes on before the press, and it is the reason this is an assertion
+rather than a coin toss. A press is momentary: the class is taken away 220ms
+later, so reading the attribute afterwards asks how busy the machine was. **It
+was read that way, and it failed exactly once** — under a gate run, on a
+workstation where the same page had just passed three times in a row. A suite
+whose result changes between runs on unchanged input is not evidence of
+anything, which is what `DRAFT-version-tags-are-claims.md` §3 refuses to count.
 
 That is the whole chain: a button in the browser, through the catalogue's
 declared note, into `MidiInput`, matched against a binding, out to a device's
