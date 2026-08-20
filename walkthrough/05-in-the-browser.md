@@ -285,12 +285,6 @@ rather than more rules, because four rules in one strip is a strip nobody reads.
 'Carlos 0.1.0 · 11 devices · 17 leads · 3 rows · 6 front, 5 top'
 >>> page.locator('#rad-bar-said').count()      # nothing said yet
 0
->>> page.evaluate("() => { system.addModule('moog.dfam'); }")
->>> _ = page.wait_for_selector('#rad-bar-said', timeout=5000)
->>> 'DFAM' in page.locator('#rad-bar-said').text_content()
-True
->>> page.locator('.rad-bar-rule').count()
-1
 
 ```
 
@@ -298,13 +292,40 @@ Its right edge carries `hold for the menu` until somebody has held it once, and
 then never again — a hint is worth a strip of the bar exactly until it has been
 used, and after that it is a label on a door you already know how to open.
 
+That is the whole of it on opening, so this is where the picture gets taken —
+next to the assertions that just described the state, and in that state. **The
+shutter was two mutations further down**, after the demonstration below had put
+a twelfth device on the rack: a file called `boot` showing `12 devices · 7
+front` while its caption said eleven, and the README showing it as the homepage.
+Nothing was wrong with the picture, the assertions or the caption on their own.
+The order was wrong, and no test can see an order — which is the argument for
+keeping a shutter adjacent to the assertions that earn it rather than at the end
+of the section it illustrates.
+
 ```python
 >>> shots.take(page, 'boot')
 '05-in-the-browser-boot.png'
 
 ```
 
-![The rack on boot](media/05-in-the-browser-boot.png)
+![The rack on boot: eleven devices in three rows, seventeen leads, and the bar
+saying what is there](media/05-in-the-browser-boot.png)
+
+Say something to it and the right half appears, with one drawn rule between the
+two. The figures on the left move at the same time, because they are what the
+rack is and the rack just changed:
+
+```python
+>>> page.evaluate("() => { system.addModule('moog.dfam'); }")
+>>> _ = page.wait_for_selector('#rad-bar-said', timeout=5000)
+>>> 'DFAM' in page.locator('#rad-bar-said').text_content()
+True
+>>> page.locator('.rad-bar-rule').count()
+1
+>>> page.locator('#rad-bar-text').text_content()
+'Carlos 0.1.0 · 12 devices · 17 leads · 3 rows · 7 front, 5 top'
+
+```
 
 Hold it and the rest appears — the ring blooms below the point you held, far
 enough that your finger starts outside its band. That is the contract's own

@@ -222,6 +222,16 @@ tests down.
 
 ## Cautions
 
+- **Keep a shutter next to the assertions that earn it.** `shots.take(page,
+  'boot')` sat at the end of the section about the bar, two mutations after the
+  assertions it illustrated — so the file called `boot` showed `12 devices · 7
+  front` and the README showed it as the homepage. The picture was a correct
+  picture, the assertions were true, and the caption matched a state the file
+  did not hold; nothing was individually wrong and no test can see an order. The
+  page now asserts the state on the line above the shutter. Two guards were
+  added with it, both watched failing: a page may only show a screen it takes,
+  and `carlos check` has to name `walkthrough` or nothing regenerates anything.
+
 - **Do not add `--no-verify` or disable signing.** `commit.gpgsign` is true and
   the corpus runs a signature gate. Its own header records that signing
   "silently stopped three days earlier when a session added a flag disabling

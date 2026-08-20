@@ -165,6 +165,84 @@ class MediaTests(unittest.TestCase):
             with self.subTest(path.name):
                 self.assertIn(path.name, shown, "recorded but shown by no page")
 
+    def test_regeneration_rides_the_command_contributors_run(self):
+        """Decision 5, made mechanical in the place a reader looks for it.
+
+        "Regeneration rides the command contributors already run, never a
+        release step and never a documentation build." That is the clause the
+        record has evidence about: artifacts riding the test command carry zero
+        drift, and the ones needing a remembered command go stale.
+
+        So the page that operates the shutter has to be inside what `carlos
+        check` runs. `carlos shots` exists as well and is the same page named
+        alone — a convenience, not the mechanism. If it were the mechanism,
+        regenerating would be a remembered command and drift would arrive as
+        staleness nobody sees rather than as an uncommitted diff.
+        """
+        cli = Path("tools/cli.py").read_text(encoding="utf-8")
+        check = re.search(r"CHECK = \(([^)]*)\)", cli)
+        self.assertIsNotNone(check, "no CHECK command in tools/cli.py")
+        named = set(re.findall(r"['\"]([^'\"]+)['\"]", check.group(1)))
+
+        self.assertIn(
+            "walkthrough", named,
+            "`carlos check` does not run the walkthrough, so nothing "
+            "regenerates the screenshots except a remembered command",
+        )
+        # And the shutter really is under that directory rather than in a demo
+        # harness the check happens not to reach.
+        shooting = [page.name for page in pages() if "shots.take(" in
+                    page.read_text(encoding="utf-8")]
+        self.assertTrue(
+            shooting,
+            "no page under walkthrough/ takes a screenshot, so naming the "
+            "directory regenerates nothing",
+        )
+
+    def taken(self) -> set[str]:
+        """The filenames the pages actually operate the shutter for.
+
+        Read off the calls rather than off the directory: the directory is the
+        output, and reading the output to check the generator is how a
+        generator that stopped running goes unnoticed.
+        """
+        taken = set()
+        for page in pages():
+            body = page.read_text(encoding="utf-8")
+            slugs = re.findall(r"Shots\(\s*['\"]([^'\"]+)['\"]\s*\)", body)
+            if not slugs:
+                continue
+            for name in re.findall(
+                    r"shots\.take\(\s*\w+\s*,\s*['\"]([^'\"]+)['\"]", body):
+                taken.add(f"{slugs[0]}-{name}.png")
+        return taken
+
+    def test_every_image_a_page_shows_is_one_that_page_takes(self):
+        """The joint the file listing cannot see.
+
+        `test_every_image_a_page_shows_exists` and its inverse both read
+        `walkthrough/media`, and committed PNGs satisfy them whether or not
+        anything still writes them. Delete a `shots.take` line and keep the
+        `![](...)` beside it and every one of them stays green forever, showing
+        a picture of whatever the program looked like the day the call was
+        removed — which is exactly the staleness decision 5 exists to prevent.
+
+        So this reads the *calls*: a page may only show a screen it operates
+        the shutter for.
+        """
+        shown, taken = self.shown(), self.taken()
+        self.assertTrue(taken, "no page takes a screenshot at all")
+        for name in sorted(shown - taken):
+            with self.subTest(name):
+                self.fail(
+                    f"a page shows {name} and no page takes it. The file may "
+                    "well be committed and current; nothing regenerates it, so "
+                    "it will stop being current silently"
+                )
+        for name in sorted(taken - shown):
+            with self.subTest(name):
+                self.fail(f"a page takes {name} and shows it nowhere")
+
     def test_the_readme_shows_a_screen_the_walkthrough_recorded(self):
         """The homepage picture is the walkthrough's, not a second one.
 
