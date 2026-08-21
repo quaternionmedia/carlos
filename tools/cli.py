@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -254,6 +255,47 @@ RELEASE_CHECK = (
 )
 
 
+def pytest_summary(stdout: str) -> str:
+    """The last non-blank line pytest wrote, and only what pytest wrote.
+
+    This used to read `stdout + stderr` and take the last line of the
+    concatenation, so any line on stderr became "the summary" and the scan below
+    examined the wrong text. Measured: with stderr empty it caught
+    `1 passed, 161 skipped`; with one line on stderr it reported the run clean.
+    `here()` returns `uv run ...` outside a virtualenv and uv writes its sync
+    lines to stderr, so it was reachable rather than theoretical.
+    """
+    for line in reversed((stdout or "").strip().splitlines()):
+        if line.strip():
+            return line
+    return ""
+
+
+# Words that mean the run is not evidence. `rerun` and `retried` need
+# pytest-rerunfailures and cannot appear without it; they are kept because they
+# cost nothing and the plugin may arrive, but the ones carrying the weight today
+# are the three pytest itself emits.
+NOT_VALIDATION = ("skipped", "rerun", "retried", "xfailed", "xpassed")
+
+# What pytest's own summary line always contains. Requiring it is what stops the
+# scan examining a blank string and finding nothing wrong in it -- which reads
+# exactly like a clean run.
+SUMMARY_SHAPE = re.compile(r"\d+ (passed|failed|error|skipped|deselected)")
+
+
+def determinism_problems(summary: str) -> list[str]:
+    """What is wrong with a run, judged from its summary line."""
+    if not SUMMARY_SHAPE.search(summary):
+        return [
+            f"could not find pytest's summary line to check; the last line of "
+            f"stdout was {summary[:60]!r}"
+        ]
+    return [
+        f"the run reports {word}, which is not validation"
+        for word in NOT_VALIDATION if word in summary
+    ]
+
+
 @main.command("release-check")
 @click.option("--tag", default=None,
               help="Also check this tag's annotation says what it asserts.")
@@ -298,10 +340,7 @@ def release_check(ctx: click.Context, tag: str | None) -> None:
     if completed.returncode != 0:
         problems.append("the suite did not pass")
 
-    summary = report.strip().splitlines()[-1] if report.strip() else ""
-    for word in ("skipped", "rerun", "retried", "xfailed", "xpassed"):
-        if word in summary:
-            problems.append(f"the run reports {word}, which is not validation")
+    problems.extend(determinism_problems(pytest_summary(completed.stdout)))
 
     if tag:
         problems.extend(_tag_problems(root, tag))

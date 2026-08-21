@@ -650,6 +650,75 @@ class ReleaseGateTests(unittest.TestCase):
         doc = Path("RELEASING.md").read_text(encoding="utf-8")
         self.assertIn(".github/tag-ruleset.json", doc)
 
+    def scan(self):
+        sys.path.insert(0, str(Path(".").resolve()))
+        from tools import cli
+        return cli.pytest_summary, cli.determinism_problems
+
+    def test_a_skipped_run_is_refused(self):
+        summary, problems = self.scan()
+        found = problems(summary("...s...\n\n=== 1 passed, 161 skipped in 2.1s ==="))
+        self.assertTrue(any("skipped" in p for p in found))
+
+    def test_noise_on_stderr_cannot_hide_a_skip(self):
+        """The hole this closed, kept as the case it was found on.
+
+        The scan read `stdout + stderr` and took the last line of the
+        concatenation, so one line on stderr became "the summary" and it
+        examined that instead. Measured at the time: with stderr empty it caught
+        161 skips; with `Installed 1 package in 20ms` appended it reported the
+        run clean and printed "Deterministic validation passed, with nothing
+        skipped". `here()` returns `uv run ...` outside a virtualenv and uv
+        writes sync lines to stderr, so it was reachable.
+
+        The summary now comes from stdout alone, which is where pytest writes
+        it, so stderr cannot reach this at all.
+        """
+        summary, problems = self.scan()
+        out = "...s...\n\n=== 1 passed, 161 skipped in 2.1s ==="
+        self.assertEqual(
+            problems(summary(out)),
+            problems(summary(out)),   # same input, same answer
+        )
+        # And stderr is not consulted: there is no parameter for it.
+        import inspect
+        self.assertEqual(list(inspect.signature(summary).parameters), ["stdout"])
+
+    def test_a_run_with_no_summary_is_refused_rather_than_passed(self):
+        """A blank string contains none of the forbidden words.
+
+        Without this the scan examines nothing, finds nothing wrong in it, and
+        reports the same green as a clean run -- which is the failure the
+        version-tags record names: success indistinguishable from having
+        verified something.
+        """
+        summary, problems = self.scan()
+        for stdout in ("", "   \n\n  ", "Installed 1 package in 20ms"):
+            with self.subTest(repr(stdout)):
+                found = problems(summary(stdout))
+                self.assertTrue(found, "a run with no summary passed")
+                self.assertIn("summary line", found[0])
+
+    def test_a_clean_run_is_not_refused(self):
+        # The other half: a guard that refuses everything gets deleted.
+        summary, problems = self.scan()
+        self.assertEqual(problems(summary("==== 529 passed in 140.2s ====")), [])
+        self.assertEqual(
+            problems(summary("=== 529 passed, 1505 subtests passed in 141s ===")), [])
+
+    def test_the_words_that_cannot_fire_are_named_as_such(self):
+        """`rerun` and `retried` need a plugin nobody installed.
+
+        Measured: pytest-randomly, pytest-rerunfailures and xdist are all
+        absent, so those two words can never appear and `-p no:randomly` is
+        inert. They are kept deliberately -- the words cost nothing and a plugin
+        may arrive -- but the file has to say so, or the next reader counts five
+        checks where three fire.
+        """
+        body = Path("tools/cli.py").read_text(encoding="utf-8")
+        self.assertIn("rerunfailures", body)
+        self.assertRegex(body, r"(?i)cannot appear|inert|nobody installed")
+
     def test_releasing_names_what_a_tag_asserts(self):
         doc = Path("RELEASING.md").read_text(encoding="utf-8")
         for claim in ("reviewed", "manually tested", "deterministic"):
