@@ -17,7 +17,7 @@ Start there. Come back here when you have something to change.
 
 ```bash
 uv run carlos check      # the suite and the walkthrough
-uv run carlos harness    # the five frontend harnesses, under Node
+uv run carlos harness    # the four frontend harnesses, under Node
 ```
 
 `carlos --help` lists every round; `carlos --dry-run <round>` prints the command

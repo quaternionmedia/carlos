@@ -60,7 +60,7 @@ not up when it was written, so CI is the first thing to build this image.
 
 ## Validated Commands
 
-`uv` is at `C:\Users\peter\.local\bin\uv.exe`. It resolves as a bare `uv` under
+`uv` resolves on `PATH` under some shells and not others. It is commonly found under
 Git Bash but **not** under PowerShell, which needs the absolute path.
 
 ```bash

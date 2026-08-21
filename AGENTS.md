@@ -170,10 +170,11 @@ cables, and parameter randomization. Named for Wendy Carlos.
 - Python 3.12 or newer (measured here: 3.12.4)
 - `uv`
 
-`uv` is installed at `C:\Users\peter\.local\bin\uv.exe`. It resolves as a bare
-`uv` under Git Bash but **not** under PowerShell, where it needs the absolute
-path. If a command fails with "uv is not recognized", that is the shell, not
-the project.
+`uv` resolves on `PATH` under some shells and not others on the same
+machine — commonly it is found under Git Bash and not under PowerShell. If a
+command fails with "uv is not recognized", that is the shell rather than the
+project; `uv --version` tells you whether this shell can see it, and
+invoking it by absolute path is the workaround.
 
 ## Setup
 
@@ -288,9 +289,12 @@ rather than a flaky test.
 python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they
 ```
 
-Runs the workflows' actual steps. Three gates fail today for reasons recorded in
-`GOVERNANCE.md` — `reuse-lint`, `submodule-check`, and `signature-check`.
-Anything else is yours.
+Runs the workflows' actual steps. **One** gate fails today for a reason recorded
+in `GOVERNANCE.md` — `reuse-lint`, which waits on the outbound licence class.
+`submodule-check` and `signature-check` both closed when the branch was pushed.
+Locally you will see a second red, `image.yml :: Start it`, whenever no Docker
+daemon is running; that is a missing local runtime rather than a finding, and it
+passes on the forge. Anything else is yours.
 
 `signature-check` is the one to read carefully. Under the CI path it asks the
 forge about commits the forge has never seen and reports `E`, "could not be
@@ -330,9 +334,17 @@ about the flag rather than the code.
 
 ## Governance state
 
-Carlos is at `v0.0.1` on the phase ladder — working toward governance
-adoption, not past it. The adoption is **incomplete**: `project/carlos` exists
-but is unpushed, and no ADR-0001 has been drafted. Known conflicts with org
-records (packaging, datastore, motion library, outbound licence class, REUSE
-compliance) are listed in `governance/qm/adr/` once ADR-0001 lands. Until it
-does, do not describe Carlos as a governed QM project.
+Carlos is working toward `v0.0.1` on the phase ladder, not past it. `v0.0.1` is
+the rung meaning the constitution has been adopted *and a human has reviewed and
+manually tested that it is so*; the mechanical half is in place and the human
+half is not, so it is a target rather than an attainment.
+
+The adoption is **incomplete**: the adoption record is drafted but unratified
+and carries no number, so there is no ADR-0001 yet. `project/carlos` **is**
+pushed to `quaternionmedia/qm`, and this repository pins it. Known conflicts
+with org records — packaging, datastore, motion library, outbound licence class,
+REUSE compliance — are named in that record and mirrored in `GOVERNANCE.md`.
+
+The declared package version is `0.0.0`, which is a different claim: nothing has
+been released and nothing has been tagged. Until the record is ratified, do not
+describe Carlos as a governed QM project.

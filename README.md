@@ -57,7 +57,7 @@ that, and `carlos --help` lists them all.
 | Round | What it does |
 | --- | --- |
 | `carlos check` | The suite **and** the walkthrough. What to run before a pull request |
-| `carlos harness` | The five frontend harnesses, under Node |
+| `carlos harness` | The four frontend harnesses, under Node |
 | `carlos serve` | Run the app |
 | `carlos stop` | Free the port, and prove it is free |
 | `carlos shots` | Regenerate the walkthrough screenshots |

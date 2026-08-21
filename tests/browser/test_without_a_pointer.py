@@ -113,7 +113,13 @@ class TestAKnobAnswersToKeys:
         bench.keyboard.press("Shift+ArrowUp")
         fine = float(knob.get_attribute("aria-valuenow")) - start
 
-        assert 0 <= fine < coarse
+        # `0 <=` legalised the defect this is meant to catch. `aria-valuenow`
+        # was published as `Math.round(value)`, the fine step on a 0-127 knob is
+        # 0.127, and rounding erased it - so `fine` was deterministically 0.0
+        # and the assertion held while Shift did nothing a screen reader could
+        # hear. Deleting fine adjustment outright left this green.
+        assert fine > 0, "Shift+Arrow moved nothing that aria-valuenow reports"
+        assert fine < coarse
 
     def test_home_and_end_reach_the_stops(self, bench):
         knob = bench.locator(".knob").first

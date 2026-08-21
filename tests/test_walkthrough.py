@@ -288,6 +288,122 @@ class MediaTests(unittest.TestCase):
                 self.assertNotIn(comparison, source)
 
 
+class CommittedProseCarriesNoMachineLiteralTests(unittest.TestCase):
+    """The rule already exists here; it reached one file.
+
+    `tests/test_cadence.py` refuses an IP, a hostname, a URL, a port or a
+    Windows path in `catalogue/peers.json`, quoting clause 3 of the
+    monitoring-seam record word for word: a committed address publishes one
+    workstation's Tuesday as a fact about the org.
+
+    It was pointed at that one JSON file. Meanwhile three prose documents -
+    including the first page a newcomer reads and `AGENTS.md`, which an agent is
+    told to read before anything else - carried a path under one contributor's
+    home directory as the place `uv` lives. Nobody else's uv is there, and it
+    published a username in three places.
+
+    So the same rule, aimed at the documents people actually read. Narrower than
+    the peers.json version on purpose: a home directory is always wrong, while a
+    bare drive letter is sometimes the honest way to describe a Windows install.
+    """
+
+    # `C:\Users\someone`, `/home/someone`, `/Users/someone` - in any of the
+    # three separator styles these documents mix.
+    HOME = re.compile(
+        r"(?:[A-Za-z]:[\\/]{1,2}Users[\\/]{1,2}|/home/|/Users/)(?!<)[A-Za-z0-9._-]+",
+        re.IGNORECASE,
+    )
+
+    def surfaces(self):
+        """This project's own prose. The vendored corpus is not ours to police."""
+        here = [Path(name) for name in (
+            "README.md", "AGENTS.md", "CONTRIBUTING.md", "GOVERNANCE.md",
+            "DEPLOYING.md", "RELEASING.md", "HANDOFF.md", "RETROSPECTIVE.md",
+        )]
+        here += sorted(WALKTHROUGH.glob("*.md"))
+        here += sorted(Path("docs").glob("*.md"))
+        return [p for p in here if p.is_file()]
+
+    def test_no_document_names_somebody_home_directory(self):
+        for path in self.surfaces():
+            with self.subTest(path.name):
+                found = self.HOME.findall(path.read_text(encoding="utf-8"))
+                self.assertEqual(
+                    found, [],
+                    f"{path} names a home directory: {found}. Say which shell "
+                    f"finds the tool, not where it sits on one machine.",
+                )
+
+    def test_the_guard_can_see_one(self):
+        # A pattern nobody has watched match is a pattern nobody knows works.
+        self.assertTrue(self.HOME.findall(r"`uv` lives at `C:\Users\someone\.local\bin\uv.exe`"))
+        self.assertTrue(self.HOME.findall("installed under /home/someone/.local/bin"))
+        # And it leaves a placeholder alone, which is how a document should
+        # write the same idea.
+        self.assertEqual(self.HOME.findall("under `C:\\Users\\<you>\\.local`"), [])
+
+
+class DocumentedRoundsMatchTheCommandTests(unittest.TestCase):
+    """A count written in prose is right when typed and wrong a year later.
+
+    Three documents said `carlos harness` runs "the five frontend harnesses". It
+    runs four - the fifth was deleted with the floating panel it tested, and
+    `HANDOFF.md` recorded that correctly while the other three were never
+    touched. A fourth document went further and gave `carlos harness palette` as
+    a command; running it errors, because `palette` is not one of the four.
+
+    The existing check maps a round to its first command string, so it never
+    counted anything.
+    """
+
+    WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+             "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+
+    def harnesses(self) -> list[str]:
+        """The harnesses the CLI actually offers, read from the CLI."""
+        source = Path("tools/cli.py").read_text(encoding="utf-8")
+        block = re.search(r"HARNESSES\s*=\s*\(([^)]*)\)", source)
+        self.assertIsNotNone(block, "tools/cli.py no longer declares HARNESSES")
+        return re.findall(r"['\"]([^'\"]+)['\"]", block.group(1))
+
+    def test_the_cli_still_declares_them_in_one_place(self):
+        found = self.harnesses()
+        self.assertTrue(found)
+        for name in found:
+            with self.subTest(name):
+                self.assertTrue(
+                    Path("tests") / f"{name}.js",
+                    f"{name} is offered and tests/{name}.js is not there",
+                )
+                self.assertTrue((Path("tests") / f"{name}.js").is_file())
+
+    def test_every_document_counts_them_correctly(self):
+        expected = len(self.harnesses())
+        for name in ("README.md", "CONTRIBUTING.md",
+                     str(WALKTHROUGH / "04-cookbook.md")):
+            body = Path(name).read_text(encoding="utf-8")
+            for word in re.findall(r"(\w+) frontend harnesses", body):
+                with self.subTest(f"{name}: {word}"):
+                    self.assertEqual(
+                        self.WORDS.get(word.lower(), word), expected,
+                        f"{name} says {word!r} frontend harnesses; "
+                        f"`carlos harness` runs {expected}",
+                    )
+
+    def test_no_document_offers_a_harness_that_is_not_there(self):
+        offered = set(self.harnesses())
+        for name in ("README.md", "CONTRIBUTING.md", "AGENTS.md",
+                     str(WALKTHROUGH / "04-cookbook.md")):
+            body = Path(name).read_text(encoding="utf-8")
+            for named in re.findall(r"carlos harness (\w+)", body):
+                with self.subTest(f"{name}: {named}"):
+                    self.assertIn(
+                        named, offered,
+                        f"{name} documents `carlos harness {named}`, which the "
+                        f"CLI refuses",
+                    )
+
+
 class RegistryTests(unittest.TestCase):
     """One registry is the content; every surface reads it.
 

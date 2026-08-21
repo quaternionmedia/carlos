@@ -1410,6 +1410,11 @@ button.irl-cell.is-struck {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    /* `.jack` carries a blanket `transition: all` for hover and patching, and
+       only the `is-active` flash was turned off here - so a jack still eased
+       under a setting asking it not to. The base rule is the one that runs on
+       every hover, which makes it the one that mattered. */
+    .jack,
     .module.is-active,
     .jack.is-active {
         transition: none;
