@@ -16,7 +16,7 @@ review is a document that reads as current and is not.
 uv sync
 uv run playwright install chromium   # once per clone
 uv run carlos check                  # the suite and the walkthrough
-uv run carlos harness                # the five frontend harnesses
+uv run carlos harness                # the four frontend harnesses
 uv run carlos gates                  # the governance gates
 uv run carlos status                 # what state this checkout is in
 ```

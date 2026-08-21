@@ -121,6 +121,65 @@ class TestAKnobAnswersToKeys:
         assert fine > 0, "Shift+Arrow moved nothing that aria-valuenow reports"
         assert fine < coarse
 
+    def test_every_publisher_announces_the_same_precision(self, bench):
+        """One of three was guarded, so two could be reverted in silence.
+
+        `aria-valuenow` is written in three places: the initial render, the
+        keydown paint, and `paintKnob` - which the import and randomize paths go
+        through. The test above only ever exercises the keydown one. Reverting
+        the other two to `Math.round` left all seven tests in this class green,
+        and a probe in this same fixture showed it plainly: the keyboard path
+        announced `64.127` while the same value republished through `setState`
+        announced `64`.
+
+        `paintKnob`'s own comment says an imported or randomized rack "was
+        announced at its old values while showing its new ones". That is the
+        regression, and it was back on two paths with nothing watching.
+        """
+        knob = bench.locator(".knob").first
+        knob.focus()
+        bench.keyboard.press("Shift+ArrowUp")
+        keyboard = knob.get_attribute("aria-valuenow")
+
+        # The same value, republished through the path a rack import uses.
+        module_id = knob.evaluate(
+            "el => el.closest('[data-module-id]').dataset.moduleId")
+        param = knob.get_attribute("data-param")
+        bench.evaluate(
+            """([id, name, value]) => {
+                const module = system.modules.get(id);
+                module.setState({ parameters: { [name]: Number(value) } });
+            }""",
+            [module_id, param, keyboard],
+        )
+        assert knob.get_attribute("aria-valuenow") == keyboard, (
+            "the render path announces a different precision from the keyboard "
+            "path, so an imported rack reports the wrong value"
+        )
+
+    def test_the_announcement_can_carry_a_fine_step_at_all(self, bench):
+        """The trap under the assertion above, which is currently latent.
+
+        `announced()` is `toFixed(3)` and the fine step is `span / 1000`, so any
+        parameter whose span is below about 0.5 cannot express one - Shift would
+        read as broken when the real fault is the precision. No device in the
+        catalogue has such a range today, which makes this a trap waiting for the
+        first small-range knob rather than a live defect.
+        """
+        spans = bench.evaluate(
+            """() => [...document.querySelectorAll('.knob')].map(el => {
+                const lo = Number(el.getAttribute('aria-valuemin'));
+                const hi = Number(el.getAttribute('aria-valuemax'));
+                return hi - lo;
+            })"""
+        )
+        assert spans, "no knob declared a range"
+        too_small = [s for s in spans if s / 1000 < 0.0005]
+        assert not too_small, (
+            f"parameters with span {too_small} cannot announce a fine step at "
+            f"three decimals; widen the precision in announced()"
+        )
+
     def test_home_and_end_reach_the_stops(self, bench):
         knob = bench.locator(".knob").first
         knob.focus()

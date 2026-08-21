@@ -293,115 +293,203 @@ class CommittedProseCarriesNoMachineLiteralTests(unittest.TestCase):
 
     `tests/test_cadence.py` refuses an IP, a hostname, a URL, a port or a
     Windows path in `catalogue/peers.json`, quoting clause 3 of the
-    monitoring-seam record word for word: a committed address publishes one
-    workstation's Tuesday as a fact about the org.
+    monitoring-seam record word for word. It was pointed at that one JSON file,
+    while three prose documents - including the first page a newcomer reads -
+    carried a path under one contributor's home directory.
 
-    It was pointed at that one JSON file. Meanwhile three prose documents -
-    including the first page a newcomer reads and `AGENTS.md`, which an agent is
-    told to read before anything else - carried a path under one contributor's
-    home directory as the place `uv` lives. Nobody else's uv is there, and it
-    published a username in three places.
-
-    So the same rule, aimed at the documents people actually read. Narrower than
-    the peers.json version on purpose: a home directory is always wrong, while a
-    bare drive letter is sometimes the honest way to describe a Windows install.
+    The first version of this guard was walked through in four ways, and the
+    fixes are all here: it hand-listed the top-level documents (so a new
+    `INSTALL.md` was unguarded), it globbed `docs/*.md` non-recursively, its
+    pattern required a drive letter (so a UNC path carrying a *hostname* as well
+    as a username escaped), and it refused prose that quotes the very path it is
+    warning about - which made the retrospective recording this fix unwritable.
     """
 
-    # `C:\Users\someone`, `/home/someone`, `/Users/someone` - in any of the
-    # three separator styles these documents mix.
+    # A home directory, however it is spelled: `C:\Users\x`, `\\host\Users\x`,
+    # `\Users\x`, `/home/x`, `/Users/x`, `~x`. The drive letter is optional
+    # because the UNC and drive-relative forms carry the same username, and the
+    # UNC form leaks a machine name too.
     HOME = re.compile(
-        r"(?:[A-Za-z]:[\\/]{1,2}Users[\\/]{1,2}|/home/|/Users/)(?!<)[A-Za-z0-9._-]+",
+        r"(?:[A-Za-z]:)?[\\/]{1,2}(?:Users|home)[\\/]{1,2}(?![<{$])[A-Za-z0-9._-]+",
         re.IGNORECASE,
     )
 
+    # `~someone` is the other home shorthand and is deliberately NOT matched.
+    # In markdown `~~struck~~` and "~1" are ordinary prose, and running this
+    # guard wide found both in this repository the first time. Catching a
+    # tilde home is worth less than a guard people trust, and the drive, UNC
+    # and POSIX forms above are how an install path is actually written.
+
+    # Placeholders a document *should* use, and which must stay legal.
+    ALLOWED = ("<you>", "<user>", "<username>", "USERNAME", "$HOME", "${HOME}")
+
     def surfaces(self):
-        """This project's own prose. The vendored corpus is not ours to police."""
-        here = [Path(name) for name in (
-            "README.md", "AGENTS.md", "CONTRIBUTING.md", "GOVERNANCE.md",
-            "DEPLOYING.md", "RELEASING.md", "HANDOFF.md", "RETROSPECTIVE.md",
-        )]
-        here += sorted(WALKTHROUGH.glob("*.md"))
-        here += sorted(Path("docs").glob("*.md"))
-        return [p for p in here if p.is_file()]
+        """Every markdown file this project owns, discovered rather than listed.
+
+        The vendored corpus is not ours to police, and neither is anything uv or
+        node dropped in. Everything else counts - including files nobody has
+        written yet, which is the case the hand-written list could not cover.
+        """
+        skip = {".venv", "node_modules", ".git", "governance"}
+        found = []
+        for path in Path(".").rglob("*.md"):
+            if any(part in skip for part in path.parts):
+                continue
+            found.append(path)
+        return sorted(found)
+
+    def prose(self, path: Path) -> str:
+        """The document minus what it is quoting.
+
+        A page warning against a path has to be able to print it, and a
+        retrospective has to be able to say what was there before. `RegistryTests`
+        below strips comments for the same reason, and states it: naming a thing
+        in an explanation is not doing it.
+        """
+        body = path.read_text(encoding="utf-8")
+        body = re.sub(r"```.*?```", "", body, flags=re.S)   # fenced blocks
+        body = re.sub(r"`[^`\n]*`", "", body)               # code spans
+        # A URL path is not a home directory.
+        # `docs.astral.sh/uv/home/installing` is documentation about
+        # installing, and reporting it as a leak is how a guard earns a
+        # reputation for crying wolf.
+        body = re.sub(r"https?://\S+", "", body)
+        return body
+
+    def test_the_corpus_is_not_empty(self):
+        """Without this the whole class passes when its subject disappears.
+
+        The first version had no floor: `surfaces()` returning `[]` left every
+        assertion below unreached and the class green.
+        """
+        found = self.surfaces()
+        self.assertGreater(len(found), 10, "the document set collapsed")
+        names = {p.name for p in found}
+        for expected in ("README.md", "AGENTS.md", "CONTRIBUTING.md"):
+            self.assertIn(expected, names)
 
     def test_no_document_names_somebody_home_directory(self):
         for path in self.surfaces():
-            with self.subTest(path.name):
-                found = self.HOME.findall(path.read_text(encoding="utf-8"))
+            with self.subTest(str(path)):
+                found = [h for h in self.HOME.findall(self.prose(path))
+                         if not any(a.lower() in h.lower() for a in self.ALLOWED)]
                 self.assertEqual(
                     found, [],
-                    f"{path} names a home directory: {found}. Say which shell "
-                    f"finds the tool, not where it sits on one machine.",
+                    f"{path} names a home directory outside a code span: "
+                    f"{found}. Say which shell finds the tool, not where it sits "
+                    f"on one machine.",
                 )
 
-    def test_the_guard_can_see_one(self):
-        # A pattern nobody has watched match is a pattern nobody knows works.
-        self.assertTrue(self.HOME.findall(r"`uv` lives at `C:\Users\someone\.local\bin\uv.exe`"))
-        self.assertTrue(self.HOME.findall("installed under /home/someone/.local/bin"))
-        # And it leaves a placeholder alone, which is how a document should
-        # write the same idea.
-        self.assertEqual(self.HOME.findall("under `C:\\Users\\<you>\\.local`"), [])
+    def test_the_guard_can_see_every_shape_it_claims_to(self):
+        # A pattern nobody has watched match is a pattern nobody knows works,
+        # and each of these walked past the first version.
+        for leak in (r"C:\Users\someone\.local\bin\uv.exe",
+                     r"\\CARLOS-DEV01\Users\someone\.local",
+                     r"\Users\someone\.local",
+                     "/home/someone/.local/bin",
+                     "/Users/someone/Library"):
+            with self.subTest(leak):
+                self.assertTrue(self.HOME.findall(leak), f"missed {leak}")
+
+    def test_the_guard_leaves_a_placeholder_alone(self):
+        for fine in (r"C:\Users\<you>\.local", r"C:\Users\USERNAME\.local",
+                     "/home/$HOME/x", "~/.local/bin/uv",
+                     "~~struck through~~", "roughly ~1 second",
+                     "https://docs.astral.sh/uv/home/installing/"):
+            with self.subTest(fine):
+                cleaned = re.sub(r"https?://\S+", "", fine)
+                found = [h for h in self.HOME.findall(cleaned)
+                         if not any(a.lower() in h.lower() for a in self.ALLOWED)]
+                self.assertEqual(found, [], f"false positive on {fine}")
+
+    def test_a_document_may_quote_the_path_it_warns_about(self):
+        # The self-refuting case: the retrospective recording this fix has to be
+        # able to name what was wrong.
+        quoting = "We used to say `C:\\Users\\peter\\.local\\bin\\uv.exe`, which is nobody else's."
+        stripped = re.sub(r"`[^`\n]*`", "", quoting)
+        self.assertEqual(self.HOME.findall(stripped), [])
 
 
 class DocumentedRoundsMatchTheCommandTests(unittest.TestCase):
     """A count written in prose is right when typed and wrong a year later.
 
     Three documents said `carlos harness` runs "the five frontend harnesses". It
-    runs four - the fifth was deleted with the floating panel it tested, and
-    `HANDOFF.md` recorded that correctly while the other three were never
-    touched. A fourth document went further and gave `carlos harness palette` as
-    a command; running it errors, because `palette` is not one of the four.
+    runs four - the fifth was deleted with the panel it tested. A fourth
+    document gave `carlos harness palette` as a command, which errors.
 
-    The existing check maps a round to its first command string, so it never
-    counted anything.
+    The first version of this guard was defeated three ways and is rebuilt for
+    all of them. It regexed `tools/cli.py` for `HARNESSES = (...)`, which has no
+    word boundary, so a `_ALL_HARNESSES` tuple shadowed the real one and a
+    three-line refactor could drop a harness with the guard green; an ordinary
+    comment inside the tuple truncated `[^)]*` and made it report one harness;
+    and it hand-listed the documents, so `REVIEW.md` said "five" throughout with
+    everything passing.
     """
 
     WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
              "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
-    def harnesses(self) -> list[str]:
-        """The harnesses the CLI actually offers, read from the CLI."""
-        source = Path("tools/cli.py").read_text(encoding="utf-8")
-        block = re.search(r"HARNESSES\s*=\s*\(([^)]*)\)", source)
-        self.assertIsNotNone(block, "tools/cli.py no longer declares HARNESSES")
-        return re.findall(r"['\"]([^'\"]+)['\"]", block.group(1))
+    def harnesses(self) -> tuple:
+        """Asked of the CLI, not of its source.
 
-    def test_the_cli_still_declares_them_in_one_place(self):
+        Importing is the whole fix for the shadowing hole: there is exactly one
+        `HARNESSES` at runtime, whatever the file looks like.
+        """
+        sys.path.insert(0, str(Path(".").resolve()))
+        from tools import cli
+        return tuple(cli.HARNESSES)
+
+    def documents(self):
+        skip = {".venv", "node_modules", ".git", "governance"}
+        return sorted(p for p in Path(".").rglob("*.md")
+                      if not any(part in skip for part in p.parts))
+
+    def test_every_harness_offered_has_a_file(self):
         found = self.harnesses()
-        self.assertTrue(found)
+        self.assertTrue(found, "the CLI offers no harnesses at all")
         for name in found:
             with self.subTest(name):
-                self.assertTrue(
-                    Path("tests") / f"{name}.js",
-                    f"{name} is offered and tests/{name}.js is not there",
-                )
                 self.assertTrue((Path("tests") / f"{name}.js").is_file())
 
     def test_every_document_counts_them_correctly(self):
         expected = len(self.harnesses())
-        for name in ("README.md", "CONTRIBUTING.md",
-                     str(WALKTHROUGH / "04-cookbook.md")):
-            body = Path(name).read_text(encoding="utf-8")
-            for word in re.findall(r"(\w+) frontend harnesses", body):
-                with self.subTest(f"{name}: {word}"):
-                    self.assertEqual(
-                        self.WORDS.get(word.lower(), word), expected,
-                        f"{name} says {word!r} frontend harnesses; "
-                        f"`carlos harness` runs {expected}",
-                    )
+        # `frontend` optional, and a digit counts: refusing "the 4 harnesses"
+        # was a false positive that taught people the check was stupid.
+        phrase = re.compile(r"([\w]+)\s+(?:\w+\s+)?harnesses", re.IGNORECASE)
+        checked = 0
+        for path in self.documents():
+            for word in phrase.findall(path.read_text(encoding="utf-8")):
+                if word.lower() in self.WORDS or word.isdigit():
+                    checked += 1
+                    with self.subTest(f"{path}: {word}"):
+                        value = self.WORDS.get(word.lower()) or int(word)
+                        self.assertEqual(
+                            value, expected,
+                            f"{path} says {word!r} harnesses; "
+                            f"`carlos harness` runs {expected}",
+                        )
+        self.assertGreater(checked, 0, "no document counts the harnesses")
 
     def test_no_document_offers_a_harness_that_is_not_there(self):
         offered = set(self.harnesses())
-        for name in ("README.md", "CONTRIBUTING.md", "AGENTS.md",
-                     str(WALKTHROUGH / "04-cookbook.md")):
-            body = Path(name).read_text(encoding="utf-8")
-            for named in re.findall(r"carlos harness (\w+)", body):
-                with self.subTest(f"{name}: {named}"):
+        named = re.compile(r"carlos harness\s+([a-z_][a-z0-9_]*)", re.IGNORECASE)
+        for path in self.documents():
+            for name in named.findall(path.read_text(encoding="utf-8")):
+                with self.subTest(f"{path}: {name}"):
                     self.assertIn(
-                        named, offered,
-                        f"{name} documents `carlos harness {named}`, which the "
+                        name, offered,
+                        f"{path} documents `carlos harness {name}`, which the "
                         f"CLI refuses",
                     )
+
+    def test_the_check_would_see_one(self):
+        # It found nothing in any document, so it asserted nothing at all - the
+        # defect it was written for lived in a file outside its list. This pins
+        # the pattern against the real string rather than the corpus.
+        named = re.compile(r"carlos harness\s+([a-z_][a-z0-9_]*)", re.IGNORECASE)
+        self.assertEqual(named.findall("run `carlos harness palette` for that"),
+                         ["palette"])
+        self.assertEqual(named.findall("`carlos harness  palette`"), ["palette"])
 
 
 class RegistryTests(unittest.TestCase):
