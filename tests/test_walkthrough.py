@@ -288,6 +288,33 @@ class MediaTests(unittest.TestCase):
                 self.assertNotIn(comparison, source)
 
 
+def project_markdown() -> list[Path]:
+    """Every markdown file this project commits, asked of git.
+
+    NOT `rglob("*.md")`, which was the first fix and introduced a defect of its
+    own: pytest writes `.pytest_cache/README.md` on its first run, so a fresh
+    checkout discovered 26 files and every run after it discovered 27. Measured
+    across five runs in a clean clone - 1504 subtests on the cold run, 1505 on
+    every one after. A suite whose answer depends on whether it has been run
+    before is exactly what the version-tags record refuses to call evidence, and
+    the guard that introduced it was written to enforce that record.
+
+    Asking git is also the honest statement of the subject. "This project's
+    prose" means the documents it commits - not whatever tooling has dropped in
+    the tree, which is neither ours to police nor stable between runs.
+    """
+    listed = subprocess.run(
+        ["git", "ls-files", "*.md"],
+        capture_output=True, text=True, timeout=30,
+    )
+    if listed.returncode != 0:
+        raise AssertionError(f"git ls-files failed:\n{listed.stderr}")
+    return sorted(
+        Path(name) for name in listed.stdout.splitlines()
+        if name.strip() and not name.startswith("governance/")
+    )
+
+
 class CommittedProseCarriesNoMachineLiteralTests(unittest.TestCase):
     """The rule already exists here; it reached one file.
 
@@ -324,19 +351,9 @@ class CommittedProseCarriesNoMachineLiteralTests(unittest.TestCase):
     ALLOWED = ("<you>", "<user>", "<username>", "USERNAME", "$HOME", "${HOME}")
 
     def surfaces(self):
-        """Every markdown file this project owns, discovered rather than listed.
-
-        The vendored corpus is not ours to police, and neither is anything uv or
-        node dropped in. Everything else counts - including files nobody has
-        written yet, which is the case the hand-written list could not cover.
-        """
-        skip = {".venv", "node_modules", ".git", "governance"}
-        found = []
-        for path in Path(".").rglob("*.md"):
-            if any(part in skip for part in path.parts):
-                continue
-            found.append(path)
-        return sorted(found)
+        """Every markdown file this project owns — including ones not yet written,
+        which is the case the original hand-written list could not cover."""
+        return project_markdown()
 
     def prose(self, path: Path) -> str:
         """The document minus what it is quoting.
@@ -355,6 +372,26 @@ class CommittedProseCarriesNoMachineLiteralTests(unittest.TestCase):
         # reputation for crying wolf.
         body = re.sub(r"https?://\S+", "", body)
         return body
+
+    def test_the_document_set_does_not_move_between_runs(self):
+        """The defect the first version of this guard introduced.
+
+        `rglob` picked up `.pytest_cache/README.md`, which pytest writes on its
+        first run, so the subtest count differed between a cold checkout and a
+        warm one. Tracked files cannot do that: nothing pytest, uv or node
+        generates is committed.
+        """
+        found = project_markdown()
+        self.assertEqual(found, project_markdown(), "discovery is not stable")
+        for path in found:
+            with self.subTest(str(path)):
+                self.assertNotIn(".pytest_cache", str(path))
+                self.assertNotIn("__pycache__", str(path))
+                self.assertNotIn(".venv", str(path))
+                self.assertFalse(
+                    str(path).startswith("governance"),
+                    "the vendored corpus is not this project's prose",
+                )
 
     def test_the_corpus_is_not_empty(self):
         """Without this the whole class passes when its subject disappears.
@@ -440,9 +477,7 @@ class DocumentedRoundsMatchTheCommandTests(unittest.TestCase):
         return tuple(cli.HARNESSES)
 
     def documents(self):
-        skip = {".venv", "node_modules", ".git", "governance"}
-        return sorted(p for p in Path(".").rglob("*.md")
-                      if not any(part in skip for part in p.parts))
+        return project_markdown()
 
     def test_every_harness_offered_has_a_file(self):
         found = self.harnesses()
