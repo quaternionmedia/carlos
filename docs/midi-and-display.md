@@ -236,6 +236,53 @@ the aim is that a rack is recognisable at a glance rather than a row of
 identical boxes. Getting the *aspect* right is most of that: a Eurorack module
 is tall and narrow (0.38), a Scarlett is wide and shallow (3.2), a DFAM is 2.3.
 
+### Leads
+
+A lead is drawn from where its sockets actually are, measured off the laid-out
+elements rather than stored. That is what lets a cable follow a device being
+dragged, a window being resized, or a row being scrolled — and it is why
+anything that moves an element under a drawn path has to ask for a redraw.
+Three things do: a resize, a scroll, and a drag. All three are coalesced to an
+animation frame, because a scroll fires per pixel of travel and a redraw is
+every lead in the rack.
+
+**A scroll listener has to be on the document and in the capture phase.** A
+scroll event does not bubble, so a listener on `window` never hears a row
+scroll at all. This was found by measuring: scrolling a shelf 180px moved the
+device -180px and its lead 0.
+
+Each end of a lead wears a shallow trapezium — wide where it meets the socket,
+narrowing back into the cable — so a run reads as something with two ends
+rather than as a line that stops. It is an SVG marker, which buys three things
+that geometry would not: `orient="auto"` follows the curve without anything
+computing a tangent, `markerUnits="strokeWidth"` scales it with the lead so a
+thin lane strand does not wear a full-weight plug, and `context-stroke` takes
+the lead's own colour, keeping a rear cable's plug the rear colour and a drum
+lane's the lane tint.
+
+**One plug per socket.** A lead carrying several MIDI channels is drawn as
+several strands converging on one socket, and a lead split across two layers is
+drawn in two pieces whose inner ends are a join rather than a connector. Only
+the first strand wears a plug, and only at an end that is really a socket —
+otherwise a four-lane USB lead wears eight, and a split lead grows a connector
+in mid-air.
+
+### Controls turn about their own centre
+
+An indicator is positioned from the middle of whatever carries it, and turns
+about the point where it meets that middle. This matters because the same
+indicator class is worn by controls whose sizes differ by a factor of four
+across the catalogue: a pivot expressed as a fixed distance is correct for
+exactly one size and wrong by the difference everywhere else. Measured when it was fixed at 15px, every indicator in the
+opening rack was off — by up to 29px on a switch, where the pivot fell outside
+the control altogether.
+
+Two consequences for anything new. The indicator's length is a fraction of its
+container rather than a number of pixels, and **the element that draws the
+visible control has to be positioned**, because an absolutely-positioned child
+resolves its percentages against the nearest positioned ancestor — a static one
+silently hands the job to something further up, which is its own offset.
+
 ### Panel layouts
 
 A catalogue entry may carry a `layout`:
