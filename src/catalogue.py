@@ -102,33 +102,102 @@ NATIVELY_ACCEPTS: dict[str, tuple[str, ...]] = {
     "XLR/TRS combo": ("XLR", "1/4in"),
 }
 
-# A Eurorack power header mates with its own kind and nothing else.
-HEADER_CONNECTORS = frozenset({"IDC-16"})
+# Which signals can share a lead. Voltages are voltages: on a Eurorack panel a
+# gate into a CV input is an ordinary thing to do, and refusing it would break
+# normal patching. MIDI is not a voltage, and that is the distinction.
+#
+# `analogue` is doing slightly more work than its name: an RJ45 audio snake is
+# audio, and audio is analogue here. Nothing goes wrong, because what a lead can
+# reach is decided by the lead list rather than by the family - and the only
+# RJ45 lead has an RJ45 at both ends.
+SIGNAL_FAMILY: dict[str, str] = {
+    "audio": "analogue",
+    "cv": "analogue",
+    "gate": "analogue",
+    "clock": "analogue",
+    "midi": "midi",
+    "digital": "digital",
+    "data": "data",
+    "power": "power",
+}
+
+# The leads that exist.
+#
+# This is the axis the other two hang off, and it is deliberately a list of
+# objects rather than a rule computed from connectors. A cable is a thing you
+# own: it has two ends and it carries something, and neither fact follows from
+# the other. MIDI runs on DIN-5, on 3.5mm TRS and over USB - three connectors,
+# one protocol - and no amount of shared protocol makes a DIN plug enter a
+# 3.5mm socket. Equally, a 3.5mm patch cable and a 3.5mm TRS MIDI lead are the
+# same object and still cannot join a MIDI output to a CV input.
+#
+# So: a patch is legal when a lead exists whose two ends mate the two sockets
+# and which carries the family both sockets speak. Sharing a connector is not
+# enough. Sharing a protocol is not enough. You need the cable.
+#
+# Ends are unordered - a lead has no direction, only the patch does.
+LEADS: tuple[tuple[tuple[str, str], frozenset[str]], ...] = (
+    # Jacks and their sizes. A quarter-inch and an eighth-inch are different
+    # openings, so quarter-into-eighth is its own lead rather than an
+    # equivalence between the two.
+    (("3.5mm", "3.5mm"), frozenset({"analogue", "midi"})),  # patch, and TRS MIDI
+    (("3.5mm", "1/4in"), frozenset({"analogue"})),
+    (("3.5mm", "XLR"), frozenset({"analogue"})),
+    (("1/4in", "1/4in"), frozenset({"analogue"})),
+    (("1/4in", "XLR"), frozenset({"analogue"})),
+    (("XLR", "XLR"), frozenset({"analogue", "digital"})),   # mic, line, and AES
+    # MIDI's own connector. There is no DIN-to-anything-else lead here on
+    # purpose: a DIN MIDI port reaches another DIN MIDI port.
+    (("DIN-5", "DIN-5"), frozenset({"midi"})),
+    # USB carries whatever the two ends agree on, which is why its leads list
+    # several families rather than one.
+    (("USB-A", "USB-B"), frozenset({"analogue", "midi", "data"})),
+    (("USB-A", "USB-C"), frozenset({"analogue", "midi", "data"})),
+    (("USB-B", "USB-C"), frozenset({"analogue", "midi", "data"})),
+    (("USB-C", "USB-C"), frozenset({"analogue", "midi", "data"})),
+    (("RJ45", "RJ45"), frozenset({"analogue", "data"})),
+    (("IDC-16", "IDC-16"), frozenset({"power"})),
+)
 
 
-def connector_fit(one: str, other: str) -> str | None:
-    """How two sockets mate: natively, through an adapter, or not at all.
+def mates(end: str, socket: str) -> bool:
+    """Whether one end of a lead goes into one socket.
+
+    Not symmetric: a combo socket accepts an XLR plug, and an XLR socket does
+    not accept whatever a combo would have taken.
+    """
+    return end == socket or end in NATIVELY_ACCEPTS.get(socket, ())
+
+
+def lead_for(
+    one_connector: str, one_signal: str, other_connector: str, other_signal: str
+) -> tuple[str, str] | None:
+    """The lead that would make this patch, or None if you do not own one.
 
     The browser answers this too, during a drag, where waiting on the server is
     not an option. Two implementations of one rule is a drift risk taken with
-    open eyes: `test_catalogue` reads the tables back out of `models.js` and
-    fails if they have parted company.
+    open eyes: `test_catalogue` reads the tables back out of `models.js`, runs
+    the browser's own function over every pair, and fails if the two have parted
+    company.
     """
-    if one == other:
-        return "native"
-    if other in NATIVELY_ACCEPTS.get(one, ()):
-        return "native"
-    if one in NATIVELY_ACCEPTS.get(other, ()):
-        return "native"
-    if one in HEADER_CONNECTORS or other in HEADER_CONNECTORS:
+    if SIGNAL_FAMILY[one_signal] != SIGNAL_FAMILY[other_signal]:
         return None
-    # Across carriers there is no plug to change: a USB port does not become a
-    # 3.5mm one.
-    if CARRIER_OF_CONNECTOR.get(one, "direct") != CARRIER_OF_CONNECTOR.get(
-        other, "direct"
-    ):
-        return None
-    return "adapter"
+    family = SIGNAL_FAMILY[one_signal]
+    for ends, carries in LEADS:
+        if family not in carries:
+            continue
+        one_end, other_end = ends
+        if (mates(one_end, one_connector) and mates(other_end, other_connector)) or (
+            mates(other_end, one_connector) and mates(one_end, other_connector)
+        ):
+            return ends
+    return None
+
+
+def name_of_lead(ends: tuple[str, str]) -> str:
+    """What to call it when telling someone what to buy."""
+    one, other = ends
+    return f"a {one} lead" if one == other else f"a {one}-to-{other} lead"
 
 CATEGORIES: dict[str, str] = {
     "mixer": "Consoles that sum, route and process many inputs",

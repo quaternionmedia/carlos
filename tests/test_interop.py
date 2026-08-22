@@ -54,68 +54,71 @@ class TransformTests(unittest.TestCase):
         for connector in result["by_connector"]:
             self.assertIn(connector, get_args(catalogue.Connector))
 
-    def test_summary_says_which_adapters_a_build_would_need(self):
+    def test_summary_says_which_leads_a_build_is_made_of(self):
         result = interop.apply_transform("summary", self.patch)
 
-        self.assertIn("adapters_needed", result)
-        # Every entry names a real pair, and only pairs that genuinely need one.
-        for pair, count in result["adapters_needed"].items():
-            one, other = pair.split(" to ")
-            self.assertEqual(catalogue.connector_fit(one, other), "adapter")
-            self.assertGreater(count, 0)
+        self.assertIn("leads_needed", result)
+        self.assertEqual(
+            sum(result["leads_needed"].values()), len(self.patch.connections)
+        )
+        # Every entry is a lead you could ask a shop for.
+        for name in result["leads_needed"]:
+            self.assertTrue(
+                name.startswith("a ") and name.endswith(" lead"), name
+            )
 
-    def test_a_rack_that_needs_an_adapter_reports_it(self):
-        """The counter is only meaningful if something can land in it.
+    def test_a_rack_of_mixed_leads_says_so(self):
+        """The counter is only meaningful if it can hold more than one thing.
 
-        An empty dict passes the test above whatever the rule does, so this
-        builds a patch that genuinely needs an adapter and looks for it.
+        A patch of nine identical leads passes the test above whatever the rule
+        does, so this builds one that genuinely needs a lead with unlike ends
+        and looks for it by name.
         """
         devices = catalogue.load_all()
-        pairs = []
-        for device in devices.values():
-            for jack in device.jacks:
-                pairs.append((device, jack))
+        jacks = [
+            (device, jack)
+            for device in devices.values()
+            for jack in device.jacks
+        ]
 
-        source = target = None
-        for one_device, one in pairs:
-            for other_device, other in pairs:
-                if one.type != "output" or other.type != "input":
+        found = None
+        for one_device, one in jacks:
+            if one.type != "output":
+                continue
+            for other_device, other in jacks:
+                if other.type != "input":
                     continue
-                if catalogue.connector_fit(one.connector, other.connector) != (
-                    "adapter"
-                ):
-                    continue
-                source = (one_device, one)
-                target = (other_device, other)
+                ends = catalogue.lead_for(
+                    one.connector, one.signal, other.connector, other.signal
+                )
+                if ends and ends[0] != ends[1]:
+                    found = (one_device, one, other_device, other, ends)
+                    break
+            if found:
                 break
-            if source:
-                break
-        self.assertIsNotNone(source, "no two sockets in the catalogue need one")
+        self.assertIsNotNone(found, "no two sockets need a lead with two ends")
+        one_device, one, other_device, other, ends = found
 
         patch = patch_format.Patch(
             format="carlos.patch",
             version=1,
-            name="needs an adapter",
+            name="a lead with two different ends",
             modules=[
-                patch_format.ModuleState(id="a", type=source[0].id),
-                patch_format.ModuleState(id="b", type=target[0].id),
+                patch_format.ModuleState(id="a", type=one_device.id),
+                patch_format.ModuleState(id="b", type=other_device.id),
             ],
             connections=[
                 patch_format.Connection(
-                    source=patch_format.Endpoint(
-                        module="a", jack=source[1].name
-                    ),
-                    target=patch_format.Endpoint(
-                        module="b", jack=target[1].name
-                    ),
+                    source=patch_format.Endpoint(module="a", jack=one.name),
+                    target=patch_format.Endpoint(module="b", jack=other.name),
                 )
             ],
         )
         result = interop.apply_transform("summary", patch)
         self.assertEqual(
-            result["adapters_needed"],
-            {f"{source[1].connector} to {target[1].connector}": 1},
+            result["leads_needed"], {catalogue.name_of_lead(ends): 1}
         )
+        self.assertIn("-to-", next(iter(result["leads_needed"])))
 
     def test_patchbay_reports_the_plug_on_each_end(self):
         result = interop.apply_transform("patchbay", self.patch)

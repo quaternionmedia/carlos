@@ -277,11 +277,11 @@ cousins. At a glance a rack should read as leads, not as a key of connector
 types; the difference is there when looked at.
 
 **The two ends need not match.** A 3.5mm output into a 1/4in input is a real
-patch, and drawing both ends alike is the tool quietly asserting that no adapter
-is involved. Where they differ, the status line says so as the lead is dropped —
-`needs a 3.5mm-to-1/4in adapter`, or `needs a USB-C-to-USB-B lead` when what is
-missing is a different cable rather than a converter. A like-for-like patch says
-nothing, so the advice means something when it appears.
+patch made with a real cable, and drawing both ends alike is the tool quietly
+asserting that one plain lead would do. Where they differ, the status line names
+the cable as the lead is dropped — `needs a 3.5mm-to-1/4in lead`. A patch made
+with a lead whose ends match says nothing, so the advice means something when it
+appears.
 
 Weight comes off the same axis: a Eurorack patch cable and a 1/4in line lead are
 not the same object. The multiples live in the palette beside the base weight,
@@ -291,19 +291,26 @@ written out rather than multiplied in the rule —
 reads as NaN. That was measured: it broke the test asserting the drum strand is
 the thickest, because `2 > NaN` is false.
 
-**A plug that does not fit is refused, and the refusal names the plugs.** Reasons
-are ordered by how concrete they are, so this is the first one asked after
-patching a socket into itself. Asked about a USB-C going into a 3.5mm socket it
-used to answer `midi does not go into clock` — true, about a different axis, and
-no use to anyone holding the wrong cable.
+**A patch you own no cable for is refused, and the refusal says which kind of
+disappointment it is.** Reasons are ordered by how concrete they are, so this is
+the first one asked after patching a socket into itself, and there are two of
+them. Same protocol, wrong plug: `No midi lead goes from DIN-5 to 3.5mm` — MIDI
+runs on DIN-5, on 3.5mm TRS and over USB, and none of those reach each other.
+Same plug, wrong protocol: `midi does not go into a cv socket, even on the same
+plug` — a TRS MIDI lead fits a CV input perfectly, which is exactly why it needs
+saying.
 
-The mating rules exist twice, in `catalogue.py` and in `models.js`, because the
-browser has to answer *does this plug fit* during a drag and cannot wait on the
-server. That duplication is deliberate and guarded: a test reads the tables back
-out of the JavaScript and runs the browser's own `connectorFit` over all one
-hundred pairs of connectors, comparing each with the server's answer. The
-connector axis reached this state in the first place by being recorded on every
-socket in the catalogue and checked by nothing.
+Asked about a USB-C going into a 3.5mm socket this used to answer `midi does not
+go into clock` — true, about a different axis, and no use to anyone holding the
+wrong cable.
+
+The lead list exists twice, in `catalogue.py` and in `models.js`, because the
+browser has to answer *which cable would this be* during a drag and cannot wait
+on the server. That duplication is deliberate and guarded: a test reads the
+tables back out of the JavaScript and runs the browser's own `leadTo` over every
+connector against every signal — 6400 questions — comparing each with the
+server's answer. The connector axis reached its previous state by being recorded
+on every socket in the catalogue and checked by nothing.
 
 ### Controls turn about their own centre
 

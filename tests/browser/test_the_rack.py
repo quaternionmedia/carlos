@@ -835,10 +835,11 @@ class TestAConnectorIsNotASignal:
             )
 
     def test_each_end_of_a_lead_wears_its_own_plug(self, page):
-        """A lead between unlike sockets is an adapter, and it should look it.
+        """A lead with two unlike ends should look like one.
 
-        Drawing both ends alike is the tool quietly asserting that no adapter
-        is involved.
+        Drawing both ends alike is the tool quietly asserting that one plain
+        cable would do - which, for a 1/4in output into a 3.5mm input, it
+        would not.
         """
         ends = page.evaluate(
             """() => [...document.querySelectorAll('path.cable[marker-start]')]
@@ -879,58 +880,85 @@ class TestAConnectorIsNotASignal:
             assert weight == weight, f"{plug} has an unreadable width"
             assert weight > 0, f"{plug} is drawn at {weight}"
 
-    def test_a_plug_that_does_not_fit_is_refused_and_says_why(self, page):
-        """And a legal patch that needs an adapter says so without refusing.
+    def test_a_patch_needs_a_cable_you_could_actually_own(self, page):
+        """Sharing a plug is not enough, and neither is sharing a protocol.
+
+        A cable is a thing with two ends that carries something, and neither
+        fact follows from the other. MIDI runs on DIN-5, on 3.5mm TRS and over
+        USB, and none of those reach each other; a 3.5mm TRS MIDI lead fits a
+        CV input perfectly and must not be used that way.
 
         Asked of the model rather than through a drag: the gesture is tested
-        elsewhere, and this is about the rule.
+        elsewhere, and this is about the rule. Sockets are made rather than
+        found, so the cases do not depend on what the opening rack happens to
+        hold.
         """
         said = page.evaluate(
             """() => {
-                const jacks = [];
-                for (const m of system.modules.values()) {
-                    for (const j of m.jacks.values()) jacks.push(j);
-                }
-                const find = (c, t) =>
-                    jacks.find(j => j.connector === c && j.type === t);
-                const ask = (a, b) => {
-                    const one = find(a, 'output'), two = find(b, 'input');
-                    if (!one || !two) return null;
+                const jack = (connector, signal, type) =>
+                    new Jack('j', type, signal, 'front', null, null,
+                             { connector });
+                const ask = (ac, asig, bc, bsig) => {
+                    const one = jack(ac, asig, 'output');
+                    const two = jack(bc, bsig, 'input');
+                    const ends = one.leadTo(two);
                     return {
+                        lead: ends ? ends.join(' to ') : null,
                         refusal: one.refusalReason(two),
-                        advice: one.adapterAdvice(two),
+                        advice: one.leadAdvice(two),
                     };
                 };
                 return {
-                    unlike: ask('USB-C', '3.5mm'),
-                    adapter: ask('3.5mm', '1/4in'),
-                    alike: ask('3.5mm', '3.5mm'),
+                    // Same protocol, three connectors, no lead between them.
+                    dinToTrs: ask('DIN-5', 'midi', '3.5mm', 'midi'),
+                    usbToDin: ask('USB-C', 'midi', 'DIN-5', 'midi'),
+                    // Same connector, different protocol.
+                    midiToCv: ask('3.5mm', 'midi', '3.5mm', 'cv'),
+                    // Quarter into eighth: two openings, one real lead.
+                    quarterToEighth: ask('1/4in', 'audio', '3.5mm', 'audio'),
+                    // Voltages are voltages.
+                    gateToCv: ask('3.5mm', 'gate', '3.5mm', 'cv'),
+                    alike: ask('3.5mm', 'cv', '3.5mm', 'cv'),
                 };
             }"""
         )
 
-        unlike = said["unlike"]
-        assert unlike, "no USB output and 3.5mm input on the rack to ask about"
-        assert unlike["refusal"], "a USB plug went into a 3.5mm socket"
-        # The plainest fact available, and about the axis that actually stops
-        # you: this answered `midi does not go into clock` until the reasons
-        # were ordered by how concrete they are.
-        assert "3.5mm" in unlike["refusal"] and "USB-C" in unlike["refusal"], (
-            f"refused, but for the wrong reason: {unlike['refusal']!r}"
+        for case in ("dinToTrs", "usbToDin"):
+            got = said[case]
+            assert got["lead"] is None, (
+                f"{case}: MIDI reached across connectors via {got['lead']}"
+            )
+            assert got["refusal"], f"{case}: allowed with no lead"
+            # The refusal has to name the plugs, not the protocol - both ends
+            # speak MIDI and saying so explains nothing.
+            assert "midi" in got["refusal"], got["refusal"]
+
+        midi_to_cv = said["midiToCv"]
+        assert midi_to_cv["lead"] is None, (
+            "a MIDI output reached a CV input because the plug fits"
+        )
+        assert "same plug" in (midi_to_cv["refusal"] or ""), (
+            f"refused, but without saying why it is confusing: "
+            f"{midi_to_cv['refusal']!r}"
         )
 
-        adapter = said["adapter"]
-        assert adapter, "no 3.5mm output and 1/4in input on the rack"
-        assert not adapter["refusal"], (
-            f"a 3.5mm into a 1/4in is a real patch, refused: "
-            f"{adapter['refusal']!r}"
+        quarter = said["quarterToEighth"]
+        assert not quarter["refusal"], (
+            f"a 1/4in into a 3.5mm is a real lead, refused: "
+            f"{quarter['refusal']!r}"
         )
-        assert adapter["advice"] and "adapter" in adapter["advice"], (
-            f"patched silently, needing an adapter: {adapter['advice']!r}"
+        assert quarter["advice"] and "-to-" in quarter["advice"], (
+            f"patched without naming the lead it needs: {quarter['advice']!r}"
+        )
+
+        gate = said["gateToCv"]
+        assert not gate["refusal"], (
+            f"a gate into a CV input is ordinary patching, refused: "
+            f"{gate['refusal']!r}"
         )
 
         alike = said["alike"]
-        assert alike and not alike["refusal"] and not alike["advice"], (
+        assert not alike["refusal"] and not alike["advice"], (
             f"a like-for-like patch should be silent, said {alike!r}"
         )
 

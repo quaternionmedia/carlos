@@ -88,9 +88,75 @@ const NATIVELY_ACCEPTS = {
     'XLR/TRS combo': ['XLR', '1/4in'],
 };
 
-// A Eurorack power header is not a signal connector that happens to differ; it
-// mates with its own kind and with nothing else, adapter or not.
-const HEADER_CONNECTORS = new Set(['IDC-16']);
+// Which signals can share a lead. Voltages are voltages: a gate into a CV input
+// is an ordinary thing to do on a Eurorack panel, and refusing it would break
+// normal patching. MIDI is not a voltage, and that is the distinction.
+const SIGNAL_FAMILY = {
+    audio: 'analogue', cv: 'analogue', gate: 'analogue', clock: 'analogue',
+    midi: 'midi', digital: 'digital', data: 'data', power: 'power',
+};
+
+// The leads that exist, and the axis the other two hang off.
+//
+// A cable is a thing you own: two ends, and something it carries, and neither
+// fact follows from the other. MIDI runs on DIN-5, on 3.5mm TRS and over USB -
+// three connectors, one protocol - and no amount of shared protocol makes a DIN
+// plug enter a 3.5mm socket. Equally a 3.5mm patch cable and a 3.5mm TRS MIDI
+// lead are the same object, and still cannot join a MIDI output to a CV input.
+//
+// So a patch is legal when a lead exists whose two ends mate the two sockets
+// and which carries the family both sockets speak. A connector in common is not
+// enough; a protocol in common is not enough. You need the cable.
+//
+// Ends are unordered: a lead has no direction, only the patch does.
+const LEADS = [
+    // A quarter-inch and an eighth-inch are different openings, so
+    // quarter-into-eighth is its own lead rather than an equivalence.
+    [['3.5mm', '3.5mm'], ['analogue', 'midi']],   // patch cable, and TRS MIDI
+    [['3.5mm', '1/4in'], ['analogue']],
+    [['3.5mm', 'XLR'], ['analogue']],
+    [['1/4in', '1/4in'], ['analogue']],
+    [['1/4in', 'XLR'], ['analogue']],
+    [['XLR', 'XLR'], ['analogue', 'digital']],    // mic, line, and AES
+    // No DIN-to-anything-else lead, on purpose: a DIN MIDI port reaches
+    // another DIN MIDI port.
+    [['DIN-5', 'DIN-5'], ['midi']],
+    [['USB-A', 'USB-B'], ['analogue', 'midi', 'data']],
+    [['USB-A', 'USB-C'], ['analogue', 'midi', 'data']],
+    [['USB-B', 'USB-C'], ['analogue', 'midi', 'data']],
+    [['USB-C', 'USB-C'], ['analogue', 'midi', 'data']],
+    [['RJ45', 'RJ45'], ['analogue', 'data']],
+    [['IDC-16', 'IDC-16'], ['power']],
+];
+
+// Whether one end of a lead goes into one socket. Not symmetric: a combo socket
+// accepts an XLR plug, an XLR socket does not accept what a combo would take.
+function endMatesSocket(end, socket) {
+    return end === socket
+        || (NATIVELY_ACCEPTS[socket] || []).includes(end);
+}
+
+function leadFor(oneConnector, oneSignal, otherConnector, otherSignal) {
+    if (SIGNAL_FAMILY[oneSignal] !== SIGNAL_FAMILY[otherSignal]) return null;
+    const family = SIGNAL_FAMILY[oneSignal];
+    for (const [ends, carries] of LEADS) {
+        if (!carries.includes(family)) continue;
+        const [one, other] = ends;
+        if ((endMatesSocket(one, oneConnector)
+                && endMatesSocket(other, otherConnector))
+            || (endMatesSocket(other, oneConnector)
+                && endMatesSocket(one, otherConnector))) {
+            return ends;
+        }
+    }
+    return null;
+}
+
+// What to call it when telling someone what to buy.
+function nameOfLead(ends) {
+    const [one, other] = ends;
+    return one === other ? `a ${one} lead` : `a ${one}-to-${other} lead`;
+}
 
 function carrierOfConnector(connector) {
     return CONNECTOR_CARRIER[connector] || 'direct';
@@ -585,51 +651,40 @@ class Jack {
         return BUS_CARRIERS.has(this.carrier);
     }
 
-    // Whether two sockets physically mate, and at what cost.
-    //
-    // `native` is plug into socket. `adapter` is a lead that changes the plug
-    // on the way - real, buyable, and worth saying out loud in a sketch,
-    // because a rig that needs nine of them is a different rig. `false` is a
-    // plug that does not go in at all, which no adapter fixes.
-    connectorFit(otherJack) {
-        const mine = this.connector;
-        const theirs = otherJack.connector;
-        if (mine === theirs) return 'native';
-        if ((NATIVELY_ACCEPTS[mine] || []).includes(theirs)) return 'native';
-        if ((NATIVELY_ACCEPTS[theirs] || []).includes(mine)) return 'native';
-        // A header mates with its own kind, which the equality above already
-        // allowed. Anything else reaching here is not a header question.
-        if (HEADER_CONNECTORS.has(mine) || HEADER_CONNECTORS.has(theirs)) {
-            return false;
-        }
-        // Across carriers there is no plug to change: a USB port does not
-        // become a 3.5mm one.
-        if (carrierOfConnector(mine) !== carrierOfConnector(theirs)) return false;
-        return 'adapter';
+    // Which lead would make this patch, or null if there is no such cable.
+    leadTo(otherJack) {
+        return leadFor(this.connector, this.signal,
+                       otherJack.connector, otherJack.signal);
     }
 
-    // What a legal patch still costs, said plainly. Null when nothing is
-    // needed, so a silent patch stays silent.
-    adapterAdvice(otherJack) {
-        if (this.connectorFit(otherJack) !== 'adapter') return null;
-        // A 3.5mm into a 1/4in wants a physical adapter; a USB-C into a
-        // USB-B is just a different lead. Both are things to buy, and the
-        // difference is worth naming to whoever reads the sketch.
-        const kind = this.carrier === 'direct' ? 'adapter' : 'lead';
-        return `needs a ${this.connector}-to-${otherJack.connector} ${kind}`;
+    // What a legal patch costs, said plainly - but only when it is worth
+    // saying. A lead whose two ends match is the ordinary case and stays
+    // silent, so the advice means something when it appears.
+    leadAdvice(otherJack) {
+        const ends = this.leadTo(otherJack);
+        if (!ends || ends[0] === ends[1]) return null;
+        return `needs ${nameOfLead(ends)}`;
     }
 
     // Why a connection was refused, for the status line. Null when it is legal.
     // Ordered by how concrete the reason is, not by how the checks happen to be
-    // written. A plug that does not go in is the plainest fact available and
-    // comes first: asked about a USB-C into a 3.5mm socket this used to answer
-    // `midi does not go into clock`, which is true, unhelpful, and about a
-    // different axis than the one that actually stops you.
+    // written. Not owning a cable that joins these two sockets is the plainest
+    // fact available and comes first: asked about a USB-C into a 3.5mm socket
+    // this used to answer `midi does not go into clock`, which is true,
+    // unhelpful, and about a different axis than the one that stops you.
     refusalReason(otherJack) {
         if (this === otherJack) return 'A jack cannot patch into itself';
-        if (!this.connectorFit(otherJack)) {
-            return `A ${otherJack.connector} socket does not take a `
-                + `${this.connector} plug`;
+        if (!this.leadTo(otherJack)) {
+            // Two reasons land here and they are not the same disappointment.
+            // Same protocol, wrong plug: there is no MIDI lead with a DIN on
+            // one end and a 3.5mm on the other. Same plug, wrong protocol: a
+            // 3.5mm TRS MIDI lead fits a CV input and must not be used that
+            // way.
+            return SIGNAL_FAMILY[this.signal] === SIGNAL_FAMILY[otherJack.signal]
+                ? `No ${this.signal} lead goes from ${this.connector} to `
+                    + `${otherJack.connector}`
+                : `${this.signal} does not go into a ${otherJack.signal} `
+                    + `socket, even on the same plug`;
         }
         // Two buses share a wire rather than pointing at each other, so
         // direction does not apply and the signal has to agree instead. A bus
@@ -1749,7 +1804,7 @@ class PatchBayManager {
             ? drag.jack.refusalReason(target)
             : null;
         const advice = target && target !== drag.jack && !refusal
-            ? drag.jack.adapterAdvice(target)
+            ? drag.jack.leadAdvice(target)
             : null;
         hostSystem()?.status.update(
             refusal
@@ -1790,7 +1845,7 @@ class PatchBayManager {
             return true;
         }
 
-        const advice = drag.jack.adapterAdvice(target);
+        const advice = drag.jack.leadAdvice(target);
         this.createConnection(drag.jack, target);
         hostSystem()?.status.update(
             `Patched ${drag.jack.name} into ${target.name}`
@@ -1833,7 +1888,7 @@ class PatchBayManager {
         if (refusal) {
             hostSystem()?.status.update(refusal);
         } else {
-            const advice = this.activeJack.adapterAdvice(jack);
+            const advice = this.activeJack.leadAdvice(jack);
             this.createConnection(this.activeJack, jack);
             hostSystem()?.status.update(
                 advice ? `Connected - ${advice}` : 'Connected!');

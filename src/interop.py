@@ -97,10 +97,10 @@ def _summary(patch: patch_format.Patch) -> dict:
 
     signals = Counter()
     connectors = Counter()
-    # What a build would actually have to buy. A rack that needs nine adapters
-    # is a different rack from one that needs none, and the difference is
-    # invisible if only the signal is counted.
-    adapters = Counter()
+    # The shopping list. A rack is made of cables, and which cables is not
+    # recoverable from the signals alone: nine 3.5mm patch leads and nine
+    # 3.5mm-to-1/4in leads are both `by_signal: {audio: 9}`.
+    leads = Counter()
     for cable in patch.connections:
         _, device = _device_of(patch, cable.source.module)
         jack = device.jack(cable.source.jack) if device else None
@@ -109,10 +109,13 @@ def _summary(patch: patch_format.Patch) -> dict:
 
         _, other_device = _device_of(patch, cable.target.module)
         other = other_device.jack(cable.target.jack) if other_device else None
-        if jack and other and catalogue.connector_fit(
-            jack.connector, other.connector
-        ) == "adapter":
-            adapters[f"{jack.connector} to {other.connector}"] += 1
+        if jack and other:
+            ends = catalogue.lead_for(
+                jack.connector, jack.signal, other.connector, other.signal
+            )
+            # A stored patch can hold a cable the rules would refuse today, so
+            # this counts what is there rather than asserting about it.
+            leads[catalogue.name_of_lead(ends) if ends else "no such lead"] += 1
 
     return {
         "name": patch.name,
@@ -122,7 +125,7 @@ def _summary(patch: patch_format.Patch) -> dict:
         "by_maker": dict(makers),
         "by_signal": dict(signals),
         "by_connector": dict(connectors),
-        "adapters_needed": dict(adapters),
+        "leads_needed": dict(leads),
     }
 
 

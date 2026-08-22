@@ -106,6 +106,27 @@ thing — a K.O. II's USB-C is *charging, MIDI and sample transfer* — and rath
 than model that, the catalogue names what you would patch it for and leaves the
 rest to `note`. That the port is a bus is already said by its carrier.
 
+**A cable is its own thing, and it is what decides whether a patch is legal.**
+The three fields above describe *sockets*. What joins two sockets is a lead: an
+object with two ends and something it carries, and neither fact follows from the
+other. `catalogue.py` keeps the list of leads that exist, and a patch is legal
+when one of them has ends that mate both sockets and carries what both sockets
+speak.
+
+That is stricter than either axis alone, deliberately:
+
+| | |
+| --- | --- |
+| MIDI on DIN-5 into MIDI on 3.5mm | **refused** — same protocol, and no lead has a DIN on one end and a 3.5mm on the other |
+| MIDI over USB-C into MIDI on DIN-5 | **refused** — same protocol, different world |
+| MIDI on 3.5mm into CV on 3.5mm | **refused** — the plug fits and the lead exists; a TRS MIDI lead is a 3.5mm lead. It is still not a CV source |
+| 1/4in audio into 3.5mm audio | allowed, as `a 3.5mm-to-1/4in lead` — a quarter-inch and an eighth-inch are different openings, so this is a real cable rather than an equivalence |
+| gate into a CV input | allowed — voltages are voltages, and refusing this would break ordinary modular patching |
+
+Sharing a connector is not enough. Sharing a protocol is not enough. You need
+the cable — which is why adding a lead to the list, rather than loosening a
+rule, is how you make a new kind of patch possible.
+
 **`connector` names the opening, not the wiring.** A balanced 1/4in TRS and an
 unbalanced 1/4in TS mate with the same socket, and fit is the question this axis
 exists to answer, so both are `1/4in`; where balance matters it is a `note`. The

@@ -145,16 +145,17 @@ internals.
 | Name | Gives you |
 | --- | --- |
 | `identity` | The patch unchanged |
-| `summary` | Counts by category, maker, signal and connector, plus the adapters a build would need — no topology |
+| `summary` | Counts by category, maker, signal and connector, plus the leads the rig is made of — no topology |
 | `patchbay` | One readable line per cable, with panel legends resolved |
 | `topology` | The routing with every parameter stripped |
 | `inventory` | The distinct devices called for, by catalogue id |
 
 `summary` counts two axes, not one: a rack of nine 3.5mm leads and a rack of
 nine XLRs are both `by_signal: {audio: 9}` and are not the same rack.
-`adapters_needed` is the practical half — every cable whose two ends take
-different plugs, counted by pair, so an exported sketch says what a build would
-actually have to buy.
+`leads_needed` is the shopping list — every cable in the patch named the way you
+would ask a shop for it, so `{"a 3.5mm lead": 4, "a DIN-5 lead": 2}` is what the
+rig is actually made of. A lead with unlike ends is named as one:
+`a 3.5mm-to-1/4in lead`.
 
 `patchbay` is the one worth seeing. Given the Hapax complex example:
 
