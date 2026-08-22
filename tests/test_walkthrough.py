@@ -629,21 +629,41 @@ class TheRecordSpeaksInOneVoiceTests(unittest.TestCase):
     }
 
     def prose(self, message: str) -> str:
-        """The message minus what it quotes."""
+        """The message minus what it quotes.
+
+        Quotation marks count as well as code spans. Running this wide caught a
+        commit reporting that a peer asks "is this readable before I act on it"
+        - a question in somebody else's mouth, not the tool narrating. A guard
+        that refuses a message for words it is reporting rather than speaking is
+        a guard somebody deletes, which is the failure worth avoiding.
+        """
         message = re.sub(r"```.*?```", "", message, flags=re.S)
-        return re.sub(r"`[^`\n]*`", "", message)
+        message = re.sub(r"`[^`\n]*`", "", message)
+        return re.sub(r'"[^"\n]*"', "", message)
+
+    # Where the branch point might be, best first. A developer checkout has
+    # `they`; a CI runner has a shallow clone of the pull request head and
+    # neither `they` nor `origin/they`, so the last entry is what it uses -
+    # every commit the runner was given, which is the set it can judge.
+    RANGES = ("they..HEAD", "origin/they..HEAD", "HEAD")
 
     def commits(self):
-        listed = subprocess.run(
-            ["git", "log", "--format=%H%x1f%B%x1e", "they..HEAD"],
-            capture_output=True, text=True, timeout=30, encoding="utf-8",
-        )
-        # Not a skip. This file enforces "a skip is not a pass" over the pages
-        # and may not contain one; a checkout that cannot answer is a broken
-        # checkout, and saying so is more use than vanishing into a skip count.
-        self.assertEqual(
-            listed.returncode, 0,
-            f"git could not list they..HEAD:\n{listed.stderr}",
+        listed = None
+        for spec in self.RANGES:
+            attempt = subprocess.run(
+                ["git", "log", "--format=%H%x1f%B%x1e", spec],
+                capture_output=True, text=True, timeout=30, encoding="utf-8",
+            )
+            if attempt.returncode == 0:
+                listed = attempt
+                break
+
+        # Still not a skip. A checkout where even `git log HEAD` fails is a
+        # broken checkout, and saying so beats vanishing into a skip count -
+        # but a shallow clone with no `they` is ordinary, not broken.
+        self.assertIsNotNone(
+            listed,
+            "git could not list any commit range; this is not a git checkout",
         )
         for entry in listed.stdout.split("\x1e"):
             if entry.strip():
