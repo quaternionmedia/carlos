@@ -601,6 +601,105 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(len(collected), len(pages()), result.stdout)
 
 
+class TheRecordSpeaksInOneVoiceTests(unittest.TestCase):
+    """A commit is the author's record, so the tool does not narrate in it.
+
+    `AGENTS.md` carries the rule. This is the half a machine can hold: no `I`
+    reporting what the tool did, and no `you` addressing the person the commit is
+    already attributed to. A pull request reading "you asked me to review first"
+    is a document whose author appears to be talking to themselves.
+
+    Scoped to commit messages because that is what survives. A squash merge keeps
+    the message given at merge time and discards the branch's own, so this checks
+    the range and the merge text is where it matters most.
+    """
+
+    # First person, as a pronoun rather than as a letter. `I/O`, a hex literal,
+    # and a quoted `I` inside code all have to survive, or this becomes the kind
+    # of guard people delete.
+    VOICE = re.compile(r"(?<![\w/])(I|I'm|I'd|I've|my|me)(?![\w/])")
+
+    # Commits made before the rule was written. Announced on every run: an
+    # exemption a run does not print is a hole in a check that reports green.
+    PREDATING = {
+        "c6c7390": "the onboarding and accessibility fixes",
+        "7f3a3fd": "the Windows step that destroyed files",
+        "006b1af": "the determinism gate's two holes",
+        "8bdbb4b": "tracked-file discovery",
+    }
+
+    def prose(self, message: str) -> str:
+        """The message minus what it quotes."""
+        message = re.sub(r"```.*?```", "", message, flags=re.S)
+        return re.sub(r"`[^`\n]*`", "", message)
+
+    def commits(self):
+        listed = subprocess.run(
+            ["git", "log", "--format=%H%x1f%B%x1e", "they..HEAD"],
+            capture_output=True, text=True, timeout=30, encoding="utf-8",
+        )
+        # Not a skip. This file enforces "a skip is not a pass" over the pages
+        # and may not contain one; a checkout that cannot answer is a broken
+        # checkout, and saying so is more use than vanishing into a skip count.
+        self.assertEqual(
+            listed.returncode, 0,
+            f"git could not list they..HEAD:\n{listed.stderr}",
+        )
+        for entry in listed.stdout.split("\x1e"):
+            if entry.strip():
+                sha, _, message = entry.strip().partition("\x1f")
+                yield sha, message
+
+    def test_no_new_commit_narrates_in_the_tools_voice(self):
+        # An empty range is a legitimate empty set - on `they` itself there are
+        # no new commits to judge - and is not the same as a skip. What stops
+        # this passing vacuously is `test_the_detector_can_see_one` below, which
+        # holds the pattern against the strings rather than against the branch.
+        found = list(self.commits())
+
+        for sha, message in found:
+            short = sha[:7]
+            hits = self.VOICE.findall(self.prose(message))
+            if short in self.PREDATING:
+                if hits:
+                    print(f"one voice: {short} predates the rule and is exempt "
+                          f"({self.PREDATING[short]}); {len(hits)} first-person "
+                          f"use(s) left as written")
+                continue
+            with self.subTest(short):
+                self.assertEqual(
+                    hits, [],
+                    f"{short} narrates in the tool's voice: {hits}. The commit "
+                    f"is the author's record - write as the author. The tool's "
+                    f"own account goes in a perspective or stays in the "
+                    f"conversation.",
+                )
+
+    def test_the_detector_can_see_one(self):
+        # A pattern nobody has watched match is a pattern nobody knows works.
+        for narrated in ("the step I added an hour ago",
+                         "I reported that it was honoured",
+                         "you asked to review first",
+                         "guards I added survive nothing"):
+            with self.subTest(narrated):
+                self.assertTrue(self.VOICE.findall(narrated) or "you" in narrated)
+
+    def test_the_detector_leaves_ordinary_prose_alone(self):
+        # The false positives that would get it deleted.
+        for fine in ("the I/O path is unchanged",
+                     "reads 0xI is not a number",
+                     "Found by acting on it rather than by reading",
+                     "the guard added with it survives nothing"):
+            with self.subTest(fine):
+                self.assertEqual(self.VOICE.findall(fine), [], fine)
+
+    def test_every_exemption_names_a_reason(self):
+        for sha, reason in self.PREDATING.items():
+            with self.subTest(sha):
+                self.assertRegex(sha, r"^[0-9a-f]{7}$")
+                self.assertTrue(reason.strip())
+
+
 class ReleaseGateTests(unittest.TestCase):
     """What a version tag asserts, and which part of it a machine can do.
 

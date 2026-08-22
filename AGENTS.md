@@ -313,6 +313,36 @@ Pass `--base-ref they` — this repository's default branch is `they`, not `main
 and the runner defaults to `main`, which fails two gates for a reason that is
 about the flag rather than the code.
 
+## The record speaks in one voice
+
+Every commit, pull request and record here is authored by a human and signed by
+one. **The prose in them is that person's, in that person's voice.** An assistant
+drafting the text writes as the author, not as a second party narrating over
+their shoulder.
+
+Concretely, and this is the shape the mistake takes: no `I` reporting what the
+tool did, no `you` addressing the person the artifact is already attributed to.
+A pull request that says "you asked me to review first" is a document in which
+the author appears to be talking to themselves, because they are the author.
+
+Where the tool's own account genuinely belongs:
+
+- **`governance/qm/perspectives/`** — dated, attributed, non-binding, and
+  required to carry a `Tools:` row. First person is the form there.
+- **The conversation** that produced the work. Nothing is being hidden by
+  keeping it there; it is simply not part of the record.
+- **A `Tools:` note** on an artifact that calls for one — provenance, never a
+  byline.
+
+This is the same rule as human-only contributorship, one level up from the
+trailer. A trailer naming a tool and a paragraph narrated by one put the same
+second speaker in a document with one signature. `DRAFT-human-only-contributorship.md`
+governs the metadata; this governs the prose, and the corpus record extending it
+is not written yet.
+
+What survives a squash merge is the message given at merge time, so that is the
+text this applies to most. `tests/test_walkthrough.py` holds new commits to it.
+
 ## Conventions
 
 - **The frontend is local-first.** No CDN references — the open-license record
