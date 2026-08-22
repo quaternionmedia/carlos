@@ -104,6 +104,15 @@ body {
 .knob-base {
     width: 100%;
     height: 100%;
+    /* The indicator is absolutely positioned and resolves its percentages
+       against the nearest positioned ancestor. Static, this circle was not it -
+       so `top: 50%` measured against the knob's outer box while the circle it
+       sits in is 4px larger from its own border, leaving the pivot 2px above
+       centre on a minimal knob and further out on the `irl` ones, which are
+       sized by a different ancestor again. Positioned and border-boxed, the
+       visible circle is the reference and the maths is the same at every size. */
+    position: relative;
+    box-sizing: border-box;
     background: radial-gradient(circle, #333, #111);
     border: 2px solid #555;
     border-radius: 50%;
@@ -111,13 +120,28 @@ body {
 
 .knob-indicator {
     position: absolute;
-    top: 5px;
+    /* Anchored to the middle of whatever carries it, not to a fixed distance
+       from its top.
+
+       `top: 5px` with `transform-origin: 50% 15px` put the pivot 20px below the
+       container's top edge, which is the centre of a 40px knob and of nothing
+       else. Three controls share this class at sizes from 12px to 44px, and
+       measuring them found every single indicator turning about a point that
+       was not its control's centre - by 2px on a minimal knob, by 6-24px on the
+       `irl` ones, and by up to 29px on a switch, where the pivot fell outside
+       the control altogether.
+
+       Sitting the indicator's foot on the container's centre and turning it
+       about that foot is correct at every size, so it needs no numbers per
+       control. The length is a fraction for the same reason: 38% of a 40px knob
+       is the 15px this used to be, so the control that was right stays put. */
+    top: 50%;
     left: 50%;
     width: 2px;
-    height: 15px;
+    height: 38%;
     background: #00ff88;
-    transform-origin: 50% 15px;
-    transform: translateX(-50%);
+    transform-origin: 50% 100%;
+    transform: translate(-50%, -100%);
     border-radius: 1px;
     box-shadow: 0 0 5px rgba(0, 255, 136, 0.8);
 }
@@ -937,6 +961,17 @@ body[data-ring="pinned"] {
 
 /* Wiring that leaves round the back reads as rear wiring wherever the device
    happens to be pointing. */
+/* The plug takes the colour of the lead wearing it - a rear cable's end stays
+   the rear colour, a drum lane's stays the lane tint - so there is one place
+   that decides what a lead looks like. `currentColor` is the fallback for a
+   renderer without `context-stroke`; it lands on the layer's own colour rather
+   than on nothing, so the ends degrade to visible instead of invisible. */
+.cable-end {
+    fill: currentColor;
+    fill: context-stroke;
+    stroke: none;
+}
+
 .cable.is-rear {
     stroke: var(--rad-rear);
 }

@@ -1255,8 +1255,13 @@ class EurorackModule {
         // mixer drawn and dead, which is the same defect `irl` knobs had.
         const indicator = knobEl.querySelector('.knob-indicator');
         if (indicator) {
+            // `translate(-50%, -100%)` puts the indicator's foot on the
+            // container's centre, which is what `transform-origin: 50% 100%`
+            // then turns about. Dropping the Y half here would leave the
+            // element drawn from the centre downwards and pivoting correctly,
+            // which looks like the dial is upside down rather than offset.
             indicator.style.transform =
-                `translateX(-50%) rotate(${parameter.rotation}deg)`;
+                `translate(-50%, -100%) rotate(${parameter.rotation}deg)`;
         }
         knobEl.style?.setProperty?.('--value', String(parameter.fraction));
 
@@ -1557,6 +1562,7 @@ class PatchBayManager {
         this.connections = [];
         this.activeJack = null;
         this.svg = document.getElementById('patch-cables');
+
         // Falls back to the single layer, so a harness that registers one SVG
         // still draws every cable rather than silently losing the occluded
         // ones into an element that is not there.
@@ -1806,6 +1812,15 @@ class PatchBayManager {
         this.svg.replaceChildren();
         if (this.behindLayer() !== this.svg) this.behindLayer().replaceChildren();
 
+        // After the clear, not before it. Defining the marker in the
+        // constructor put it in a layer that `replaceChildren` empties on the
+        // very first redraw, so every lead referenced a marker that no longer
+        // existed and simply drew without ends - visibly nothing, which is the
+        // worst way for this to fail. Both layers get one: a marker resolves
+        // against the root its referencing path sits in, and these are two.
+        PatchBayManager.defineCableEnd(this.svg);
+        PatchBayManager.defineCableEnd(this.behindLayer());
+
         this.connections.forEach(conn => {
             const drawn = this.createCable(conn.source, conn.target);
             conn.cable = drawn?.path || null;
@@ -1997,6 +2012,57 @@ class PatchBayManager {
         return Math.min(1, Math.max(0, mine + offset));
     }
 
+    // The moulded end of a plug, drawn where a lead meets a socket.
+    //
+    // A stroked path has the same weight along its whole length, so a lead
+    // reads as a line that stops rather than as something with two ends. This
+    // is a marker rather than extra geometry in the path: `orient="auto"` turns
+    // it to the tangent, so it follows a curve without anything computing an
+    // angle, and `markerUnits="strokeWidth"` scales it with the lead so a thin
+    // strand in a lane does not wear a plug meant for a full-weight cable.
+    //
+    // The shape is a shallow trapezium, wide where it meets the socket and
+    // narrowing back into the cable - the bevel is what implies a shell around
+    // the conductor. It is deliberately small: at a glance the run should still
+    // read as one line, and the ends should only be apparent when looked at.
+    //
+    // `context-stroke` makes it take the colour of the lead referencing it,
+    // which is what keeps a rear cable's plug the rear colour and a drum lane's
+    // the lane tint. A palette token would have been a second place to change.
+    static defineCableEnd(layer) {
+        if (!layer || layer.querySelector('#cable-end')) return null;
+        const NS = 'http://www.w3.org/2000/svg';
+        // Appended rather than inserted first. An SVG reference resolves by
+        // id wherever the definition sits, and `insertBefore` is one more
+        // method a minimal DOM has to implement - the node harnesses caught
+        // exactly that, which is what they are for.
+        let defs = layer.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS(NS, 'defs');
+            layer.appendChild(defs);
+        }
+
+        const marker = document.createElementNS(NS, 'marker');
+        marker.setAttribute('id', 'cable-end');
+        marker.setAttribute('viewBox', '0 0 4 4');
+        marker.setAttribute('refX', '3.2');       // sits just inside the socket
+        marker.setAttribute('refY', '2');
+        marker.setAttribute('markerWidth', '3.2');
+        marker.setAttribute('markerHeight', '3.2');
+        marker.setAttribute('markerUnits', 'strokeWidth');
+        marker.setAttribute('orient', 'auto');
+
+        const shell = document.createElementNS(NS, 'path');
+        // Narrow at the cable end, wide at the socket end: the two sloped sides
+        // are the bevel.
+        shell.setAttribute('d', 'M 0 1.15 L 2.6 0.35 L 4 0.35 L 4 3.65 '
+                              + 'L 2.6 3.65 L 0 2.85 Z');
+        shell.setAttribute('class', 'cable-end');
+        marker.appendChild(shell);
+        defs.appendChild(marker);
+        return marker;
+    }
+
     // A small ring where a cable meets a device it enters out of sight, so the
     // hidden end reads as an endpoint rather than as the line stopping.
     createAnchorMark(at, side) {
@@ -2119,7 +2185,7 @@ class PatchBayManager {
                     hidden: from.hidden && to.hidden,
                 }];
 
-            pieces.forEach(piece => {
+            pieces.forEach((piece, index_of_piece) => {
                 const path = document.createElementNS(
                     'http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', piece.curve);
@@ -2141,6 +2207,25 @@ class PatchBayManager {
                     if (lane.channel === DRUM_CHANNEL) classes.push('is-drums');
                 }
                 path.setAttribute('class', classes.join(' '));
+
+                // Only where the lead actually meets a socket, and only once
+                // per socket. A cable split in two pieces has an inner end that
+                // is the join, not a plug, and marking that would draw a
+                // connector in mid-air. A lead carrying several channels is
+                // drawn as several strands that converge on one socket, so only
+                // the first wears the plug - measured before this line existed,
+                // a four-lane USB lead wore eight.
+                const wearsPlug = !lane || index === 0;
+                if (!wearsPlug) {
+                    // nothing: this strand runs into a plug its neighbour draws
+                } else if (pieces.length === 1) {
+                    path.setAttribute('marker-start', 'url(#cable-end)');
+                    path.setAttribute('marker-end', 'url(#cable-end)');
+                } else if (index_of_piece === 0) {
+                    path.setAttribute('marker-start', 'url(#cable-end)');
+                } else {
+                    path.setAttribute('marker-end', 'url(#cable-end)');
+                }
 
                 if (lane) {
                     path.setAttribute('data-channel', String(lane.channel));
