@@ -103,7 +103,7 @@ measurement to the wrong session.
 is a service that binds port 0 and writes a run-file to a machine-scoped
 directory. That is declined in [../GOVERNANCE.md](../GOVERNANCE.md): it governs
 services a monitor watches in the internal control plane, and Carlos is a
-browser application whose whole point is that `localhost:8000` means it every
+browser application whose whole point is that `localhost:4186` means it every
 time. `CARLOS_HOST`, `CARLOS_PORT` and `CARLOS_DB` move it per process without
 editing anything committed.
 
@@ -177,7 +177,7 @@ keeping the routing, so a patch can be shared as a wiring idea without sharing
 the sound. What comes out is still a valid patch document.
 
 ```sh
-curl -s -X POST http://127.0.0.1:8000/api/transforms/patchbay \
+curl -s -X POST http://127.0.0.1:4186/api/transforms/patchbay \
   -H 'Content-Type: application/json' \
   --data-binary @catalogue/examples/squarp.hapax.complex.json
 ```
@@ -216,7 +216,7 @@ in the file.
 ### Planning a call
 
 ```sh
-curl -s -X POST http://127.0.0.1:8000/api/peers/stage-plot/render/plan \
+curl -s -X POST http://127.0.0.1:4186/api/peers/stage-plot/render/plan \
   -H 'Content-Type: application/json' \
   --data-binary @catalogue/examples/allen-heath.qu24.complex.json
 ```

@@ -23,7 +23,7 @@ uv run pytest tests walkthrough --doctest-glob=*.md
 | `carlos check` | The suite **and** the walkthrough. Run this before a pull request |
 | `carlos harness` | The five frontend harnesses, under Node. Name one to run just it |
 | `carlos browser` | The browser suite, in real Chromium |
-| `carlos serve` | Run the app, on a predictable port |
+| `carlos dev` | Run the app, on a predictable port |
 | `carlos stop` | Free the port, and prove it is free |
 | `carlos shots` | Regenerate the walkthrough screenshots |
 | `carlos gates` | The governance gates, as CI runs them |
@@ -35,7 +35,7 @@ other, so a round the CLI grows and this page does not name is a failing test:
 
 ```python
 >>> sorted(cli.main.commands)
-['browser', 'check', 'gates', 'harness', 'release-check', 'serve', 'shots',
+['browser', 'check', 'dev', 'gates', 'harness', 'release-check', 'shots',
  'signatures', 'status', 'stop']
 
 ```
@@ -65,7 +65,7 @@ server that answered left a parent to spawn another. Restart by hand after any
 change under `src/`. Templates and static files are a browser refresh.
 
 **Open the address the server prints, not the one uvicorn prints.** uvicorn
-announces its bind, `0.0.0.0:8000`, which no browser will open — Chrome says
+announces its bind, `0.0.0.0:4186`, which no browser will open — Chrome says
 `ERR_ADDRESS_INVALID`. Carlos prints the reachable ones above it: loopback, and
 this machine's address on the network for testing from a phone. And if the port
 is already taken it says so and stops, rather than printing an address that

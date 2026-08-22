@@ -118,7 +118,7 @@ Enumerating a conflict is not waiving it.
 | No service inventory | open-license §6 | No scanner can produce it, which is why it is written down |
 | No control-plane record | build-the-seam §4 | Names what the seam owns and what it refuses to own |
 | ~~`/healthz` cannot say which instance answered~~ | monitoring-seam §5 | **Closed.** It reports instance, start time, the port actually bound and the resolved database path. The port is read off the connection rather than off settings, because a process serving somewhere other than where it was configured is the case worth catching |
-| Port-0 discovery and a run-file are declined | monitoring-seam §4 | That clause governs services a monitor watches in the internal control plane. Carlos is a browser application whose whole point is a predictable address, and binding port 0 would stop it being a thing you open at `localhost:8000`. §5 is met the other way, by the endpoint saying which instance answered; `CARLOS_HOST`, `CARLOS_PORT` and `CARLOS_DB` move a process without editing anything committed. What is not met is discovery: a collector has to be told where to look |
+| Port-0 discovery and a run-file are declined | monitoring-seam §4 | That clause governs services a monitor watches in the internal control plane. Carlos is a browser application whose whole point is a predictable address, and binding port 0 would stop it being a thing you open at `localhost:4186`. §5 is met the other way, by the endpoint saying which instance answered; `CARLOS_HOST`, `CARLOS_PORT` and `CARLOS_DB` move a process without editing anything committed. What is not met is discovery: a collector has to be told where to look |
 
 ## What Grew Since Adoption Started
 

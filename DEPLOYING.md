@@ -17,10 +17,10 @@ service. `DRAFT-build-the-seam-buy-the-engines.md` is why it stays that shape.
 
 ```sh
 docker build -t carlos .
-docker run --rm -p 8000:8000 -v carlos-data:/app/data carlos
+docker run --rm -p 4186:4186 -v carlos-data:/app/data carlos
 ```
 
-Then `http://localhost:8000`.
+Then `http://localhost:4186`.
 
 Two stages: the builder resolves dependencies with the same `uv` and the same
 `uv.lock` the tests ran under, and the runtime carries the result and nothing
@@ -44,7 +44,7 @@ committed address publishes one workstation as a fact.
 | Variable | Default | What it decides |
 | --- | --- | --- |
 | `CARLOS_HOST` | `0.0.0.0` | Which interfaces to bind. Every one, in the image: the thing reaching a container is outside it. |
-| `CARLOS_PORT` | `8000` | The port. Predictable on purpose — this is a thing you open in a browser. |
+| `CARLOS_PORT` | `4186` | The port. Predictable on purpose — this is a thing you open in a browser. 4186 Hz is C8, the top note of a piano; it is out of the way of the ports a developer already has something on. |
 | `CARLOS_DB` | `data/db.json` | The TinyDB file. `/app/data/db.json` in the image, which is the mounted volume. |
 | `CARLOS_FORWARDED_ALLOW_IPS` | `127.0.0.1` | Which proxies are believed about the scheme and host in front of this. |
 | `CARLOS_RELOAD` | off | Do not turn this on. See below. |
@@ -88,7 +88,7 @@ holds anything.
 ```json
 {"ok": true, "app": "Carlos", "version": "0.0.0",
  "instance": "8e03b9a7923b", "pid": 16108, "started_at": "...",
- "port": 8000, "host": "0.0.0.0", "database": "/app/data/db.json",
+ "port": 4186, "host": "0.0.0.0", "database": "/app/data/db.json",
  "generated_at": "..."}
 ```
 

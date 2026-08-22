@@ -72,7 +72,7 @@ def _free_port() -> int:
 class LiveApp:
     """The real application, served on a port of its own.
 
-    A port of its own rather than 8000: a developer's own server is usually up,
+    A port of its own rather than 4186: a developer's own server is usually up,
     and a page that quietly measured *that* would be testing whatever code
     happened to be running rather than the code in the tree.
     """

@@ -67,7 +67,7 @@ Git Bash but **not** under PowerShell, which needs the absolute path.
 uv sync
 uv run playwright install chromium   # once, for the runtime-bound page
 uv run carlos check                  # the suite and the pages
-uv run carlos serve                  # http://localhost:8000 (not the 0.0.0.0 uvicorn prints)
+uv run carlos dev                  # http://localhost:4186 (not the 0.0.0.0 uvicorn prints)
 uv run carlos stop                   # which is its own round here
 ```
 
@@ -268,9 +268,9 @@ tests down.
   so a custom property could not be read back. **A stub that forgets does not
   model a thin DOM, it models a lying one.**
 - **`pkill -f` does not stop the server here, and the port does not tell you.**
-  Windows left three uvicorn processes bound to `:8000` at once. `/healthz`
+  Windows left three uvicorn processes bound to `:4186` at once. `/healthz`
   answered from an hour-old one, so a restarted server looked healthy while
-  serving code from before the change. `netstat -ano | grep :8000` shows how
+  serving code from before the change. `netstat -ano | grep :4186` shows how
   many are really listening; kill by PID with `taskkill //F //PID`.
   **Count the listeners before trusting a response** - and `/healthz` reports
   `instance` and `started_at`, so if the id is not the one you just started you

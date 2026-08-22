@@ -216,7 +216,7 @@ separate decision, and it is blocked on the datastore question recorded in
 [GOVERNANCE.md](../GOVERNANCE.md).
 
 ```sh
-curl -s -X POST http://127.0.0.1:8000/api/patch/validate \
+curl -s -X POST http://127.0.0.1:4186/api/patch/validate \
   -H 'Content-Type: application/json' \
   -d '{"format":"carlos.patch","version":1,"modules":[],"connections":[]}'
 ```

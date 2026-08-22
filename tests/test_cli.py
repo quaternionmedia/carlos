@@ -37,7 +37,7 @@ ROUNDS = {
         "python governance/qm/project-seed/ci/check_signatures.py "
         "--base-ref they --head-ref HEAD --source git"
     ),
-    "serve": "uv run python src/main.py",
+    "dev": "uv run python src/main.py",
 }
 
 

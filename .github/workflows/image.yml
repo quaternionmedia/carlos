@@ -42,12 +42,12 @@ jobs:
 
       - name: Start it
         run: |
-          docker run -d --name carlos -p 8000:8000 carlos:ci
+          docker run -d --name carlos -p 4186:4186 carlos:ci
           # Wait for the app, not for a number of seconds. A sleep long enough
           # for a slow runner is a sleep wasted on every fast one, and a sleep
           # short enough to be quick is a flake.
           for attempt in $(seq 60); do
-            if curl -fsS http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+            if curl -fsS http://127.0.0.1:4186/healthz >/dev/null 2>&1; then
               echo "up after ${attempt} attempt(s)"
               exit 0
             fi
@@ -59,7 +59,7 @@ jobs:
 
       - name: It says which instance answered
         run: |
-          curl -fsS http://127.0.0.1:8000/healthz | tee /tmp/health.json
+          curl -fsS http://127.0.0.1:4186/healthz | tee /tmp/health.json
           python - <<'PY'
           import json, sys
           said = json.load(open('/tmp/health.json'))
@@ -73,15 +73,15 @@ jobs:
         run: |
           # The bare port keeps the query it was given.
           landed=$(curl -fsS -o /dev/null -w '%{http_code} %{redirect_url}' \
-            'http://127.0.0.1:8000/?patch=demo')
+            'http://127.0.0.1:4186/?patch=demo')
           echo "bare port: ${landed}"
           case "${landed}" in
             "307 "*"/rack?patch=demo") ;;
             *) echo "::error::bare port answered '${landed}'"; exit 1 ;;
           esac
 
-          curl -fsS http://127.0.0.1:8000/rack | grep -q 'id="rack"'
-          curl -fsS http://127.0.0.1:8000/api/opening | grep -q 'carlos.patch'
+          curl -fsS http://127.0.0.1:4186/rack | grep -q 'id="rack"'
+          curl -fsS http://127.0.0.1:4186/api/opening | grep -q 'carlos.patch'
 
       - name: It answers the methods a load balancer sends
         run: |
@@ -89,7 +89,7 @@ jobs:
           # is an instance marked down.
           for path in / /rack /healthz; do
             code=$(curl -fsS -o /dev/null -w '%{http_code}' -I \
-              "http://127.0.0.1:8000${path}" || true)
+              "http://127.0.0.1:4186${path}" || true)
             echo "HEAD ${path} -> ${code}"
             case "${code}" in
               200|307) ;;

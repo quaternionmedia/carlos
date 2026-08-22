@@ -129,7 +129,7 @@ channel 10, and drawing one strand per binding on a patch lead would invent a
 distinction the cable does not make.
 
 ```sh
-curl -s -X POST http://127.0.0.1:8000/api/midi/route \
+curl -s -X POST http://127.0.0.1:4186/api/midi/route \
   -H 'Content-Type: application/json' \
   -d '{"bindings":[{"id":"kick","module":"dfam",
        "source":{"type":"note","channel":10,"note":36}}],
@@ -148,10 +148,10 @@ exposed on a secure origin. Measured in Chromium against this server:
 
 | Opened at | `isSecureContext` | `navigator.requestMIDIAccess` |
 |---|---|---|
-| `http://127.0.0.1:8000` | `true` | present |
-| `http://192.168.1.151:8000` | `false` | **absent** |
+| `http://127.0.0.1:4186` | `true` | present |
+| `http://192.168.1.151:4186` | `false` | **absent** |
 
-`carlos serve` prints the LAN address at startup and the onboarding page
+`carlos dev` prints the LAN address at startup and the onboarding page
 recommends it for an on-device test, so this is easy to hit — and until now the
 app reported *"this browser has no Web MIDI"*, which blamed the wrong thing. It
 says `insecure-context` now.
@@ -160,10 +160,10 @@ Three ways out, cheapest first:
 
 ```sh
 # 1. open it on the machine that is serving
-http://localhost:8000
+http://localhost:4186
 
 # 2. or forward the port, so it arrives as localhost on the far end
-ssh -L 8000:localhost:8000 <host>
+ssh -L 4186:localhost:4186 <host>
 
 # 3. or put it behind HTTPS
 ```

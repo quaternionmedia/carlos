@@ -58,7 +58,7 @@ that, and `carlos --help` lists them all.
 | --- | --- |
 | `carlos check` | The suite **and** the walkthrough. What to run before a pull request |
 | `carlos harness` | The five frontend harnesses, under Node |
-| `carlos serve` | Run the app |
+| `carlos dev` | Run the app, on :4186 |
 | `carlos stop` | Free the port, and prove it is free |
 | `carlos shots` | Regenerate the walkthrough screenshots |
 | `carlos gates` | The governance gates, as CI runs them |
@@ -77,10 +77,10 @@ fails. On a fresh checkout, `uv run playwright install chromium` once.
 **2. Start the server.**
 
 ```bash
-uv run carlos serve
+uv run carlos dev
 ```
 
-Open `http://localhost:8000` and you are in the workspace, at `/rack`. There was
+Open `http://localhost:4186` and you are in the workspace, at `/rack`. There was
 a splash saying what this is, on the reasoning that opening a rack is a thing
 you choose — the rack answers that better than a page about it did. It opens on
 a rig, and the bar across the top says what the rack is and what this build is.
@@ -141,7 +141,7 @@ as staleness nobody sees.
 To pick the port:
 
 ```bash
-uv run carlos serve --port 8123
+uv run carlos dev --port 8123
 ```
 
 ## Current Features

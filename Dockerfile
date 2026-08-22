@@ -51,7 +51,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
     # Every interface, because the thing reaching this is outside the
     # container. See `DEPLOYING.md` for what that does and does not mean.
     CARLOS_HOST=0.0.0.0 \
-    CARLOS_PORT=8000 \
+    CARLOS_PORT=4186 \
     # The database is a file. A named volume mounted here is what makes a
     # patch outlive the container.
     CARLOS_DB=/app/data/db.json
@@ -60,14 +60,14 @@ RUN mkdir -p /app/data && chown carlos:carlos /app/data
 VOLUME ["/app/data"]
 
 USER carlos
-EXPOSE 8000
+EXPOSE 4186
 
 # The probe the app already had, asked the way an orchestrator asks it. `/healthz`
 # answers HEAD as well as GET, and reports which instance answered — so a probe
 # that comes back from a container you thought you had replaced says so.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request,sys; \
-sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2).status == 200 else 1)"
+sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:4186/healthz', timeout=2).status == 200 else 1)"
 
 # `src/main.py` and not `uvicorn` directly, because that entry point is where
 # the settings live: the bind, the proxy trust, and the reload that is off. A
