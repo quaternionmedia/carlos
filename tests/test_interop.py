@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import unittest
+from typing import get_args
 from pathlib import Path
 from unittest import mock
 
@@ -41,6 +42,91 @@ class TransformTests(unittest.TestCase):
         self.assertNotIn("connections_detail", result)
         self.assertIn("semi-modular", result["by_category"])
 
+    def test_summary_counts_the_plugs_as_well_as_the_signals(self):
+        # Two axes, two counts. A rack of nine 3.5mm leads and a rack of nine
+        # XLRs are both `by_signal: {audio: 9}` and are not the same rack.
+        result = interop.apply_transform("summary", self.patch)
+
+        self.assertIn("by_connector", result)
+        self.assertEqual(
+            sum(result["by_connector"].values()), len(self.patch.connections)
+        )
+        for connector in result["by_connector"]:
+            self.assertIn(connector, get_args(catalogue.Connector))
+
+    def test_summary_says_which_adapters_a_build_would_need(self):
+        result = interop.apply_transform("summary", self.patch)
+
+        self.assertIn("adapters_needed", result)
+        # Every entry names a real pair, and only pairs that genuinely need one.
+        for pair, count in result["adapters_needed"].items():
+            one, other = pair.split(" to ")
+            self.assertEqual(catalogue.connector_fit(one, other), "adapter")
+            self.assertGreater(count, 0)
+
+    def test_a_rack_that_needs_an_adapter_reports_it(self):
+        """The counter is only meaningful if something can land in it.
+
+        An empty dict passes the test above whatever the rule does, so this
+        builds a patch that genuinely needs an adapter and looks for it.
+        """
+        devices = catalogue.load_all()
+        pairs = []
+        for device in devices.values():
+            for jack in device.jacks:
+                pairs.append((device, jack))
+
+        source = target = None
+        for one_device, one in pairs:
+            for other_device, other in pairs:
+                if one.type != "output" or other.type != "input":
+                    continue
+                if catalogue.connector_fit(one.connector, other.connector) != (
+                    "adapter"
+                ):
+                    continue
+                source = (one_device, one)
+                target = (other_device, other)
+                break
+            if source:
+                break
+        self.assertIsNotNone(source, "no two sockets in the catalogue need one")
+
+        patch = patch_format.Patch(
+            format="carlos.patch",
+            version=1,
+            name="needs an adapter",
+            modules=[
+                patch_format.ModuleState(id="a", type=source[0].id),
+                patch_format.ModuleState(id="b", type=target[0].id),
+            ],
+            connections=[
+                patch_format.Connection(
+                    source=patch_format.Endpoint(
+                        module="a", jack=source[1].name
+                    ),
+                    target=patch_format.Endpoint(
+                        module="b", jack=target[1].name
+                    ),
+                )
+            ],
+        )
+        result = interop.apply_transform("summary", patch)
+        self.assertEqual(
+            result["adapters_needed"],
+            {f"{source[1].connector} to {target[1].connector}": 1},
+        )
+
+    def test_patchbay_reports_the_plug_on_each_end(self):
+        result = interop.apply_transform("patchbay", self.patch)
+
+        for cable in result["cables"]:
+            with self.subTest(cable["text"]):
+                for end in ("from", "to"):
+                    self.assertIn(
+                        cable[end]["connector"], get_args(catalogue.Connector)
+                    )
+
     def test_patchbay_resolves_labels_from_the_catalogue(self):
         result = interop.apply_transform("patchbay", self.patch)
 
@@ -75,7 +161,7 @@ class TransformTests(unittest.TestCase):
             category="eurorack",
             summary="A device that sockets on its left, for this test.",
             jacks=[{"name": "left_in", "label": "LEFT IN", "type": "input",
-                    "signal": "audio", "side": "left"}],
+                    "signal": "audio", "connector": "1/4in", "side": "left"}],
             parameters=[],
         )
         document = {

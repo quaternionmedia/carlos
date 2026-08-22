@@ -96,10 +96,23 @@ def _summary(patch: patch_format.Patch) -> dict:
         makers[device.maker if device else "unknown"] += 1
 
     signals = Counter()
+    connectors = Counter()
+    # What a build would actually have to buy. A rack that needs nine adapters
+    # is a different rack from one that needs none, and the difference is
+    # invisible if only the signal is counted.
+    adapters = Counter()
     for cable in patch.connections:
         _, device = _device_of(patch, cable.source.module)
         jack = device.jack(cable.source.jack) if device else None
         signals[jack.signal if jack else "unknown"] += 1
+        connectors[jack.connector if jack else "unknown"] += 1
+
+        _, other_device = _device_of(patch, cable.target.module)
+        other = other_device.jack(cable.target.jack) if other_device else None
+        if jack and other and catalogue.connector_fit(
+            jack.connector, other.connector
+        ) == "adapter":
+            adapters[f"{jack.connector} to {other.connector}"] += 1
 
     return {
         "name": patch.name,
@@ -108,6 +121,8 @@ def _summary(patch: patch_format.Patch) -> dict:
         "by_category": dict(categories),
         "by_maker": dict(makers),
         "by_signal": dict(signals),
+        "by_connector": dict(connectors),
+        "adapters_needed": dict(adapters),
     }
 
 
@@ -134,12 +149,18 @@ def _patchbay(patch: patch_format.Patch) -> dict:
                 "jack": src_jack.label if src_jack else cable.source.jack,
                 "side": src_jack.side if src_jack else "unknown",
                 "signal": src_jack.signal if src_jack else "unknown",
+                "connector": (
+                    src_jack.connector if src_jack else "unknown"
+                ),
             },
             "to": {
                 "device": name(dst_module, dst_device),
                 "jack": dst_jack.label if dst_jack else cable.target.jack,
                 "side": dst_jack.side if dst_jack else "unknown",
                 "signal": dst_jack.signal if dst_jack else "unknown",
+                "connector": (
+                    dst_jack.connector if dst_jack else "unknown"
+                ),
             },
             "text": (
                 f"{name(src_module, src_device)} "

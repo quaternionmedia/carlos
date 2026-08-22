@@ -51,9 +51,23 @@ thing you play a modular drum rig *from* rather than a drum machine itself:
 
 ```python
 >>> [(j.label, j.signal) for j in grid.jacks]
-[('USB-C', 'usb'), ('MIDI OUT', 'midi')]
+[('USB-C', 'midi'), ('MIDI OUT', 'midi')]
 
 ```
+
+Both sockets send the same thing, and they are not the same socket. What a
+socket carries, what carries it, and what plugs into it are three questions:
+
+```python
+>>> [(j.label, j.signal, j.carrier, j.connector) for j in grid.jacks]
+[('USB-C', 'midi', 'usb', 'USB-C'), ('MIDI OUT', 'midi', 'direct', '3.5mm')]
+
+```
+
+That is the difference between a lead to a laptop and a lead to the rack — and
+it is why the two ends of a cable are drawn with the plugs actually on them.
+The catalogue used to answer `usb` to the first question, which is not a signal;
+the port's own note says what it carries.
 
 Sixty-four pads, and sixteen more buttons around them:
 

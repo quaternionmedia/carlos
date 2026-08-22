@@ -51,8 +51,8 @@ system and the addressing scheme cannot disagree.
       "label": "INPUT 1",
       "type": "input",
       "signal": "audio",
-      "side": "front",
       "connector": "XLR/TRS combo",
+      "side": "front",
       "note": "Mic, line or instrument."
     }
   ],
@@ -80,10 +80,38 @@ system and the addressing scheme cannot disagree.
 | `name` | Stable, unique within the device. Referred to by patch documents. |
 | `label` | What is silkscreened next to the socket. Shown in the UI. |
 | `type` | `input` or `output`. |
-| `signal` | `audio`, `cv`, `gate`, `clock`, `midi`, `usb`, `network`, `digital`, `power`. |
+| `signal` | What is in the wire: `audio`, `cv`, `gate`, `clock`, `midi`, `digital`, `data`, `power`. |
+| `carrier` | What carries it: `direct`, `usb` or `network`. Defaults to `direct`. |
+| `connector` | What plugs in: `3.5mm`, `1/4in`, `XLR`, `XLR/TRS combo`, `DIN-5`, `USB-A`, `USB-B`, `USB-C`, `RJ45`, `IDC-16`. Required. |
 | `side` | `front`, `back`, `top`, `bottom`, `left` or `right`. Defaults to `front`. |
-| `connector` | Free text: `3.5mm`, `1/4in`, `XLR`, `DIN-5`, `USB-C`, … |
 | `note` | Anything a patcher would want to know. |
+
+**A socket answers three questions, and they are not the same question.** What
+is in the wire, what carries it, and what physically plugs in. They were one
+field once: `signal` held `usb` and `network`, which are neither of them
+signals, and the rules built on top inherited the muddle. Bus-ness was treated
+as a property of a signal, so an RJ45 snake — every bit as shared and
+bidirectional as USB — was not a bus. MIDI's sixteen channels were treated as a
+property of USB, so a USB *audio* interface link counted as sixteen channels
+while the DIN cable beside it did not. Splitting the axes is what lets each rule
+be stated where it is true.
+
+`carrier` is checked against `connector` rather than trusted: a USB-B socket is
+a USB bus whatever an entry claims, so a mismatch is a load error. In practice
+it never needs writing down — it is `direct` unless the connector is a USB or an
+RJ45, and the loader will tell you if you disagree with it.
+
+`signal` names the **principal** signal. A bus genuinely carries more than one
+thing — a K.O. II's USB-C is *charging, MIDI and sample transfer* — and rather
+than model that, the catalogue names what you would patch it for and leaves the
+rest to `note`. That the port is a bus is already said by its carrier.
+
+**`connector` names the opening, not the wiring.** A balanced 1/4in TRS and an
+unbalanced 1/4in TS mate with the same socket, and fit is the question this axis
+exists to answer, so both are `1/4in`; where balance matters it is a `note`. The
+vocabulary is closed and the field is required — it was free text and read by
+nothing for long enough that `3.5mm`, `3.5mm TRS` and `TRS` all appeared in it,
+describing two different openings three ways.
 
 **Which side is a judgement, and it is about use rather than geometry.** The
 front is what a player reaches for while playing; the back is what a rack

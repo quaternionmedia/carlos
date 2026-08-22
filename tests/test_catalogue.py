@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -7,6 +8,8 @@ import unittest
 from pathlib import Path
 
 NODE = shutil.which("node")
+
+from typing import get_args
 
 from src import catalogue, patch_format
 from src.main import (
@@ -306,7 +309,7 @@ class CatalogueRejectionTests(unittest.TestCase):
             "category": "eurorack",
             "summary": "A device used only by the tests.",
             "jacks": [
-                {"name": "out", "label": "OUT", "type": "output", "signal": "audio"}
+                {"name": "out", "label": "OUT", "type": "output", "signal": "audio", "connector": "1/4in"}
             ],
             "parameters": [{"name": "level", "label": "LEVEL"}],
         }
@@ -339,7 +342,7 @@ class CatalogueRejectionTests(unittest.TestCase):
 
     def test_duplicate_jack_names_are_refused(self):
         self.valid["jacks"].append(
-            {"name": "out", "label": "OUT 2", "type": "output", "signal": "audio"}
+            {"name": "out", "label": "OUT 2", "type": "output", "signal": "audio", "connector": "1/4in"}
         )
         with self.assertRaises(catalogue.CatalogueError) as caught:
             catalogue.load_device(self._write(self.valid))
@@ -531,6 +534,158 @@ class CatalogueApiTests(unittest.TestCase):
     def test_examples_for_an_unknown_device_is_404(self):
         response = asyncio.run(catalogue_device_examples("roland.tr909"))
         self.assertEqual(response.status_code, 404)
+
+
+class ConnectorTablesAgreeAcrossTheSeamTests(unittest.TestCase):
+    """The mating rules exist twice, and this is what keeps the copies honest.
+
+    The browser has to answer `does this plug fit` during a drag, where waiting
+    on the server is not an option, so `models.js` carries the same tables
+    `catalogue.py` does. That is a real duplication, taken deliberately - and a
+    duplication nothing checks is how the connector axis got into this state in
+    the first place, recorded on every socket in the catalogue and read by
+    nothing.
+
+    These read the tables back out of the JavaScript rather than restating them,
+    so the test cannot drift from either side on its own.
+    """
+
+    def setUp(self):
+        self.models = Path("static/models.js").read_text(encoding="utf-8")
+
+    def _table(self, name):
+        """The keys and values of a `const NAME = { ... };` object literal."""
+        start = self.models.index(f"const {name} = {{")
+        end = self.models.index("};", start)
+        body = self.models[start:end]
+        pairs = re.findall(r"'([^']+)':\s*'([^']+)'", body)
+        return dict(pairs)
+
+    def _list_table(self, name):
+        """The same, for values that are arrays of strings."""
+        start = self.models.index(f"const {name} = {{")
+        end = self.models.index("};", start)
+        body = self.models[start:end]
+        out = {}
+        for key, items in re.findall(r"'([^']+)':\s*\[([^\]]*)\]", body):
+            out[key] = tuple(re.findall(r"'([^']+)'", items))
+        return out
+
+    def test_the_same_connectors_are_known_to_both(self):
+        # `CONNECTOR_LOOK` is the browser's complete list: every connector it
+        # can draw. Anything the catalogue accepts and the browser cannot draw
+        # would fall back to a plug that is not its own.
+        drawn = set(self._table("CONNECTOR_LOOK"))
+        declared = set(get_args(catalogue.Connector))
+        self.assertEqual(declared, drawn)
+
+    def test_the_carrier_each_connector_implies_agrees(self):
+        self.assertEqual(
+            catalogue.CARRIER_OF_CONNECTOR, self._table("CONNECTOR_CARRIER")
+        )
+
+    def test_what_a_socket_natively_accepts_agrees(self):
+        theirs = self._list_table("NATIVELY_ACCEPTS")
+        self.assertEqual(
+            {k: tuple(v) for k, v in catalogue.NATIVELY_ACCEPTS.items()}, theirs
+        )
+
+    def test_the_headers_agree(self):
+        start = self.models.index("const HEADER_CONNECTORS = new Set([")
+        end = self.models.index("]);", start)
+        theirs = set(re.findall(r"'([^']+)'", self.models[start:end]))
+        self.assertEqual(set(catalogue.HEADER_CONNECTORS), theirs)
+
+    def test_both_sides_mate_every_pair_the_same_way(self):
+        """Not just the tables - the answers they produce.
+
+        Equal tables and different logic would still be two rules, so this runs
+        the browser's own `connectorFit` over every pair of connectors and
+        compares it with the server's. A hundred questions, and cheap.
+
+        The first version of this test transcribed the JavaScript rule into the
+        test itself, which would have made three copies of a rule that was meant
+        to have two. `models.js` is loaded and asked instead.
+        """
+        if not NODE:
+            self.skipTest("node is not installed")
+        connectors = list(get_args(catalogue.Connector))
+        script = """
+            const fs = require('fs');
+            const path = require('path');
+            // argv is [node, this script, repo, connectors] when run as a file.
+            const REPO = path.resolve(process.argv[2]);
+            // The smallest document `models.js` needs to be evaluated at all.
+            // Nothing here is drawn: the question is arithmetic on two strings.
+            const el = () => ({
+                style: {}, dataset: {}, _attrs: {},
+                classList: { add() {}, remove() {}, toggle() {},
+                             contains: () => false },
+                setAttribute() {}, getAttribute: () => null,
+                appendChild() {}, querySelector: () => null,
+                querySelectorAll: () => [],
+                addEventListener() {}, removeEventListener() {},
+            });
+            global.document = {
+                body: el(), documentElement: el(),
+                createElement: el, createElementNS: el,
+                querySelector: () => null, querySelectorAll: () => [],
+                addEventListener() {}, removeEventListener() {},
+            };
+            global.anime = () => {};
+            const load = (f) => fs.readFileSync(path.join(REPO, f), 'utf8');
+            (0, eval)(load('static/rad-core.js') + load('static/models.js')
+                + '\\nglobalThis.Jack = Jack;');
+
+            const all = JSON.parse(process.argv[3]);
+            const out = {};
+            for (const a of all) {
+                for (const b of all) {
+                    // Real jacks, and the real method: a `direct` carrier on
+                    // both is irrelevant to fit, which asks only about plugs.
+                    const one = new Jack('a', 'output', 'audio', 'front', null,
+                                         null, { connector: a });
+                    const two = new Jack('b', 'input', 'audio', 'front', null,
+                                         null, { connector: b });
+                    const fit = one.connectorFit(two);
+                    out[a + '|' + b] = fit === false ? null : fit;
+                }
+            }
+            console.log(JSON.stringify(out));
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            runner = Path(tmp) / "fit.js"
+            runner.write_text(script, encoding="utf-8")
+            result = subprocess.run(
+                [NODE, str(runner), str(Path.cwd()), json.dumps(connectors)],
+                capture_output=True, text=True,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+        theirs = json.loads(result.stdout)
+
+        disagreements = []
+        for one in connectors:
+            for other in connectors:
+                mine = catalogue.connector_fit(one, other)
+                if mine != theirs[f"{one}|{other}"]:
+                    disagreements.append(
+                        f"{one} into {other}: python says {mine}, "
+                        f"the browser says {theirs[f'{one}|{other}']}"
+                    )
+        self.assertEqual(disagreements, [])
+
+    def test_that_comparison_could_have_failed(self):
+        """A hundred agreements mean nothing if the rule is trivial.
+
+        Both sides must produce all three answers, or a function returning one
+        constant would satisfy the pairwise test above.
+        """
+        answers = {
+            catalogue.connector_fit(one, other)
+            for one in get_args(catalogue.Connector)
+            for other in get_args(catalogue.Connector)
+        }
+        self.assertEqual(answers, {"native", "adapter", None})
 
 
 class FrontendCatalogueContractTests(unittest.TestCase):

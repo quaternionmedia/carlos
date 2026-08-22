@@ -42,7 +42,8 @@
       "name": "usb_device",
       "label": "USB DEVICE",
       "type": "input",
-      "signal": "usb",
+      "signal": "midi",
+      "carrier": "usb",
       "side": "back",
       "connector": "USB-B",
       "note": "To a computer."
@@ -51,7 +52,8 @@
       "name": "usb_host",
       "label": "USB HOST",
       "type": "output",
-      "signal": "usb",
+      "signal": "midi",
+      "carrier": "usb",
       "side": "back",
       "connector": "USB-A",
       "note": "To class-compliant MIDI gear."
