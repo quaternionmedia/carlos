@@ -2645,8 +2645,14 @@ class EurorackSystem {
 
             const header = document.createElement('div');
             header.className = 'rack-group-header';
+            // `group.label` comes from an imported document, and import
+            // validates ids, membership and versions but never a label's
+            // content. Every other interpolation in this file goes through
+            // `attr` and the status line is `textContent`; this was the one
+            // spot that did not, so a hostile patch could put markup on the
+            // page of whoever opened it.
             header.innerHTML = `
-                <span class="rack-group-label">${group.label}</span>
+                <span class="rack-group-label">${attr(group.label)}</span>
                 <span class="rack-group-count">${group.members.length}</span>
             `;
             const remove = document.createElement('button');

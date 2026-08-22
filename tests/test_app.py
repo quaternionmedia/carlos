@@ -443,6 +443,142 @@ class PatchEndpointTests(unittest.TestCase):
         self.assertIn(b"version 99", response.body)
 
 
+class MalformedInputIsAnsweredTests(unittest.TestCase):
+    """Ordinary bad input is the caller's to see, not this process's to raise on.
+
+    `midi.parse` checks that a byte is *present*, never that it is in range, and
+    `MidiMessage.value` is widened to 16383 for pitch bend so it no longer
+    constrains the 7-bit fields sharing it. Every case below raised past the
+    `MidiError` handler and became a 500 — including a single corrupted data
+    byte, which is the likeliest malformed input this endpoint will ever meet.
+
+    The sibling route already caught broadly and answered 422. The asymmetry was
+    the tell.
+    """
+
+    def answer(self, handler, payload):
+        result = asyncio.run(handler(dict(payload)))
+        code = getattr(result, "status_code", 200)
+        body = json.loads(result.body) if code != 200 else result
+        return code, body
+
+    def test_a_byte_out_of_range_is_refused_not_raised(self):
+        from src.main import midi_parse
+        for label, payload in (
+            ("note above 127", {"bytes": [144, 200, 100]}),
+            ("pitch bend past 16383", {"bytes": [224, 0, 200]}),
+        ):
+            with self.subTest(label):
+                code, body = self.answer(midi_parse, payload)
+                self.assertEqual(code, 422)
+                self.assertFalse(body["ok"])
+
+    def test_bytes_that_are_not_a_list_of_numbers_are_refused(self):
+        from src.main import midi_parse
+        for label, payload in (
+            ("a string", {"bytes": "hello"}),
+            ("null", {"bytes": None}),
+            ("floats", {"bytes": [1.5, 2, 3]}),
+        ):
+            with self.subTest(label):
+                code, _ = self.answer(midi_parse, payload)
+                self.assertEqual(code, 422)
+
+    def test_bindings_that_are_not_a_list_are_refused(self):
+        from src.main import midi_route
+        for label, payload in (
+            ("an int", {"bindings": 5, "bytes": [144, 36, 1]}),
+            ("null", {"bindings": None, "bytes": [144, 36, 1]}),
+        ):
+            with self.subTest(label):
+                code, body = self.answer(midi_route, payload)
+                self.assertEqual(code, 422)
+                self.assertIn("list", body["error"])
+
+    def test_a_valid_message_still_parses(self):
+        # The other half: a handler that refuses everything is not a fix.
+        from src.main import midi_parse
+        code, body = self.answer(midi_parse, {"bytes": [144, 36, 100]})
+        self.assertEqual(code, 200)
+        self.assertTrue(body["ok"])
+
+    def test_no_error_body_names_the_library_that_noticed(self):
+        """Pydantic's own string carries the model name, an echo of the input, a
+        `type=` code and a versioned docs URL — which tells a reader exactly
+        which advisories to look up. `patch_format._explain` exists to strip
+        that and the patch routes use it; the MIDI routes were the last ones
+        echoing the raw exception.
+        """
+        from src.main import midi_parse, midi_route
+        bodies = []
+        for handler, payload in (
+            (midi_parse, {"bytes": [144, 200, 100]}),
+            (midi_route, {"bindings": [], "message": {"type": "bogus"}}),
+        ):
+            code, body = self.answer(handler, payload)
+            self.assertEqual(code, 422)
+            bodies.append(body["error"])
+
+        for text in bodies:
+            with self.subTest(text[:40]):
+                for leak in ("pydantic", "errors.pydantic.dev", "MidiMessage",
+                             "input_value", "type=", "For further information"):
+                    self.assertNotIn(leak, text, f"error body names {leak}")
+
+
+class ReadableMeansSerialisableTests(unittest.TestCase):
+    """`validate` answers "is this readable before I act on it".
+
+    `"NaN"` and `"Infinity"` are valid JSON strings that pydantic coerces to
+    floats, so a document carrying one validated clean and then could not be
+    serialised: FastAPI's JSONResponse uses `allow_nan=False`, and the transform
+    raised at serialisation with the validator having passed it. A seam that
+    says yes to a document it then chokes on is answering the wrong question.
+    """
+
+    def doc(self, value):
+        return {
+            "format": "carlos.patch", "version": 3,
+            "modules": [{"id": "a", "type": "carlos.vco",
+                         "parameters": {"frequency": value}}],
+            "connections": [], "groups": [], "midi": [],
+        }
+
+    def test_a_patch_that_cannot_be_serialised_is_not_called_readable(self):
+        from src.main import validate_patch, apply_transform
+        for value in ("NaN", "Infinity", "-Infinity"):
+            with self.subTest(value):
+                answer = asyncio.run(validate_patch(self.doc(value)))
+                self.assertEqual(getattr(answer, "status_code", 200), 422)
+
+                moved = asyncio.run(apply_transform("identity", self.doc(value)))
+                self.assertEqual(getattr(moved, "status_code", 200), 422)
+
+    def test_an_ordinary_value_is_untouched(self):
+        from src.main import validate_patch, apply_transform
+        answer = asyncio.run(validate_patch(self.doc(64)))
+        self.assertEqual(getattr(answer, "status_code", 200), 200)
+        moved = asyncio.run(apply_transform("identity", self.doc(64)))
+        self.assertEqual(getattr(moved, "status_code", 200), 200)
+
+
+class ImportedTextIsEscapedTests(unittest.TestCase):
+    """A row label comes from a file somebody opened.
+
+    Import validates ids, membership and versions and never a label's content.
+    Every other interpolation in `models.js` goes through `attr` and the status
+    line is `textContent`; the row header was the one spot building `innerHTML`
+    from an imported string.
+    """
+
+    def test_the_group_header_escapes_its_label(self):
+        source = Path("static/models.js").read_text(encoding="utf-8")
+        self.assertIn(
+            'rack-group-label">${attr(group.label)}', source,
+            "the row header interpolates an imported label without escaping it",
+        )
+
+
 class DocumentedHealthTests(unittest.TestCase):
     """A probe's contract is the payload, so the docs get held to it.
 

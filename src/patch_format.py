@@ -15,7 +15,7 @@ lets them disagree, and a document that carries a contradiction has no correct
 reading.
 """
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import (
     BaseModel,
@@ -104,7 +104,16 @@ class ModuleState(BaseModel):
     id: str = Field(min_length=1)
     type: str = Field(min_length=1)
     view: Side = "front"
-    parameters: dict[str, float] = Field(default_factory=dict)
+    # `allow_inf_nan=False` because `"NaN"` and `"Infinity"` are valid JSON
+    # strings that pydantic coerces to floats, and the seam then cannot serialise
+    # what it accepted. `/api/patch/validate` exists so a peer can ask "is this
+    # readable before I act on it" and it answered yes to a document
+    # `/api/transforms/...` chokes on: FastAPI's JSONResponse uses
+    # `allow_nan=False`, so the transform raised at serialisation with the
+    # validator having passed it. The refusal belongs at the point the question
+    # is asked.
+    parameters: dict[str, Annotated[float, Field(allow_inf_nan=False)]] = Field(
+        default_factory=dict)
 
 
 class Group(BaseModel):

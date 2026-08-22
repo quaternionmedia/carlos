@@ -67,12 +67,19 @@ listening socket with nothing behind it.
 
 ## Persistence
 
-`data/db.json`, and that is all of it. Mount a volume at `/app/data` or the
-rack is gone with the container.
+**Nothing is persisted, and the database is not yet a database.**
+`src/db.py` opens `data/db.json` at startup, declares a `patches` table, and
+closes it at shutdown. No route reads or writes it — the file on a machine that
+has been serving all day is zero bytes. It is a seam waiting for a feature, not
+storage this build uses.
 
-**Patch persistence is not built.** The database exists and is written to; what
-is not there is saving and reopening a named patch. Export and import are the
-current answer, and they are files a person handles.
+Mounting a volume at `/app/data` therefore preserves nothing today. Do it
+anyway if you like: it costs nothing and it is where persistence will land.
+
+**Patch persistence is not built.** Export and import are the current answer,
+and they are files a person handles. `/healthz` reports the resolved database
+path, which is how two clones are told apart rather than a claim that either
+holds anything.
 
 ## Health
 
