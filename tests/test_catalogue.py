@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -7,6 +8,8 @@ import unittest
 from pathlib import Path
 
 NODE = shutil.which("node")
+
+from typing import get_args
 
 from src import catalogue, patch_format
 from src.main import (
@@ -306,7 +309,7 @@ class CatalogueRejectionTests(unittest.TestCase):
             "category": "eurorack",
             "summary": "A device used only by the tests.",
             "jacks": [
-                {"name": "out", "label": "OUT", "type": "output", "signal": "audio"}
+                {"name": "out", "label": "OUT", "type": "output", "signal": "audio", "connector": "1/4in"}
             ],
             "parameters": [{"name": "level", "label": "LEVEL"}],
         }
@@ -339,7 +342,7 @@ class CatalogueRejectionTests(unittest.TestCase):
 
     def test_duplicate_jack_names_are_refused(self):
         self.valid["jacks"].append(
-            {"name": "out", "label": "OUT 2", "type": "output", "signal": "audio"}
+            {"name": "out", "label": "OUT 2", "type": "output", "signal": "audio", "connector": "1/4in"}
         )
         with self.assertRaises(catalogue.CatalogueError) as caught:
             catalogue.load_device(self._write(self.valid))
@@ -531,6 +534,229 @@ class CatalogueApiTests(unittest.TestCase):
     def test_examples_for_an_unknown_device_is_404(self):
         response = asyncio.run(catalogue_device_examples("roland.tr909"))
         self.assertEqual(response.status_code, 404)
+
+
+class ConnectorTablesAgreeAcrossTheSeamTests(unittest.TestCase):
+    """The mating rules exist twice, and this is what keeps the copies honest.
+
+    The browser has to answer `does this plug fit` during a drag, where waiting
+    on the server is not an option, so `models.js` carries the same tables
+    `catalogue.py` does. That is a real duplication, taken deliberately - and a
+    duplication nothing checks is how the connector axis got into this state in
+    the first place, recorded on every socket in the catalogue and read by
+    nothing.
+
+    These read the tables back out of the JavaScript rather than restating them,
+    so the test cannot drift from either side on its own.
+    """
+
+    def setUp(self):
+        self.models = Path("static/models.js").read_text(encoding="utf-8")
+
+    def _table(self, name):
+        """The keys and values of a `const NAME = { ... };` object literal."""
+        start = self.models.index(f"const {name} = {{")
+        end = self.models.index("};", start)
+        body = self.models[start:end]
+        pairs = re.findall(r"'([^']+)':\s*'([^']+)'", body)
+        return dict(pairs)
+
+    def _list_table(self, name):
+        """The same, for values that are arrays of strings."""
+        start = self.models.index(f"const {name} = {{")
+        end = self.models.index("};", start)
+        body = self.models[start:end]
+        out = {}
+        for key, items in re.findall(r"'([^']+)':\s*\[([^\]]*)\]", body):
+            out[key] = tuple(re.findall(r"'([^']+)'", items))
+        return out
+
+    def test_the_same_connectors_are_known_to_both(self):
+        # `CONNECTOR_LOOK` is the browser's complete list: every connector it
+        # can draw. Anything the catalogue accepts and the browser cannot draw
+        # would fall back to a plug that is not its own.
+        drawn = set(self._table("CONNECTOR_LOOK"))
+        declared = set(get_args(catalogue.Connector))
+        self.assertEqual(declared, drawn)
+
+    def test_the_carrier_each_connector_implies_agrees(self):
+        self.assertEqual(
+            catalogue.CARRIER_OF_CONNECTOR, self._table("CONNECTOR_CARRIER")
+        )
+
+    def test_what_a_socket_natively_accepts_agrees(self):
+        theirs = self._list_table("NATIVELY_ACCEPTS")
+        self.assertEqual(
+            {k: tuple(v) for k, v in catalogue.NATIVELY_ACCEPTS.items()}, theirs
+        )
+
+    def test_the_signal_families_agree(self):
+        start = self.models.index("const SIGNAL_FAMILY = {")
+        end = self.models.index("};", start)
+        theirs = dict(re.findall(r"(\w+): '([^']+)'", self.models[start:end]))
+        self.assertEqual(catalogue.SIGNAL_FAMILY, theirs)
+
+    def test_both_sides_pick_the_same_lead_for_every_patch(self):
+        """Not just the tables - the answers they produce.
+
+        Equal tables and different logic would still be two rules, so this runs
+        the browser's own `leadTo` over every socket a device could have - each
+        connector against each signal - and compares it with the server's. Ten
+        connectors and eight signals is 6400 questions, and cheap.
+
+        An earlier version transcribed the JavaScript rule into the test, which
+        would have made three copies of a rule meant to have two. `models.js` is
+        loaded and asked instead.
+        """
+        if not NODE:
+            self.skipTest("node is not installed")
+        connectors = list(get_args(catalogue.Connector))
+        signals = list(get_args(catalogue.Signal))
+        script = """
+            const fs = require('fs');
+            const path = require('path');
+            // argv is [node, this script, repo, connectors, signals].
+            const REPO = path.resolve(process.argv[2]);
+            // The smallest document `models.js` needs to be evaluated at all.
+            // Nothing here is drawn: the question is arithmetic on strings.
+            const el = () => ({
+                style: {}, dataset: {}, _attrs: {},
+                classList: { add() {}, remove() {}, toggle() {},
+                             contains: () => false },
+                setAttribute() {}, getAttribute: () => null,
+                appendChild() {}, querySelector: () => null,
+                querySelectorAll: () => [],
+                addEventListener() {}, removeEventListener() {},
+            });
+            global.document = {
+                body: el(), documentElement: el(),
+                createElement: el, createElementNS: el,
+                querySelector: () => null, querySelectorAll: () => [],
+                addEventListener() {}, removeEventListener() {},
+            };
+            global.anime = () => {};
+            const load = (f) => fs.readFileSync(path.join(REPO, f), 'utf8');
+            (0, eval)(load('static/rad-core.js') + load('static/models.js')
+                + '\\nglobalThis.Jack = Jack;');
+
+            const connectors = JSON.parse(process.argv[3]);
+            const signals = JSON.parse(process.argv[4]);
+            const out = {};
+            for (const a of connectors) for (const sa of signals) {
+                for (const b of connectors) for (const sb of signals) {
+                    // Real jacks and the real method, not a transcription.
+                    const one = new Jack('a', 'output', sa, 'front', null, null,
+                                         { connector: a });
+                    const two = new Jack('b', 'input', sb, 'front', null, null,
+                                         { connector: b });
+                    const ends = one.leadTo(two);
+                    out[[a, sa, b, sb].join('|')] = ends ? ends.join('+') : null;
+                }
+            }
+            console.log(JSON.stringify(out));
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            runner = Path(tmp) / "leads.js"
+            runner.write_text(script, encoding="utf-8")
+            result = subprocess.run(
+                [NODE, str(runner), str(Path.cwd()),
+                 json.dumps(connectors), json.dumps(signals)],
+                capture_output=True, text=True,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+        theirs = json.loads(result.stdout)
+
+        disagreements = []
+        for one in connectors:
+            for one_signal in signals:
+                for other in connectors:
+                    for other_signal in signals:
+                        ends = catalogue.lead_for(
+                            one, one_signal, other, other_signal
+                        )
+                        mine = "+".join(ends) if ends else None
+                        key = "|".join([one, one_signal, other, other_signal])
+                        if mine != theirs[key]:
+                            disagreements.append(
+                                f"{one}/{one_signal} into {other}/{other_signal}: "
+                                f"python says {mine}, the browser says {theirs[key]}"
+                            )
+        self.assertEqual(disagreements[:10], [])
+
+    def test_the_rule_actually_discriminates(self):
+        """Thousands of agreements mean nothing if the rule is trivial.
+
+        These are the cases the axes exist for. Same protocol, different plug:
+        MIDI runs on DIN-5, on 3.5mm TRS and over USB, and none of those reach
+        each other. Same plug, different protocol: a 3.5mm TRS MIDI lead fits a
+        CV input perfectly and must not be used that way.
+        """
+        refused = [
+            ("DIN-5", "midi", "3.5mm", "midi"),
+            ("USB-C", "midi", "DIN-5", "midi"),
+            ("USB-C", "midi", "3.5mm", "midi"),
+            ("3.5mm", "midi", "3.5mm", "cv"),
+            ("1/4in", "audio", "IDC-16", "power"),
+        ]
+        for case in refused:
+            with self.subTest(case):
+                self.assertIsNone(catalogue.lead_for(*case))
+
+        allowed = [
+            # Quarter into eighth: two different openings, one real lead.
+            ("1/4in", "audio", "3.5mm", "audio", ("3.5mm", "1/4in")),
+            # Voltages are voltages.
+            ("3.5mm", "gate", "3.5mm", "cv", ("3.5mm", "3.5mm")),
+            ("3.5mm", "audio", "XLR/TRS combo", "audio", ("3.5mm", "1/4in")),
+            ("DIN-5", "midi", "DIN-5", "midi", ("DIN-5", "DIN-5")),
+        ]
+        for one, one_signal, other, other_signal, want in allowed:
+            with self.subTest((one, other)):
+                self.assertEqual(
+                    catalogue.lead_for(one, one_signal, other, other_signal),
+                    want,
+                )
+
+    def test_a_lead_is_named_for_what_you_would_ask_for(self):
+        self.assertEqual(
+            catalogue.name_of_lead(("3.5mm", "3.5mm")), "a 3.5mm lead"
+        )
+        self.assertEqual(
+            catalogue.name_of_lead(("3.5mm", "1/4in")), "a 3.5mm-to-1/4in lead"
+        )
+
+    def test_every_shipped_cable_is_one_you_could_actually_make(self):
+        """The examples are the rules' first customer.
+
+        A shipped rack holding a cable the tool would refuse is a rack nobody
+        could have built in it, and that is a contradiction worth failing on.
+        """
+        devices = catalogue.load_all()
+        impossible = []
+        for path in sorted(Path("catalogue/examples").glob("*.json")):
+            patch = patch_format.load(
+                json.loads(path.read_text(encoding="utf-8"))
+            )
+            by_id = {m.id: devices.get(m.type) for m in patch.modules}
+            for cable in patch.connections:
+                one = by_id.get(cable.source.module)
+                other = by_id.get(cable.target.module)
+                if not one or not other:
+                    continue
+                source = one.jack(cable.source.jack)
+                target = other.jack(cable.target.jack)
+                if not source or not target:
+                    continue
+                if not catalogue.lead_for(
+                    source.connector, source.signal,
+                    target.connector, target.signal,
+                ):
+                    impossible.append(
+                        f"{path.stem}: {source.label} ({source.connector}, "
+                        f"{source.signal}) -> {target.label} "
+                        f"({target.connector}, {target.signal})"
+                    )
+        self.assertEqual(impossible, [])
 
 
 class FrontendCatalogueContractTests(unittest.TestCase):

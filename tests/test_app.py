@@ -120,12 +120,12 @@ class AppSmokeTests(unittest.TestCase):
         from src.main import reachable_urls
 
         for host in ("0.0.0.0", "::", ""):
-            urls = reachable_urls(host, 8000)
+            urls = reachable_urls(host, 4186)
             self.assertTrue(urls, f"{host!r} advertised nothing")
             for url in urls:
                 self.assertNotIn("0.0.0.0", url)
                 self.assertNotIn("[::]", url)
-            self.assertEqual(urls[0], "http://127.0.0.1:8000/")
+            self.assertEqual(urls[0], "http://127.0.0.1:4186/")
 
     def test_a_specific_bind_is_advertised_as_itself(self):
         from src.main import reachable_urls

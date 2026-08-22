@@ -121,14 +121,14 @@ that way is collected by nobody and stays green forever.
 ## Running it
 
 ```sh
-uv run carlos serve
+uv run carlos dev
 ```
 
-`http://localhost:8000`. The bare address redirects to the workspace at
+`http://localhost:4186`. The bare address redirects to the workspace at
 `/rack`, keeping any query it was given. Three things to know before you debug
 anything:
 
-**Do not open the address uvicorn prints.** It binds `0.0.0.0:8000` and says
+**Do not open the address uvicorn prints.** It binds `0.0.0.0:4186` and says
 so, and `0.0.0.0` is not somewhere a browser can go — Chrome refuses it with
 `ERR_ADDRESS_INVALID`. The bind is right: every interface is what lets a phone
 on the same network reach this, which is the whole point of an on-device test.
@@ -160,7 +160,7 @@ If you need to do it by hand, the commands are per-platform. **Windows**, under
 Git Bash:
 
 ```sh
-netstat -ano | grep ':8000' | grep LISTENING    # the last column is the pid
+netstat -ano | grep ':4186' | grep LISTENING    # the last column is the pid
 taskkill //F //PID <pid>
 ```
 
@@ -171,8 +171,8 @@ line.
 **macOS and Linux**:
 
 ```sh
-lsof -ti :8000
-kill -9 $(lsof -ti :8000)
+lsof -ti :4186
+kill -9 $(lsof -ti :4186)
 ```
 
 More than one listener means the answer you are reading may not be from the code

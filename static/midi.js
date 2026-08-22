@@ -282,7 +282,7 @@ class MidiInput {
     // Why MIDI will not work here, in words that name the actual cause.
     //
     // `available` was answering one question with two meanings. Web MIDI is only
-    // exposed in a secure context, so on `http://192.168.1.151:8000` -- the LAN
+    // exposed in a secure context, so on `http://192.168.1.151:4186` -- the LAN
     // address this server prints at startup, and the one the onboarding page
     // recommends for an on-device test -- `navigator.requestMIDIAccess` is
     // simply absent, and the app said "this browser has no Web MIDI". The
@@ -300,7 +300,7 @@ class MidiInput {
                 detail: `Web MIDI needs a secure context and ${here} is not one. `
                     + 'Open the rack on localhost, put it behind HTTPS, or '
                     + 'forward the port so it arrives as localhost: '
-                    + '`ssh -L 8000:localhost:8000 <host>`. The LAN address '
+                    + '`ssh -L 4186:localhost:4186 <host>`. The LAN address '
                     + 'this server prints will not do on its own.',
             };
         }

@@ -544,6 +544,425 @@ class TestMovingADevice:
         assert page.errors == []
 
 
+class TestTheLeadsFollowAScroll:
+    """A row never wraps, so a rack wider than the window scrolls sideways.
+
+    Cable endpoints are measured from laid-out elements, so scrolling moves the
+    sockets without moving the layer the leads were drawn on. Measured before
+    the fix, on a 1000px window: the device moved -180px and its lead moved 0,
+    leaving the cable pointing at where the socket used to be.
+
+    The listener has to be on the document and in the capture phase - a scroll
+    event does not bubble, so one on `window` never hears a shelf scroll at all.
+    """
+
+    def a_scrolling_shelf(self, page):
+        """A shelf that overflows, holding a device with a lead on it."""
+        return page.evaluate(
+            """() => {
+                for (const shelf of document.querySelectorAll('.rack-shelf')) {
+                    if (shelf.scrollWidth <= shelf.clientWidth + 4) continue;
+                    for (const module of shelf.querySelectorAll('.module')) {
+                        const id = module.dataset.moduleId;
+                        const lead = [...document.querySelectorAll('path.cable')]
+                            .find(p => (p.dataset.cable || '').includes(id + ':'));
+                        if (lead) {
+                            shelf.dataset.probe = '1';
+                            module.dataset.probe = '1';
+                            document.body.dataset.probeCable = lead.dataset.cable;
+                            return { id, cable: lead.dataset.cable };
+                        }
+                    }
+                }
+                return null;
+            }"""
+        )
+
+    def where(self, page):
+        # The lead is re-found by key rather than by a flag: a redraw replaces
+        # every path, so a marker set before the scroll does not survive one.
+        return page.evaluate(
+            """() => {
+                const shelf = document.querySelector('.rack-shelf[data-probe]');
+                const module = document.querySelector('.module[data-probe]');
+                const key = document.body.dataset.probeCable;
+                const lead = document.querySelector(
+                    `path.cable[data-cable="${key}"]`);
+                if (!lead) return null;
+                return {
+                    device: Math.round(module.getBoundingClientRect().left),
+                    lead: Math.round(lead.getBoundingClientRect().left),
+                };
+            }"""
+        )
+
+    def test_a_lead_stays_on_its_socket_when_the_row_scrolls(self, page):
+        page.set_viewport_size({"width": 1000, "height": 900})
+        page.wait_for_timeout(200)
+
+        chosen = self.a_scrolling_shelf(page)
+        assert chosen, "no overflowing shelf holds a patched device at this size"
+
+        before = self.where(page)
+        page.evaluate(
+            "() => { document.querySelector('.rack-shelf[data-probe]')"
+            ".scrollLeft = 180; }")
+        until(page, "() => document.querySelector('.rack-shelf[data-probe]')"
+                    ".scrollLeft === 180")
+        page.wait_for_timeout(200)   # the redraw is coalesced to a frame
+        after = self.where(page)
+        assert after, "the lead vanished instead of moving"
+
+        moved_device = after["device"] - before["device"]
+        moved_lead = after["lead"] - before["lead"]
+        assert moved_device != 0, "the shelf did not actually scroll"
+        assert abs(moved_device - moved_lead) <= 2, (
+            f"the device moved {moved_device}px and its lead moved "
+            f"{moved_lead}px - the cable is pointing at where the socket was"
+        )
+
+
+class TestTurningAControlIsNotSummoningAMenu:
+    """Holding a knob to turn it slowly must not also bloom a ring.
+
+    Both gestures begin the same way - press and hold - and they were told
+    apart by a list of class names that had gone stale. `.knob` is the compact
+    rack; the rack the app opens in draws an `irl-knob`, which matched nothing,
+    so a deliberate turn turned the knob *and* opened a menu over the top of
+    it. Measured: eight of the ten things a finger can land on were unguarded.
+
+    A quick turn always worked, which is what made it read as intermittent -
+    the collision only starts once the press outlives `longPressMs` (350ms).
+    """
+
+    HELD = 700   # comfortably past longPressMs, as a slow turn is
+
+    def a_ring_is_bloomed(self, page):
+        """A layer that is up and is not merely the menu's resting bar."""
+        return page.evaluate(
+            """() => {
+                const layer = document.querySelector('.rad-layer');
+                return Boolean(layer)
+                    && !layer.classList.contains('is-resting')
+                    && layer.childElementCount > 0;
+            }"""
+        )
+
+    def hold(self, page, selector, travel=-30, exactly=False):
+        """Press, hold past the threshold, then drag - a slow, deliberate turn.
+
+        `exactly` means the press has to land on that element itself and not on
+        something sitting on top of it. A pad grid is mostly pads, so its centre
+        is a pad; without this, a test meant to press the grid presses a button
+        and proves the opposite of what it says.
+        """
+        where = page.evaluate(
+            """([sel, exactly]) => {
+                // What a control is, stated here rather than read from the
+                // app. The app's own gate is the thing under test: borrowing
+                // it would make an over-broad gate rule out every point and
+                // report `nowhere to press` instead of `the menu is gone`.
+                const CONTROL = '[role="slider"], [role="button"], '
+                    + '[role="switch"], [role="checkbox"], [role="spinbutton"], '
+                    + 'button, input, select';
+                // The first match in the DOM is usually below the fold, where
+                // `elementFromPoint` answers null for every point in it. Walk
+                // the candidates and take the first that is really on screen.
+                for (const el of document.querySelectorAll(sel)) {
+                    const r = el.getBoundingClientRect();
+                    if (r.bottom < 0 || r.top > innerHeight - 4) continue;
+                    if (r.width < 8 || r.height < 8) continue;
+                    if (!exactly) {
+                        return { x: Math.round(r.left + r.width / 2),
+                                 y: Math.round(r.top + r.height / 2),
+                                 value: el.getAttribute('aria-valuenow') };
+                    }
+                    // Backdrop is whatever gap the controls leave, and a panel
+                    // is covered by its own knobs and sockets - so scan for a
+                    // point landing on this element or on some trim of it,
+                    // rather than assuming the middle is bare.
+                    for (let iy = 1; iy < 10; iy++) {
+                        for (let ix = 1; ix < 10; ix++) {
+                            const x = Math.round(r.left + r.width * ix / 10);
+                            const y = Math.round(r.top + r.height * iy / 10);
+                            if (y < 0 || y > innerHeight - 2) continue;
+                            const hit = document.elementFromPoint(x, y);
+                            if (!hit || !el.contains(hit)) continue;
+                            if (hit.closest(CONTROL)) continue;
+                            return { x, y, landedOn: hit.className,
+                                     value: el.getAttribute('aria-valuenow') };
+                        }
+                    }
+                }
+                return null;
+            }""",
+            [selector, exactly],
+        )
+        assert where, f"no {selector} on the rack to press"
+        page.mouse.move(where["x"], where["y"])
+        page.mouse.down()
+        page.wait_for_timeout(self.HELD)
+        page.mouse.move(where["x"], where["y"] + travel, steps=6)
+        page.wait_for_timeout(120)
+        bloomed = self.a_ring_is_bloomed(page)
+        after = page.evaluate(
+            "(sel) => document.querySelector(sel).getAttribute('aria-valuenow')",
+            selector,
+        )
+        page.mouse.up()
+        page.wait_for_timeout(120)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(150)
+        return {"bloomed": bloomed, "before": where["value"], "after": after}
+
+    def test_a_slow_turn_turns_the_knob_and_summons_nothing(self, page):
+        # Away from whichever end it is resting at, so a control already at its
+        # ceiling cannot report as stuck.
+        at_rest = page.evaluate(
+            "() => Number(document.querySelector('.irl-knob')"
+            ".getAttribute('aria-valuenow'))")
+        held = self.hold(page, ".irl-knob", travel=30 if at_rest > 63 else -30)
+
+        assert held["after"] != held["before"], (
+            "the knob did not turn at all, so this proves nothing about "
+            "whether a ring would have interrupted the turn"
+        )
+        assert not held["bloomed"], (
+            "holding a knob for {}ms turned it and bloomed a ring over the "
+            "top of it".format(self.HELD)
+        )
+
+    @pytest.mark.parametrize("control", [".irl-fader-cap", ".irl-switch-body"])
+    def test_the_other_controls_are_not_menu_summons_either(self, page, control):
+        assert not self.hold(page, control)["bloomed"], (
+            f"holding {control} bloomed a ring instead of working the control"
+        )
+
+    @pytest.mark.parametrize("background", [".irl-panel", ".irl-grid"])
+    def test_the_menu_still_blooms_on_bare_backdrop(self, page, background):
+        """The other half: a guard that swallowed the menu would also pass.
+
+        A press on a device's own backdrop is how the ring is summoned, and an
+        over-broad guard takes it away. The pad grid is the case that catches
+        it: `closest` walks ancestors, so a bare `[role]` test finds the
+        `role="group"` the grid wears and loses the menu everywhere inside it.
+
+        A panel alone does not catch that - it has no role above it, so it
+        blooms under a broad guard too, and a suite that only pressed a panel
+        passed a guard that had already swallowed the grid.
+        """
+        assert self.hold(page, background, exactly=True)["bloomed"], (
+            f"holding bare {background} no longer summons the ring - the "
+            f"guard is catching more than the controls"
+        )
+
+    def test_every_announced_control_is_guarded(self, page):
+        """The list cannot go stale again without this failing.
+
+        Read from the page rather than copied into the test: `main.js` is a
+        classic script, so its top-level constant is the one the gate itself
+        uses. A control added tomorrow arrives announced - that is what makes
+        a role durable where a class name was not.
+        """
+        unguarded = page.evaluate(
+            """() => {
+                const gate = HANDLES_ITS_OWN_PRESS;
+                const missed = [];
+                document.querySelectorAll(
+                    '[role="slider"], [role="button"], [role="switch"], '
+                    + '[role="checkbox"], [role="spinbutton"]'
+                ).forEach(el => {
+                    // By kind, not one line per control: an unguarded knob
+                    // is a hundred identical entries otherwise.
+                    if (!el.closest(gate)) {
+                        missed.push(el.className.split(" ")[0]
+                                    || el.tagName.toLowerCase());
+                    }
+                });
+                return [...new Set(missed)].sort();
+            }"""
+        )
+        assert unguarded == [], (
+            f"announced as controls but left to the menu: {unguarded}"
+        )
+
+
+class TestAConnectorIsNotASignal:
+    """What plugs in, what it carries, and how it is carried are three things.
+
+    They were one field. `signal` held `usb` and `network`, which are neither of
+    them signals, and the rules built on top inherited the muddle: bus-ness was
+    a property of a signal, so an RJ45 snake was not a bus; MIDI's sixteen
+    channels were a property of USB, so a USB audio interface link counted as
+    channelled. Meanwhile `connector` was recorded for all 122 sockets in the
+    catalogue and read by nothing at all.
+    """
+
+    def test_every_socket_publishes_the_plug_it_takes(self, page):
+        got = page.evaluate(
+            """() => {
+                const all = [...document.querySelectorAll('.jack')];
+                return {
+                    total: all.length,
+                    stated: all.filter(j => j.dataset.connector).length,
+                    kinds: [...new Set(all.map(j => j.dataset.connector))].sort(),
+                };
+            }"""
+        )
+        assert got["total"] > 0, "no sockets on the rack to ask"
+        assert got["stated"] == got["total"], (
+            f"{got['total'] - got['stated']} sockets do not say which plug "
+            f"they take"
+        )
+        # More than one kind, or the attribute proves nothing about the axis.
+        assert len(got["kinds"]) > 3, got["kinds"]
+
+    def test_a_socket_says_its_plug_out_loud(self, page):
+        """The connector belongs in the name a screen reader reads.
+
+        Which plug a socket takes is the difference between a lead that works
+        and one that does not.
+        """
+        labels = page.evaluate(
+            """() => [...document.querySelectorAll('.jack')]
+                .slice(0, 12)
+                .map(j => [j.dataset.connector, j.getAttribute('aria-label')])"""
+        )
+        assert labels
+        for connector, label in labels:
+            assert connector in (label or ""), (
+                f"a {connector} socket announces itself as {label!r}"
+            )
+
+    def test_each_end_of_a_lead_wears_its_own_plug(self, page):
+        """A lead with two unlike ends should look like one.
+
+        Drawing both ends alike is the tool quietly asserting that one plain
+        cable would do - which, for a 1/4in output into a 3.5mm input, it
+        would not.
+        """
+        ends = page.evaluate(
+            """() => [...document.querySelectorAll('path.cable[marker-start]')]
+                .map(p => ({
+                    start: p.getAttribute('marker-start'),
+                    end: p.getAttribute('marker-end'),
+                }))
+                .filter(e => e.end)"""
+        )
+        assert ends, "no lead on the rack wears a plug at both ends"
+        for end in ends:
+            assert end["start"].startswith("url(#cable-end-"), end
+            assert end["end"].startswith("url(#cable-end-"), end
+
+    def test_a_lead_is_as_heavy_as_its_plug(self, page):
+        """Weight comes off the connector axis, so unlike leads read unlike.
+
+        Read as a number on purpose: `calc(var(--cable-weight) * 0.85)` renders
+        correctly and serialises as `calc(0.935px)`, which `parseFloat` reads as
+        NaN - measured when it broke the test that checks the drum strand is
+        the thickest, because `2 > NaN` is false.
+        """
+        weights = page.evaluate(
+            """() => {
+                const seen = {};
+                document.querySelectorAll('path.cable').forEach(p => {
+                    const plug = [...p.classList]
+                        .find(c => c.startsWith('is-plug-'));
+                    if (!plug) return;
+                    const w = parseFloat(getComputedStyle(p).strokeWidth);
+                    seen[plug] = w;
+                });
+                return seen;
+            }"""
+        )
+        assert weights, "no lead carries a plug class"
+        for plug, weight in weights.items():
+            assert weight == weight, f"{plug} has an unreadable width"
+            assert weight > 0, f"{plug} is drawn at {weight}"
+
+    def test_a_patch_needs_a_cable_you_could_actually_own(self, page):
+        """Sharing a plug is not enough, and neither is sharing a protocol.
+
+        A cable is a thing with two ends that carries something, and neither
+        fact follows from the other. MIDI runs on DIN-5, on 3.5mm TRS and over
+        USB, and none of those reach each other; a 3.5mm TRS MIDI lead fits a
+        CV input perfectly and must not be used that way.
+
+        Asked of the model rather than through a drag: the gesture is tested
+        elsewhere, and this is about the rule. Sockets are made rather than
+        found, so the cases do not depend on what the opening rack happens to
+        hold.
+        """
+        said = page.evaluate(
+            """() => {
+                const jack = (connector, signal, type) =>
+                    new Jack('j', type, signal, 'front', null, null,
+                             { connector });
+                const ask = (ac, asig, bc, bsig) => {
+                    const one = jack(ac, asig, 'output');
+                    const two = jack(bc, bsig, 'input');
+                    const ends = one.leadTo(two);
+                    return {
+                        lead: ends ? ends.join(' to ') : null,
+                        refusal: one.refusalReason(two),
+                        advice: one.leadAdvice(two),
+                    };
+                };
+                return {
+                    // Same protocol, three connectors, no lead between them.
+                    dinToTrs: ask('DIN-5', 'midi', '3.5mm', 'midi'),
+                    usbToDin: ask('USB-C', 'midi', 'DIN-5', 'midi'),
+                    // Same connector, different protocol.
+                    midiToCv: ask('3.5mm', 'midi', '3.5mm', 'cv'),
+                    // Quarter into eighth: two openings, one real lead.
+                    quarterToEighth: ask('1/4in', 'audio', '3.5mm', 'audio'),
+                    // Voltages are voltages.
+                    gateToCv: ask('3.5mm', 'gate', '3.5mm', 'cv'),
+                    alike: ask('3.5mm', 'cv', '3.5mm', 'cv'),
+                };
+            }"""
+        )
+
+        for case in ("dinToTrs", "usbToDin"):
+            got = said[case]
+            assert got["lead"] is None, (
+                f"{case}: MIDI reached across connectors via {got['lead']}"
+            )
+            assert got["refusal"], f"{case}: allowed with no lead"
+            # The refusal has to name the plugs, not the protocol - both ends
+            # speak MIDI and saying so explains nothing.
+            assert "midi" in got["refusal"], got["refusal"]
+
+        midi_to_cv = said["midiToCv"]
+        assert midi_to_cv["lead"] is None, (
+            "a MIDI output reached a CV input because the plug fits"
+        )
+        assert "same plug" in (midi_to_cv["refusal"] or ""), (
+            f"refused, but without saying why it is confusing: "
+            f"{midi_to_cv['refusal']!r}"
+        )
+
+        quarter = said["quarterToEighth"]
+        assert not quarter["refusal"], (
+            f"a 1/4in into a 3.5mm is a real lead, refused: "
+            f"{quarter['refusal']!r}"
+        )
+        assert quarter["advice"] and "-to-" in quarter["advice"], (
+            f"patched without naming the lead it needs: {quarter['advice']!r}"
+        )
+
+        gate = said["gateToCv"]
+        assert not gate["refusal"], (
+            f"a gate into a CV input is ordinary patching, refused: "
+            f"{gate['refusal']!r}"
+        )
+
+        alike = said["alike"]
+        assert not alike["refusal"] and not alike["advice"], (
+            f"a like-for-like patch should be silent, said {alike!r}"
+        )
+
+
 class TestEverySocketSaysWhatItIs:
     """Labels on the laid-out panels, not only the abstract ones.
 

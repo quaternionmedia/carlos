@@ -42,6 +42,10 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+# The one place the port is written down. `src/defaults` imports nothing,
+# so this costs a module read rather than the whole application.
+from src.defaults import DEFAULT_PORT
+
 import click
 
 # A directory is this repository if it holds the application and the catalogue.
@@ -411,7 +415,7 @@ def signatures(ctx: click.Context) -> None:
 @main.command()
 @click.option("--port", type=int, help="Bind somewhere other than the default.")
 @click.pass_context
-def serve(ctx: click.Context, port: int | None) -> None:
+def dev(ctx: click.Context, port: int | None) -> None:
     """Run the app.
 
     Reload is off. It never worked in this environment — uvicorn reports a
@@ -433,7 +437,7 @@ def serve(ctx: click.Context, port: int | None) -> None:
 
 
 @main.command()
-@click.option("--port", default=8000, show_default=True)
+@click.option("--port", default=DEFAULT_PORT, show_default=True)
 @click.pass_context
 def stop(ctx: click.Context, port: int) -> None:
     """Stop every server holding the port, and prove the port is free.
@@ -523,14 +527,15 @@ def status(ctx: click.Context) -> None:
     # Asked the same way `stop` asks: does anything answer. Counting rows in a
     # process table reports a server that is not there, because a socket can
     # outlive the process that bound it and `netstat` goes on naming it.
-    serving = _who_is_serving(8000)
+    serving = _who_is_serving(DEFAULT_PORT)
     if serving:
-        line("serving on :8000", f"instance {serving['instance']}, pid {serving['pid']}")
-    elif _answers(8000):
-        line("serving on :8000", "something, and it is not Carlos")
+        line(f"serving on :{DEFAULT_PORT}",
+             f"instance {serving['instance']}, pid {serving['pid']}")
+    elif _answers(DEFAULT_PORT):
+        line(f"serving on :{DEFAULT_PORT}", "something, and it is not Carlos")
     else:
-        line("serving on :8000", "nothing")
-        phantoms = _listeners(8000, root)
+        line(f"serving on :{DEFAULT_PORT}", "nothing")
+        phantoms = _listeners(DEFAULT_PORT, root)
         if phantoms:
             line("", f"({len(phantoms)} stale netstat row(s), no process behind them)")
 

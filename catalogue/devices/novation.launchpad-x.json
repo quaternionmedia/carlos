@@ -10,7 +10,8 @@
       "name": "usb",
       "label": "USB-C",
       "type": "output",
-      "signal": "usb",
+      "signal": "midi",
+      "carrier": "usb",
       "side": "back",
       "connector": "USB-C",
       "note": "Bus power and MIDI over one lead."
@@ -21,7 +22,7 @@
       "type": "output",
       "signal": "midi",
       "side": "back",
-      "connector": "3.5mm TRS",
+      "connector": "3.5mm",
       "note": "Type A. This model has no MIDI input."
     }
   ],

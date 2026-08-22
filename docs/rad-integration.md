@@ -280,6 +280,34 @@ was opened.
 - A **latched hub press** suppresses highlighting, because a press that can no
   longer commit must not show a highlight that implies it can.
 
+### Which presses the ring declines
+
+Long-press summons a ring, and long-press is also how a knob is turned slowly.
+The two are told apart at the single `pointerdown` gate in `main.js`: a press
+that lands on something announcing itself as a control never arms the menu.
+
+The gate asks by **role**, not by class name. It used to read
+`.knob, .jack, button, input, select`, which was true of the compact rack and
+false of the one the app opens in — an `irl` knob is `.irl-knob` and matched
+none of it. Measured: eight of the ten things a finger can land on were
+unguarded, and a 700 ms turn both turned the knob and bloomed a ring over the
+top of it. Under 350 ms nothing collided, which is why it read as intermittent
+rather than as a rule that had stopped applying.
+
+A role is the durable question because a control has to announce itself anyway:
+the attribute a screen reader reads is the same one that says *this handles its
+own press*, so a control cannot arrive correctly announced and still be missed
+here. The class names went stale precisely because nothing else depended on
+them.
+
+Widget roles only — `slider`, `button`, `switch`, `checkbox`, `spinbutton`.
+`closest` walks ancestors, so a bare `[role]` test finds the `role="group"` a
+pad grid wears and swallows the menu everywhere inside it. Two consequences
+worth knowing before adding a control: a label **inside** a control is declined
+too, on purpose, because pressing a knob's label is pressing the knob; and
+decorative parts that are not announced — a drawn keybed, the trim around a
+socket — still summon the ring, which is correct, as they are backdrop.
+
 ## Conformance
 
 ```bash

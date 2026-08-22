@@ -716,13 +716,37 @@ document.addEventListener('contextmenu', (event) => {
                    { ignoreNextUp: true });
 });
 
+// What the menu keeps out of the way of.
+//
+// Named by role, not by class. This read `.knob, .jack, button, input, select`,
+// which was true of the compact rack and false of the one the app actually
+// opens in: an `irl` knob is `.irl-knob` and matches none of it. Measured -
+// eight of the ten things a finger can land on were unguarded, and holding a
+// knob for 700ms to turn it slowly turned the knob *and* bloomed a ring over
+// the top of it. A quick turn was fine, which is why it read as intermittent:
+// the collision starts at `longPressMs`.
+//
+// A role is the durable question because a control has to announce itself
+// anyway - the attribute a screen reader reads is the same one that says "this
+// handles its own press", so a new control cannot arrive already announced and
+// still be missed here. Class names went stale precisely because nothing else
+// depended on them.
+//
+// Widget roles only. `closest` walks ancestors, so a bare `[role]` test finds
+// the `role="group"` a pad grid wears and swallows the menu everywhere inside
+// it - measured at 6 of 8 press targets lost. A label inside a control is
+// caught on purpose: pressing a knob's label is pressing the knob.
+const HANDLES_ITS_OWN_PRESS = '[role="slider"], [role="button"], '
+    + '[role="switch"], [role="checkbox"], [role="spinbutton"], '
+    + 'button, input, select';
+
 // Long-press arms release-select: one gesture from press to commit.
 document.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     // A resting bar is not a menu in the way: it is where the menu
     // lives. Only a bloomed ring owns the next press.
     if (radMenu.open && !radMenu.resting) return;
-    if (event.target.closest?.('.knob, .jack, button, input, select')) return;
+    if (event.target.closest?.(HANDLES_ITS_OWN_PRESS)) return;
 
     const context = contextAt(event);
     if (!context) return;
@@ -738,9 +762,35 @@ document.getElementById('rack')?.addEventListener('click', (event) => {
     if (!event.target.closest?.('.module')) system.deselect();
 });
 
-// Cable endpoints are measured from laid-out elements, so a resize invalidates
-// every path already drawn.
-window.addEventListener('resize', () => system.patchBay.redrawAll());
+// Cable endpoints are measured from laid-out elements, so anything that moves
+// an element under a drawn path invalidates it. A resize is the obvious one; a
+// scroll is the one that was missed.
+//
+// A row never wraps - `.rack-shelf` is `overflow-x: auto` - so a rack wider than
+// the window scrolls sideways, and that moves the sockets without moving the
+// layer the leads were drawn on. Measured on a 1000px window: scrolling a shelf
+// 180px moved the device -180px and its lead 0, leaving them 180px apart with
+// the cable pointing at where the socket used to be.
+//
+// Capture phase, and on the document. A scroll event does not bubble, so a
+// listener on `window` never hears a shelf scroll - only the capturing pass
+// sees it, and that pass sees every scrollable thing at once, which is what
+// this wants: any of them moving is a reason to redraw.
+//
+// Coalesced to a frame. A scroll fires per pixel of travel and a redraw is
+// every lead in the rack, so an uncoalesced listener would redraw seventeen
+// paths a pixel - the same reasoning the carried-device drag already uses.
+let pendingRedraw = null;
+function redrawSoon() {
+    if (pendingRedraw) return;
+    pendingRedraw = requestAnimationFrame(() => {
+        pendingRedraw = null;
+        system.patchBay.redrawAll();
+    });
+}
+
+window.addEventListener('resize', redrawSoon);
+document.addEventListener('scroll', redrawSoon, true);
 
 // ===================================
 // TOOL PALETTE

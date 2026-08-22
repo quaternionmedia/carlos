@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import unittest
+from typing import get_args
 from pathlib import Path
 from unittest import mock
 
@@ -41,6 +42,94 @@ class TransformTests(unittest.TestCase):
         self.assertNotIn("connections_detail", result)
         self.assertIn("semi-modular", result["by_category"])
 
+    def test_summary_counts_the_plugs_as_well_as_the_signals(self):
+        # Two axes, two counts. A rack of nine 3.5mm leads and a rack of nine
+        # XLRs are both `by_signal: {audio: 9}` and are not the same rack.
+        result = interop.apply_transform("summary", self.patch)
+
+        self.assertIn("by_connector", result)
+        self.assertEqual(
+            sum(result["by_connector"].values()), len(self.patch.connections)
+        )
+        for connector in result["by_connector"]:
+            self.assertIn(connector, get_args(catalogue.Connector))
+
+    def test_summary_says_which_leads_a_build_is_made_of(self):
+        result = interop.apply_transform("summary", self.patch)
+
+        self.assertIn("leads_needed", result)
+        self.assertEqual(
+            sum(result["leads_needed"].values()), len(self.patch.connections)
+        )
+        # Every entry is a lead you could ask a shop for.
+        for name in result["leads_needed"]:
+            self.assertTrue(
+                name.startswith("a ") and name.endswith(" lead"), name
+            )
+
+    def test_a_rack_of_mixed_leads_says_so(self):
+        """The counter is only meaningful if it can hold more than one thing.
+
+        A patch of nine identical leads passes the test above whatever the rule
+        does, so this builds one that genuinely needs a lead with unlike ends
+        and looks for it by name.
+        """
+        devices = catalogue.load_all()
+        jacks = [
+            (device, jack)
+            for device in devices.values()
+            for jack in device.jacks
+        ]
+
+        found = None
+        for one_device, one in jacks:
+            if one.type != "output":
+                continue
+            for other_device, other in jacks:
+                if other.type != "input":
+                    continue
+                ends = catalogue.lead_for(
+                    one.connector, one.signal, other.connector, other.signal
+                )
+                if ends and ends[0] != ends[1]:
+                    found = (one_device, one, other_device, other, ends)
+                    break
+            if found:
+                break
+        self.assertIsNotNone(found, "no two sockets need a lead with two ends")
+        one_device, one, other_device, other, ends = found
+
+        patch = patch_format.Patch(
+            format="carlos.patch",
+            version=1,
+            name="a lead with two different ends",
+            modules=[
+                patch_format.ModuleState(id="a", type=one_device.id),
+                patch_format.ModuleState(id="b", type=other_device.id),
+            ],
+            connections=[
+                patch_format.Connection(
+                    source=patch_format.Endpoint(module="a", jack=one.name),
+                    target=patch_format.Endpoint(module="b", jack=other.name),
+                )
+            ],
+        )
+        result = interop.apply_transform("summary", patch)
+        self.assertEqual(
+            result["leads_needed"], {catalogue.name_of_lead(ends): 1}
+        )
+        self.assertIn("-to-", next(iter(result["leads_needed"])))
+
+    def test_patchbay_reports_the_plug_on_each_end(self):
+        result = interop.apply_transform("patchbay", self.patch)
+
+        for cable in result["cables"]:
+            with self.subTest(cable["text"]):
+                for end in ("from", "to"):
+                    self.assertIn(
+                        cable[end]["connector"], get_args(catalogue.Connector)
+                    )
+
     def test_patchbay_resolves_labels_from_the_catalogue(self):
         result = interop.apply_transform("patchbay", self.patch)
 
@@ -75,7 +164,7 @@ class TransformTests(unittest.TestCase):
             category="eurorack",
             summary="A device that sockets on its left, for this test.",
             jacks=[{"name": "left_in", "label": "LEFT IN", "type": "input",
-                    "signal": "audio", "side": "left"}],
+                    "signal": "audio", "connector": "1/4in", "side": "left"}],
             parameters=[],
         )
         document = {

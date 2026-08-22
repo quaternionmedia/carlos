@@ -61,7 +61,7 @@
       "type": "input",
       "signal": "audio",
       "side": "back",
-      "connector": "TRS",
+      "connector": "1/4in",
       "note": "One of three stereo line inputs."
     },
     {
@@ -124,7 +124,8 @@
       "name": "dsnake",
       "label": "dSNAKE",
       "type": "input",
-      "signal": "network",
+      "signal": "audio",
+      "carrier": "network",
       "side": "back",
       "connector": "RJ45",
       "note": "To an AR-series remote audio rack."
@@ -133,7 +134,8 @@
       "name": "network",
       "label": "NETWORK",
       "type": "input",
-      "signal": "network",
+      "signal": "data",
+      "carrier": "network",
       "side": "back",
       "connector": "RJ45",
       "note": "Qu-Pad and Qu-Control over wifi."
@@ -142,7 +144,8 @@
       "name": "usb_b",
       "label": "USB B",
       "type": "output",
-      "signal": "usb",
+      "signal": "audio",
+      "carrier": "usb",
       "side": "back",
       "connector": "USB-B",
       "note": "32x32 audio interface to a computer."
@@ -151,7 +154,8 @@
       "name": "usb_a",
       "label": "USB A",
       "type": "output",
-      "signal": "usb",
+      "signal": "audio",
+      "carrier": "usb",
       "side": "back",
       "connector": "USB-A",
       "note": "Multitrack recording to a drive."

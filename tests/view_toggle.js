@@ -264,8 +264,11 @@ check('every knob says what it is and where it stands',
         && k.getAttribute('aria-valuemax') !== null), true);
 check('every socket is reachable by keyboard',
     jacks().every(j => j.getAttribute('tabindex') === '0'), true);
-check('every socket carries a label naming its signal and side',
-    jacks().every(j => /\((cv|audio|gate|midi|clock|trigger)/.test(
+// Three axes, so three things to say: which plug goes in, what comes out of
+// it, and which way round it is. The connector was recorded for every socket
+// in the catalogue long before it was ever said out loud.
+check('every socket names its connector, signal and side',
+    jacks().every(j => /\((3\.5mm|1\/4in|XLR|XLR\/TRS combo|DIN-5|USB-[ABC]|RJ45|IDC-16) (cv|audio|gate|midi|clock|data|digital|power|trigger) (input|output), (front|back|top|bottom|left|right)\)/.test(
         j.getAttribute('aria-label') || '')), true);
 
 // The same device drawn the other way. `irl` names its knobs `.irl-knob`, and

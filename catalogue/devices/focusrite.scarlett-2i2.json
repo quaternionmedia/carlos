@@ -38,7 +38,7 @@
       "type": "output",
       "signal": "audio",
       "side": "back",
-      "connector": "TRS",
+      "connector": "1/4in",
       "note": "Balanced monitor output."
     },
     {
@@ -47,14 +47,15 @@
       "type": "output",
       "signal": "audio",
       "side": "back",
-      "connector": "TRS",
+      "connector": "1/4in",
       "note": "Balanced monitor output."
     },
     {
       "name": "usb_c",
       "label": "USB-C",
       "type": "output",
-      "signal": "usb",
+      "signal": "audio",
+      "carrier": "usb",
       "side": "back",
       "connector": "USB-C",
       "note": "Bus powered; carries audio both ways."

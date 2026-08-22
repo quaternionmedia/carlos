@@ -7,8 +7,8 @@
 // Web MIDI". The browser has it; the page is not a secure context.
 //
 // Measured in Chromium before this harness was written:
-//   http://127.0.0.1:8000      isSecureContext true   requestMIDIAccess present
-//   http://192.168.1.151:8000  isSecureContext false  requestMIDIAccess absent
+//   http://127.0.0.1:4186      isSecureContext true   requestMIDIAccess present
+//   http://192.168.1.151:4186  isSecureContext false  requestMIDIAccess absent
 
 const fs = require('fs');
 const path = require('path');
@@ -36,7 +36,7 @@ function loadWith({ secure, hasApi, permission }) {
         },
     };
     const window = { isSecureContext: secure };
-    const location = { origin: 'http://192.168.1.151:8000' };
+    const location = { origin: 'http://192.168.1.151:4186' };
 
     const body = source
         .replace(/^export\s+/gm, '')
@@ -80,7 +80,7 @@ function platformOf(platform) {
     const make = new Function('navigator', 'window', 'location', 'midiParse',
         `${body}; return MidiInput;`);
     const MidiInput = make({ platform, requestMIDIAccess: async () => ({}) },
-        { isSecureContext: true }, { origin: 'http://localhost:8000' }, () => ({}));
+        { isSecureContext: true }, { origin: 'http://localhost:4186' }, () => ({}));
     return new MidiInput({});
 }
 check('a Linux browser is told to check ALSA', platformOf('Linux aarch64').onLinux(), true);

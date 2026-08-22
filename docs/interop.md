@@ -103,7 +103,7 @@ measurement to the wrong session.
 is a service that binds port 0 and writes a run-file to a machine-scoped
 directory. That is declined in [../GOVERNANCE.md](../GOVERNANCE.md): it governs
 services a monitor watches in the internal control plane, and Carlos is a
-browser application whose whole point is that `localhost:8000` means it every
+browser application whose whole point is that `localhost:4186` means it every
 time. `CARLOS_HOST`, `CARLOS_PORT` and `CARLOS_DB` move it per process without
 editing anything committed.
 
@@ -145,10 +145,17 @@ internals.
 | Name | Gives you |
 | --- | --- |
 | `identity` | The patch unchanged |
-| `summary` | Counts by category, maker and signal — no topology |
+| `summary` | Counts by category, maker, signal and connector, plus the leads the rig is made of — no topology |
 | `patchbay` | One readable line per cable, with panel legends resolved |
 | `topology` | The routing with every parameter stripped |
 | `inventory` | The distinct devices called for, by catalogue id |
+
+`summary` counts two axes, not one: a rack of nine 3.5mm leads and a rack of
+nine XLRs are both `by_signal: {audio: 9}` and are not the same rack.
+`leads_needed` is the shopping list — every cable in the patch named the way you
+would ask a shop for it, so `{"a 3.5mm lead": 4, "a DIN-5 lead": 2}` is what the
+rig is actually made of. A lead with unlike ends is named as one:
+`a 3.5mm-to-1/4in lead`.
 
 `patchbay` is the one worth seeing. Given the Hapax complex example:
 
@@ -170,7 +177,7 @@ keeping the routing, so a patch can be shared as a wiring idea without sharing
 the sound. What comes out is still a valid patch document.
 
 ```sh
-curl -s -X POST http://127.0.0.1:8000/api/transforms/patchbay \
+curl -s -X POST http://127.0.0.1:4186/api/transforms/patchbay \
   -H 'Content-Type: application/json' \
   --data-binary @catalogue/examples/squarp.hapax.complex.json
 ```
@@ -209,7 +216,7 @@ in the file.
 ### Planning a call
 
 ```sh
-curl -s -X POST http://127.0.0.1:8000/api/peers/stage-plot/render/plan \
+curl -s -X POST http://127.0.0.1:4186/api/peers/stage-plot/render/plan \
   -H 'Content-Type: application/json' \
   --data-binary @catalogue/examples/allen-heath.qu24.complex.json
 ```

@@ -520,7 +520,7 @@ class LayoutTests(unittest.TestCase):
             category="eurorack",
             summary="A device nobody has measured a panel for.",
             jacks=[{"name": "out", "label": "OUT", "type": "output",
-                    "signal": "audio"}],
+                    "signal": "audio", "connector": "1/4in"}],
             parameters=[{"name": "level", "label": "LEVEL"}],
         )
         self.assertIsNone(bare.layout)
@@ -558,7 +558,7 @@ class LayoutTests(unittest.TestCase):
         payload = {
             "id": "test.device", "maker": "T", "model": "D",
             "category": "eurorack", "summary": "x",
-            "jacks": [{"name": "out", "label": "OUT", "type": "output", "signal": "audio"}],
+            "jacks": [{"name": "out", "label": "OUT", "type": "output", "signal": "audio", "connector": "1/4in"}],
             "layout": {"aspect": 1, "jacks": {"nope": {"x": 0.5, "y": 0.5}}},
         }
         with self.assertRaises(Exception):
@@ -569,7 +569,7 @@ class LayoutTests(unittest.TestCase):
             "id": "test.device", "maker": "T", "model": "D",
             "category": "eurorack", "summary": "x",
             "jacks": [{"name": "out", "label": "OUT", "type": "output",
-                       "signal": "audio", "side": "back"}],
+                       "signal": "audio", "connector": "1/4in", "side": "back"}],
             "layout": {"aspect": 1,
                        "jacks": {"out": {"x": 0.5, "y": 0.5, "side": "front"}}},
         }

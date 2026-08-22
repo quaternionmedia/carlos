@@ -24,7 +24,7 @@ sitting beside it. The regression protection is the assertions.
 ```
 
 `LiveApp.start()` polls `/healthz` and raises `Unreachable` if it never
-answers. A port of its own, not 8000: a developer's own server is usually up,
+answers. A port of its own, not 4186: a developer's own server is usually up,
 and measuring that one would test whatever code happened to be running.
 
 Both the server and the browser register their own shutdown as they start.

@@ -193,7 +193,7 @@ your change.
 
 ```sh
 uv run carlos check      # 1. the suite and the walkthrough
-uv run carlos serve      # 2. run it, on :8000
+uv run carlos dev        # 2. run it, on :4186
 uv run carlos stop       # 3. and stop it, which is its own round here
 ```
 
@@ -238,7 +238,7 @@ bytes, which is why they survived the same scrutiny.
 Confirm it is up:
 
 ```sh
-curl -s http://127.0.0.1:8000/healthz
+curl -s http://127.0.0.1:4186/healthz
 ```
 
 It answers with `ok`, the app and version, and **which instance answered** —
@@ -260,7 +260,7 @@ The address is overridable per process — `CARLOS_HOST`, `CARLOS_PORT`,
 the other. To choose the port on the command line, or to run without reload:
 
 ```sh
-uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 8000
+uv run python -m uvicorn src.main:app --host 127.0.0.1 --port 4186
 ```
 
 ## Tests

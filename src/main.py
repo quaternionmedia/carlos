@@ -14,9 +14,11 @@ from pydantic import BaseModel, Field, ValidationError
 
 try:
     from .db import DatabaseManager
+    from .defaults import DEFAULT_PORT
     from . import cadence, catalogue, interop, midi, patch_format
 except ImportError:
     from db import DatabaseManager
+    from defaults import DEFAULT_PORT
     import cadence
     import catalogue
     import interop
@@ -66,7 +68,7 @@ class Settings(BaseModel):
     """Application settings.
 
     The address is deliberately predictable: this is a thing you open in a
-    browser, so `localhost:8000` has to mean it every time. The
+    browser, so `localhost:4186` has to mean it every time. The
     monitoring-seam record's answer to instance identity - bind port 0 and
     write a run-file - is declined for that reason in `GOVERNANCE.md`, and
     declining the mechanism is not declining the requirement. `/healthz`
@@ -91,7 +93,8 @@ class Settings(BaseModel):
     host: str = Field(
         default_factory=lambda: os.environ.get("CARLOS_HOST", "0.0.0.0"))
     port: int = Field(
-        default_factory=lambda: int(os.environ.get("CARLOS_PORT", "8000")))
+        default_factory=lambda: int(
+            os.environ.get("CARLOS_PORT", str(DEFAULT_PORT))))
     # Off, and opt in with `CARLOS_RELOAD=1`.
     #
     # It does not reload here, and it is not free. Measured: uvicorn logs
@@ -687,7 +690,7 @@ def main() -> None:
     # reads and it is written to a pipe as often as to a terminal. Python
     # block-buffers a pipe, so without the flush the banner sits in the buffer
     # while the server runs — it appeared in a terminal and vanished under
-    # `carlos serve`, which is exactly the audience that needs it.
+    # `carlos dev`, which is exactly the audience that needs it.
     if not port_is_free(settings.host, settings.port):
         print(flush=True)
         print(f"  :{settings.port} is already taken, so this did not start.",

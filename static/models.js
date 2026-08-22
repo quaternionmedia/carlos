@@ -21,7 +21,13 @@ const CABLE_HIT_WIDTH = 16;
 
 // Signals that carry channels. A cable on one of these splits into a strand
 // per channel; everything else is one line, because audio has no channel 10.
-const CHANNELLED_SIGNALS = new Set(['usb', 'midi']);
+//
+// MIDI, and only MIDI. This read `['usb', 'midi']` back when `usb` was a value
+// the signal axis could take, which made a USB *audio* interface link count as
+// sixteen channels and said nothing about the DIN cable next to it. Sixteen
+// channels is a fact about the protocol, so it is asked of the protocol; what
+// carries it - DIN, TRS or USB - does not change the answer.
+const CHANNELLED_SIGNALS = new Set(['midi']);
 
 // How far a hidden socket's anchor is kept from the corners of its device, as a
 // fraction of the edge. Without it the first and last socket on a face anchor
@@ -64,7 +70,135 @@ const DRUM_CHANNEL = 10;
 // computer, or a host adapter. The cable's own title says so, because a rig
 // sketch that quietly implies a Launchpad X can drive a K.O. II on its own is
 // worse than one that says where the computer goes.
-const BUS_SIGNALS = new Set(['usb']);
+// Bus-ness is a fact about the carrier, and it used to be asked of the signal
+// - `BUS_SIGNALS = new Set(['usb'])`, which left `network` out despite an RJ45
+// snake being every bit as shared and bidirectional. Asked of the carrier, both
+// answer yes and nothing has to be remembered twice.
+const BUS_CARRIERS = new Set(['usb', 'network']);
+
+// What plugs into what. Three questions, kept apart on purpose: a connector
+// implies its carrier, a few sockets natively accept more than their own name,
+// and a header mates with nothing but itself.
+const CONNECTOR_CARRIER = {
+    'USB-A': 'usb', 'USB-B': 'usb', 'USB-C': 'usb', 'RJ45': 'network',
+};
+
+// A combo socket really does take either plug, with no adapter in between.
+const NATIVELY_ACCEPTS = {
+    'XLR/TRS combo': ['XLR', '1/4in'],
+};
+
+// Which signals can share a lead. Voltages are voltages: a gate into a CV input
+// is an ordinary thing to do on a Eurorack panel, and refusing it would break
+// normal patching. MIDI is not a voltage, and that is the distinction.
+const SIGNAL_FAMILY = {
+    audio: 'analogue', cv: 'analogue', gate: 'analogue', clock: 'analogue',
+    midi: 'midi', digital: 'digital', data: 'data', power: 'power',
+};
+
+// The leads that exist, and the axis the other two hang off.
+//
+// A cable is a thing you own: two ends, and something it carries, and neither
+// fact follows from the other. MIDI runs on DIN-5, on 3.5mm TRS and over USB -
+// three connectors, one protocol - and no amount of shared protocol makes a DIN
+// plug enter a 3.5mm socket. Equally a 3.5mm patch cable and a 3.5mm TRS MIDI
+// lead are the same object, and still cannot join a MIDI output to a CV input.
+//
+// So a patch is legal when a lead exists whose two ends mate the two sockets
+// and which carries the family both sockets speak. A connector in common is not
+// enough; a protocol in common is not enough. You need the cable.
+//
+// Ends are unordered: a lead has no direction, only the patch does.
+const LEADS = [
+    // A quarter-inch and an eighth-inch are different openings, so
+    // quarter-into-eighth is its own lead rather than an equivalence.
+    [['3.5mm', '3.5mm'], ['analogue', 'midi']],   // patch cable, and TRS MIDI
+    [['3.5mm', '1/4in'], ['analogue']],
+    [['3.5mm', 'XLR'], ['analogue']],
+    [['1/4in', '1/4in'], ['analogue']],
+    [['1/4in', 'XLR'], ['analogue']],
+    [['XLR', 'XLR'], ['analogue', 'digital']],    // mic, line, and AES
+    // No DIN-to-anything-else lead, on purpose: a DIN MIDI port reaches
+    // another DIN MIDI port.
+    [['DIN-5', 'DIN-5'], ['midi']],
+    [['USB-A', 'USB-B'], ['analogue', 'midi', 'data']],
+    [['USB-A', 'USB-C'], ['analogue', 'midi', 'data']],
+    [['USB-B', 'USB-C'], ['analogue', 'midi', 'data']],
+    [['USB-C', 'USB-C'], ['analogue', 'midi', 'data']],
+    [['RJ45', 'RJ45'], ['analogue', 'data']],
+    [['IDC-16', 'IDC-16'], ['power']],
+];
+
+// Whether one end of a lead goes into one socket. Not symmetric: a combo socket
+// accepts an XLR plug, an XLR socket does not accept what a combo would take.
+function endMatesSocket(end, socket) {
+    return end === socket
+        || (NATIVELY_ACCEPTS[socket] || []).includes(end);
+}
+
+function leadFor(oneConnector, oneSignal, otherConnector, otherSignal) {
+    if (SIGNAL_FAMILY[oneSignal] !== SIGNAL_FAMILY[otherSignal]) return null;
+    const family = SIGNAL_FAMILY[oneSignal];
+    for (const [ends, carries] of LEADS) {
+        if (!carries.includes(family)) continue;
+        const [one, other] = ends;
+        if ((endMatesSocket(one, oneConnector)
+                && endMatesSocket(other, otherConnector))
+            || (endMatesSocket(other, oneConnector)
+                && endMatesSocket(one, otherConnector))) {
+            return ends;
+        }
+    }
+    return null;
+}
+
+// What to call it when telling someone what to buy.
+function nameOfLead(ends) {
+    const [one, other] = ends;
+    return one === other ? `a ${one} lead` : `a ${one}-to-${other} lead`;
+}
+
+function carrierOfConnector(connector) {
+    return CONNECTOR_CARRIER[connector] || 'direct';
+}
+
+// How each connector is drawn. Grouped by what a plug looks like rather than
+// by what it is called, because USB-A, -B and -C differ in ways a 3px shape
+// cannot show and agree in the way it can: a flat tab on a shielded shell.
+const CONNECTOR_LOOK = {
+    '3.5mm': 'mini',
+    '1/4in': 'quarter',
+    'XLR': 'xlr',
+    'XLR/TRS combo': 'xlr',
+    'DIN-5': 'din',
+    'USB-A': 'usb', 'USB-B': 'usb', 'USB-C': 'usb',
+    'RJ45': 'rj45',
+    'IDC-16': 'header',
+};
+
+function lookOfConnector(connector) {
+    return CONNECTOR_LOOK[connector] || 'quarter';
+}
+
+// Each plug, as a shape in a 4x4 box: narrow where the cable enters, wide where
+// it meets the socket. They are deliberately close cousins - at a glance a rack
+// should read as leads, not as a key of connector types - and differ where a
+// real plug differs: a mini jack is slimmer than a 1/4in, an XLR and a USB wear
+// a squared collar where the barrel stops, an RJ45 carries the latch that makes
+// it recognisable across a room, and a DIN's shell is round.
+const PLUG_SHAPES = {
+    mini:    'M 0 1.5 L 2.6 0.95 L 4 0.95 L 4 3.05 L 2.6 3.05 L 0 2.5 Z',
+    quarter: 'M 0 1.15 L 2.6 0.35 L 4 0.35 L 4 3.65 L 2.6 3.65 L 0 2.85 Z',
+    xlr:     'M 0 1.1 L 1.5 1.1 L 1.5 0.25 L 4 0.25 L 4 3.75 L 1.5 3.75 '
+             + 'L 1.5 2.9 L 0 2.9 Z',
+    din:     'M 0 1.25 L 2.1 0.55 A 1.75 1.75 0 0 1 2.1 3.45 L 0 2.75 Z',
+    usb:     'M 0 1.45 L 1.3 1.45 L 1.3 0.65 L 4 0.65 L 4 3.35 L 1.3 3.35 '
+             + 'L 1.3 2.55 L 0 2.55 Z',
+    rj45:    'M 0 1.45 L 1.2 1.45 L 1.2 0.6 L 2.5 0.6 L 2.5 0.1 L 3.1 0.1 '
+             + 'L 3.1 0.6 L 4 0.6 L 4 3.4 L 1.2 3.4 L 1.2 2.55 L 0 2.55 Z',
+    header:  'M 0 1.35 L 1.0 1.35 L 1.0 0.45 L 4 0.45 L 4 3.55 L 1.0 3.55 '
+             + 'L 1.0 2.65 L 0 2.65 Z',
+};
 
 // Device text comes from `catalogue/devices/*.json` and is interpolated into
 // attributes. A label holding a quote would otherwise end the attribute early
@@ -147,7 +281,12 @@ function announced(value) {
 }
 
 function jackAria(jack, side) {
-    const label = `${jack.label || jack.name} (${jack.signal} ${jack.type}, ${side})`;
+    // The connector belongs in the name a screen reader reads out. Which plug
+    // a socket takes is the difference between a lead that works and one that
+    // does not, and it was recorded for every socket in the catalogue while
+    // being said out loud for none of them.
+    const label = `${jack.label || jack.name} `
+        + `(${jack.connector} ${jack.signal} ${jack.type}, ${side})`;
     return `tabindex="0" role="button" title="${attr(label)}" aria-label="${attr(label)}"`;
 }
 
@@ -471,11 +610,21 @@ function knobAria(param) {
 // CORE COMPONENT: Jack
 // ===================================
 class Jack {
-    constructor(name, type, signal, side = 'front', label = null, element = null) {
+    // `spec` rather than two more positional arguments: the list was already at
+    // six, and `new Jack(n, t, s, side, label, el)` is hard enough to read
+    // without a carrier and a connector on the end of it.
+    constructor(name, type, signal, side = 'front', label = null, element = null,
+                spec = {}) {
         this.name = name;
         this.label = label || name;
         this.type = type; // 'input' or 'output'
-        this.signal = signal; // 'audio', 'cv', 'gate', etc.
+        // Three axes, and they answer different questions. What is in the wire,
+        // what carries it, and what physically plugs in.
+        this.signal = signal; // 'audio', 'cv', 'gate', 'midi', ...
+        this.connector = spec.connector || '1/4in';
+        // Stated by the catalogue, but derived if it was not: a USB-B socket is
+        // a USB bus whether or not anyone wrote it down.
+        this.carrier = spec.carrier || carrierOfConnector(this.connector);
         this.side = side; // 'front' or 'back'
         this.element = element;
         this.connections = [];
@@ -499,15 +648,48 @@ class Jack {
 
     // Whether this jack is a bus port rather than a one-way socket.
     isBus() {
-        return BUS_SIGNALS.has(this.signal);
+        return BUS_CARRIERS.has(this.carrier);
+    }
+
+    // Which lead would make this patch, or null if there is no such cable.
+    leadTo(otherJack) {
+        return leadFor(this.connector, this.signal,
+                       otherJack.connector, otherJack.signal);
+    }
+
+    // What a legal patch costs, said plainly - but only when it is worth
+    // saying. A lead whose two ends match is the ordinary case and stays
+    // silent, so the advice means something when it appears.
+    leadAdvice(otherJack) {
+        const ends = this.leadTo(otherJack);
+        if (!ends || ends[0] === ends[1]) return null;
+        return `needs ${nameOfLead(ends)}`;
     }
 
     // Why a connection was refused, for the status line. Null when it is legal.
+    // Ordered by how concrete the reason is, not by how the checks happen to be
+    // written. Not owning a cable that joins these two sockets is the plainest
+    // fact available and comes first: asked about a USB-C into a 3.5mm socket
+    // this used to answer `midi does not go into clock`, which is true,
+    // unhelpful, and about a different axis than the one that stops you.
     refusalReason(otherJack) {
         if (this === otherJack) return 'A jack cannot patch into itself';
-        if (this.isBus() !== otherJack.isBus()) {
-            return `${this.signal} does not go into ${otherJack.signal}`;
+        if (!this.leadTo(otherJack)) {
+            // Two reasons land here and they are not the same disappointment.
+            // Same protocol, wrong plug: there is no MIDI lead with a DIN on
+            // one end and a 3.5mm on the other. Same plug, wrong protocol: a
+            // 3.5mm TRS MIDI lead fits a CV input and must not be used that
+            // way.
+            return SIGNAL_FAMILY[this.signal] === SIGNAL_FAMILY[otherJack.signal]
+                ? `No ${this.signal} lead goes from ${this.connector} to `
+                    + `${otherJack.connector}`
+                : `${this.signal} does not go into a ${otherJack.signal} `
+                    + `socket, even on the same plug`;
         }
+        // Two buses share a wire rather than pointing at each other, so
+        // direction does not apply and the signal has to agree instead. A bus
+        // and a direct line cannot reach here: their connectors differ by
+        // carrier, which the fit above already refused.
         if (this.isBus()) {
             return this.signal === otherJack.signal
                 ? null
@@ -689,8 +871,8 @@ class EurorackModule {
     }
 
     // Add a jack to this module
-    addJack(name, type, signal, side = 'front', label = null) {
-        const jack = new Jack(name, type, signal, side, label);
+    addJack(name, type, signal, side = 'front', label = null, spec = {}) {
+        const jack = new Jack(name, type, signal, side, label, null, spec);
         jack.module = this;
         this.jacks.set(name, jack);
         return this; // For chaining
@@ -850,6 +1032,7 @@ class EurorackModule {
                             --label-line:${line.get(name) || 0}">
                     <div class="jack" data-jack="${attr(name)}" data-type="${attr(jack.type)}"
                          data-signal="${attr(jack.signal)}" data-side="${attr(side)}"
+                         data-connector="${attr(jack.connector)}"
                          ${jackAria(jack, side)}></div>
                     <span class="irl-jack-label">${jack.label || name}</span>
                 </div>`;
@@ -990,6 +1173,7 @@ class EurorackModule {
                 <div class="jack-slot">
                     <div class="jack" data-jack="${attr(name)}" data-type="${attr(type)}"
                          data-signal="${attr(jack.signal)}" data-side="${attr(side)}"
+                         data-connector="${attr(jack.connector)}"
                          ${jackAria(jack, side)}></div>
                     <span class="jack-label">${jack.label || name}</span>
                 </div>
@@ -1255,8 +1439,13 @@ class EurorackModule {
         // mixer drawn and dead, which is the same defect `irl` knobs had.
         const indicator = knobEl.querySelector('.knob-indicator');
         if (indicator) {
+            // `translate(-50%, -100%)` puts the indicator's foot on the
+            // container's centre, which is what `transform-origin: 50% 100%`
+            // then turns about. Dropping the Y half here would leave the
+            // element drawn from the centre downwards and pivoting correctly,
+            // which looks like the dial is upside down rather than offset.
             indicator.style.transform =
-                `translateX(-50%) rotate(${parameter.rotation}deg)`;
+                `translate(-50%, -100%) rotate(${parameter.rotation}deg)`;
         }
         knobEl.style?.setProperty?.('--value', String(parameter.fraction));
 
@@ -1532,7 +1721,8 @@ class ModuleFactory {
         });
 
         (def.jacks || []).forEach(j => {
-            module.addJack(j.name, j.type, j.signal, j.side, j.label);
+            module.addJack(j.name, j.type, j.signal, j.side, j.label,
+                           { carrier: j.carrier, connector: j.connector });
         });
 
         // Sides come from what is on them, so a device cannot claim a face
@@ -1557,6 +1747,7 @@ class PatchBayManager {
         this.connections = [];
         this.activeJack = null;
         this.svg = document.getElementById('patch-cables');
+
         // Falls back to the single layer, so a harness that registers one SVG
         // still draws every cable rather than silently losing the occluded
         // ones into an element that is not there.
@@ -1612,10 +1803,14 @@ class PatchBayManager {
         const refusal = target && target !== drag.jack
             ? drag.jack.refusalReason(target)
             : null;
+        const advice = target && target !== drag.jack && !refusal
+            ? drag.jack.leadAdvice(target)
+            : null;
         hostSystem()?.status.update(
             refusal
             || (target && target !== drag.jack
                 ? `Release to patch ${drag.jack.name} into ${target.name}`
+                    + (advice ? ` - ${advice}` : '')
                 // No article: `a audio lead` and `an cv lead` are both waiting
                 // in a sentence built that way, and the signal is the thing
                 // worth saying anyway.
@@ -1650,9 +1845,11 @@ class PatchBayManager {
             return true;
         }
 
+        const advice = drag.jack.leadAdvice(target);
         this.createConnection(drag.jack, target);
         hostSystem()?.status.update(
-            `Patched ${drag.jack.name} into ${target.name}`);
+            `Patched ${drag.jack.name} into ${target.name}`
+            + (advice ? ` - ${advice}` : ''));
         return true;
     }
 
@@ -1691,8 +1888,10 @@ class PatchBayManager {
         if (refusal) {
             hostSystem()?.status.update(refusal);
         } else {
+            const advice = this.activeJack.leadAdvice(jack);
             this.createConnection(this.activeJack, jack);
-            hostSystem()?.status.update('Connected!');
+            hostSystem()?.status.update(
+                advice ? `Connected - ${advice}` : 'Connected!');
         }
         this.activeJack?.element?.classList.remove('arming');
         this.activeJack = null;
@@ -1805,6 +2004,15 @@ class PatchBayManager {
         if (!this.svg) return;
         this.svg.replaceChildren();
         if (this.behindLayer() !== this.svg) this.behindLayer().replaceChildren();
+
+        // After the clear, not before it. Defining the marker in the
+        // constructor put it in a layer that `replaceChildren` empties on the
+        // very first redraw, so every lead referenced a marker that no longer
+        // existed and simply drew without ends - visibly nothing, which is the
+        // worst way for this to fail. Both layers get one: a marker resolves
+        // against the root its referencing path sits in, and these are two.
+        PatchBayManager.defineCableEnd(this.svg);
+        PatchBayManager.defineCableEnd(this.behindLayer());
 
         this.connections.forEach(conn => {
             const drawn = this.createCable(conn.source, conn.target);
@@ -1997,6 +2205,61 @@ class PatchBayManager {
         return Math.min(1, Math.max(0, mine + offset));
     }
 
+    // The moulded end of a plug, drawn where a lead meets a socket.
+    //
+    // A stroked path has the same weight along its whole length, so a lead
+    // reads as a line that stops rather than as something with two ends. This
+    // is a marker rather than extra geometry in the path: `orient="auto"` turns
+    // it to the tangent, so it follows a curve without anything computing an
+    // angle, and `markerUnits="strokeWidth"` scales it with the lead so a thin
+    // strand in a lane does not wear a plug meant for a full-weight cable.
+    //
+    // The shape is a shallow trapezium, wide where it meets the socket and
+    // narrowing back into the cable - the bevel is what implies a shell around
+    // the conductor. It is deliberately small: at a glance the run should still
+    // read as one line, and the ends should only be apparent when looked at.
+    //
+    // `context-stroke` makes it take the colour of the lead referencing it,
+    // which is what keeps a rear cable's plug the rear colour and a drum lane's
+    // the lane tint. A palette token would have been a second place to change.
+    static defineCableEnd(layer) {
+        if (!layer || layer.querySelector('#cable-end-quarter')) return null;
+        const NS = 'http://www.w3.org/2000/svg';
+        // Appended rather than inserted first. An SVG reference resolves by
+        // id wherever the definition sits, and `insertBefore` is one more
+        // method a minimal DOM has to implement - the node harnesses caught
+        // exactly that, which is what they are for.
+        let defs = layer.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS(NS, 'defs');
+            layer.appendChild(defs);
+        }
+
+        // One marker per plug, because the two ends of a lead need not be the
+        // same plug - a 3.5mm out into a 1/4in in is a real patch, and drawing
+        // both ends alike is the tool agreeing that no adapter is involved.
+        let last = null;
+        for (const [look, shape] of Object.entries(PLUG_SHAPES)) {
+            const marker = document.createElementNS(NS, 'marker');
+            marker.setAttribute('id', `cable-end-${look}`);
+            marker.setAttribute('viewBox', '0 0 4 4');
+            marker.setAttribute('refX', '3.2');   // sits just inside the socket
+            marker.setAttribute('refY', '2');
+            marker.setAttribute('markerWidth', '3.2');
+            marker.setAttribute('markerHeight', '3.2');
+            marker.setAttribute('markerUnits', 'strokeWidth');
+            marker.setAttribute('orient', 'auto');
+
+            const shell = document.createElementNS(NS, 'path');
+            shell.setAttribute('d', shape);
+            shell.setAttribute('class', 'cable-end');
+            marker.appendChild(shell);
+            defs.appendChild(marker);
+            last = marker;
+        }
+        return last;
+    }
+
     // A small ring where a cable meets a device it enters out of sight, so the
     // hidden end reads as an endpoint rather than as the line stopping.
     createAnchorMark(at, side) {
@@ -2119,7 +2382,7 @@ class PatchBayManager {
                     hidden: from.hidden && to.hidden,
                 }];
 
-            pieces.forEach(piece => {
+            pieces.forEach((piece, index_of_piece) => {
                 const path = document.createElementNS(
                     'http://www.w3.org/2000/svg', 'path');
                 path.setAttribute('d', piece.curve);
@@ -2135,12 +2398,43 @@ class PatchBayManager {
                 // `#00ff88` here is how a theme ends up with one cable that
                 // does not follow it.
                 const classes = [...shared];
+                // Weight follows the source plug: a 1/4in lead is a heavier
+                // thing than a Eurorack patch cable, and a rack of each should
+                // read that way without anything being labelled.
+                classes.push(`is-plug-${lookOfConnector(source.connector)}`);
                 if (piece.hidden) classes.push('is-occluded');
                 if (lane) {
                     classes.push('is-lane');
                     if (lane.channel === DRUM_CHANNEL) classes.push('is-drums');
                 }
                 path.setAttribute('class', classes.join(' '));
+
+                // Only where the lead actually meets a socket, and only once
+                // per socket. A cable split in two pieces has an inner end that
+                // is the join, not a plug, and marking that would draw a
+                // connector in mid-air. A lead carrying several channels is
+                // drawn as several strands that converge on one socket, so only
+                // the first wears the plug - measured before this line existed,
+                // a four-lane USB lead wore eight.
+                const wearsPlug = !lane || index === 0;
+                // A lead starts at its source and ends at its target, so each
+                // end wears the plug of the socket it is actually in. When the
+                // two differ, that is an adapter, and it is now visible rather
+                // than only being said in the status line.
+                const startPlug = `url(#cable-end-${lookOfConnector(
+                    source.connector)})`;
+                const endPlug = `url(#cable-end-${lookOfConnector(
+                    target.connector)})`;
+                if (!wearsPlug) {
+                    // nothing: this strand runs into a plug its neighbour draws
+                } else if (pieces.length === 1) {
+                    path.setAttribute('marker-start', startPlug);
+                    path.setAttribute('marker-end', endPlug);
+                } else if (index_of_piece === 0) {
+                    path.setAttribute('marker-start', startPlug);
+                } else {
+                    path.setAttribute('marker-end', endPlug);
+                }
 
                 if (lane) {
                     path.setAttribute('data-channel', String(lane.channel));

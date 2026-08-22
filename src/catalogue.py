@@ -41,20 +41,163 @@ SIDE_ORDER = ("front", "back", "top", "bottom", "left", "right")
 Side = Literal["front", "back", "top", "bottom", "left", "right"]
 JackType = Literal["input", "output"]
 
-# What a socket carries. Kept deliberately coarse: this is a sketching tool, and
-# a taxonomy fine enough to be correct about every device would be too fine to
-# be useful about any of them.
+# A socket answers three questions, and they are not the same question. What is
+# in the wire, what carries it, and what physically plugs in. They were one
+# field once - `signal` held `usb` and `network`, which are neither of them
+# signals - and the rules built on top inherited the muddle: bus-ness was
+# treated as a property of a signal, so `network` was not a bus; and MIDI's
+# sixteen channels were treated as a property of USB, so a USB audio port
+# counted as channelled. Splitting the axes is what makes each rule expressible
+# where it is true.
+
+# What is in the wire. Kept deliberately coarse: this is a sketching tool, and a
+# taxonomy fine enough to be correct about every device would be too fine to be
+# useful about any of them.
 Signal = Literal[
     "audio",  # line, mic or instrument level analogue audio
     "cv",     # control voltage
     "gate",   # gates and triggers
     "clock",  # analogue clock and sync pulses
-    "midi",   # MIDI, on DIN or TRS
-    "usb",    # USB of any shape, host or device
-    "network",  # ethernet-carried protocols, including dSNAKE and Dante
-    "digital",  # AES, S/PDIF, ADAT
+    "midi",   # MIDI, whatever carries it: DIN, TRS or USB
+    "digital",  # digital audio: AES, S/PDIF, ADAT
+    "data",   # everything else a bus carries: control, transfer, sync
     "power",
 ]
+
+# What carries it. `direct` is a dedicated line from one socket to one other -
+# analogue or digital, it makes no difference to the topology. The other two are
+# buses: many things share the wire, and the wire runs both ways.
+Carrier = Literal["direct", "usb", "network"]
+
+# What physically plugs in. This names the opening rather than the wiring: a
+# balanced 1/4in TRS and an unbalanced 1/4in TS mate with the same socket, and
+# fit is the question this axis exists to answer. Balance, where it matters, is
+# a `note`.
+Connector = Literal[
+    "3.5mm",          # Eurorack CV, gate and TRS MIDI
+    "1/4in",
+    "XLR",
+    "XLR/TRS combo",  # a socket that takes either
+    "DIN-5",
+    "USB-A",
+    "USB-B",
+    "USB-C",
+    "RJ45",
+    "IDC-16",         # Eurorack power header
+]
+
+# Which carrier a connector implies. A USB-B socket is a USB bus whatever is
+# declared about it, and an RJ45 is a network one - so the pair is checked
+# rather than trusted, and a catalogue entry cannot claim a direct line through
+# a bus connector.
+CARRIER_OF_CONNECTOR: dict[str, str] = {
+    "USB-A": "usb",
+    "USB-B": "usb",
+    "USB-C": "usb",
+    "RJ45": "network",
+}
+
+# A combo socket really does take either plug, with no adapter in between.
+NATIVELY_ACCEPTS: dict[str, tuple[str, ...]] = {
+    "XLR/TRS combo": ("XLR", "1/4in"),
+}
+
+# Which signals can share a lead. Voltages are voltages: on a Eurorack panel a
+# gate into a CV input is an ordinary thing to do, and refusing it would break
+# normal patching. MIDI is not a voltage, and that is the distinction.
+#
+# `analogue` is doing slightly more work than its name: an RJ45 audio snake is
+# audio, and audio is analogue here. Nothing goes wrong, because what a lead can
+# reach is decided by the lead list rather than by the family - and the only
+# RJ45 lead has an RJ45 at both ends.
+SIGNAL_FAMILY: dict[str, str] = {
+    "audio": "analogue",
+    "cv": "analogue",
+    "gate": "analogue",
+    "clock": "analogue",
+    "midi": "midi",
+    "digital": "digital",
+    "data": "data",
+    "power": "power",
+}
+
+# The leads that exist.
+#
+# This is the axis the other two hang off, and it is deliberately a list of
+# objects rather than a rule computed from connectors. A cable is a thing you
+# own: it has two ends and it carries something, and neither fact follows from
+# the other. MIDI runs on DIN-5, on 3.5mm TRS and over USB - three connectors,
+# one protocol - and no amount of shared protocol makes a DIN plug enter a
+# 3.5mm socket. Equally, a 3.5mm patch cable and a 3.5mm TRS MIDI lead are the
+# same object and still cannot join a MIDI output to a CV input.
+#
+# So: a patch is legal when a lead exists whose two ends mate the two sockets
+# and which carries the family both sockets speak. Sharing a connector is not
+# enough. Sharing a protocol is not enough. You need the cable.
+#
+# Ends are unordered - a lead has no direction, only the patch does.
+LEADS: tuple[tuple[tuple[str, str], frozenset[str]], ...] = (
+    # Jacks and their sizes. A quarter-inch and an eighth-inch are different
+    # openings, so quarter-into-eighth is its own lead rather than an
+    # equivalence between the two.
+    (("3.5mm", "3.5mm"), frozenset({"analogue", "midi"})),  # patch, and TRS MIDI
+    (("3.5mm", "1/4in"), frozenset({"analogue"})),
+    (("3.5mm", "XLR"), frozenset({"analogue"})),
+    (("1/4in", "1/4in"), frozenset({"analogue"})),
+    (("1/4in", "XLR"), frozenset({"analogue"})),
+    (("XLR", "XLR"), frozenset({"analogue", "digital"})),   # mic, line, and AES
+    # MIDI's own connector. There is no DIN-to-anything-else lead here on
+    # purpose: a DIN MIDI port reaches another DIN MIDI port.
+    (("DIN-5", "DIN-5"), frozenset({"midi"})),
+    # USB carries whatever the two ends agree on, which is why its leads list
+    # several families rather than one.
+    (("USB-A", "USB-B"), frozenset({"analogue", "midi", "data"})),
+    (("USB-A", "USB-C"), frozenset({"analogue", "midi", "data"})),
+    (("USB-B", "USB-C"), frozenset({"analogue", "midi", "data"})),
+    (("USB-C", "USB-C"), frozenset({"analogue", "midi", "data"})),
+    (("RJ45", "RJ45"), frozenset({"analogue", "data"})),
+    (("IDC-16", "IDC-16"), frozenset({"power"})),
+)
+
+
+def mates(end: str, socket: str) -> bool:
+    """Whether one end of a lead goes into one socket.
+
+    Not symmetric: a combo socket accepts an XLR plug, and an XLR socket does
+    not accept whatever a combo would have taken.
+    """
+    return end == socket or end in NATIVELY_ACCEPTS.get(socket, ())
+
+
+def lead_for(
+    one_connector: str, one_signal: str, other_connector: str, other_signal: str
+) -> tuple[str, str] | None:
+    """The lead that would make this patch, or None if you do not own one.
+
+    The browser answers this too, during a drag, where waiting on the server is
+    not an option. Two implementations of one rule is a drift risk taken with
+    open eyes: `test_catalogue` reads the tables back out of `models.js`, runs
+    the browser's own function over every pair, and fails if the two have parted
+    company.
+    """
+    if SIGNAL_FAMILY[one_signal] != SIGNAL_FAMILY[other_signal]:
+        return None
+    family = SIGNAL_FAMILY[one_signal]
+    for ends, carries in LEADS:
+        if family not in carries:
+            continue
+        one_end, other_end = ends
+        if (mates(one_end, one_connector) and mates(other_end, other_connector)) or (
+            mates(other_end, one_connector) and mates(one_end, other_connector)
+        ):
+            return ends
+    return None
+
+
+def name_of_lead(ends: tuple[str, str]) -> str:
+    """What to call it when telling someone what to buy."""
+    one, other = ends
+    return f"a {one} lead" if one == other else f"a {one}-to-{other} lead"
 
 CATEGORIES: dict[str, str] = {
     "mixer": "Consoles that sum, route and process many inputs",
@@ -81,9 +224,25 @@ class Jack(BaseModel):
     label: str = Field(min_length=1)
     type: JackType
     signal: Signal
+    # What carries the signal, and what plugs in. `connector` was free text and
+    # read by nothing - filled in for every socket in the catalogue and then
+    # dropped on the floor. It is a vocabulary now because fit is a question
+    # with a right answer, and free text cannot be asked it.
+    carrier: Carrier = "direct"
+    connector: Connector
     side: Side = "front"
-    connector: str | None = None
     note: str | None = None
+
+    @model_validator(mode="after")
+    def _carrier_matches_connector(self) -> "Jack":
+        """A bus connector is a bus, whatever the entry says."""
+        implied = CARRIER_OF_CONNECTOR.get(self.connector, "direct")
+        if self.carrier != implied:
+            raise ValueError(
+                f"{self.name}: a {self.connector} socket is {implied}, "
+                f"not {self.carrier}"
+            )
+        return self
 
 
 class Parameter(BaseModel):
