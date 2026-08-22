@@ -24,16 +24,55 @@ True
 uv sync
 ```
 
-`uv` lives at `C:\Users\peter\.local\bin\uv.exe` on the machine this was
-written on. It resolves as a bare `uv` under Git Bash but **not** under
-PowerShell, which needs the absolute path. If a command fails with "uv is not
-recognized", that is the shell rather than the project.
+`uv` resolves on `PATH` under some shells and not others on the same
+machine — commonly it is found under Git Bash and not under PowerShell. If a
+command fails with "uv is not recognized", that is the shell rather than the
+project; `uv --version` tells you whether this shell can see it, and
+invoking it by absolute path is the workaround.
 
 The governance corpus is a submodule. On a fresh clone:
 
 ```sh
 git submodule update --init --recursive
 ```
+
+**On Windows, know what your `CLAUDE.md` is.** It and
+`.github/copilot-instructions.md` are real symlinks to `AGENTS.md` — mode
+`120000` in git. Without Developer Mode they check out as one-line text files
+containing the target path instead. Which you have:
+
+```sh
+git ls-files -s CLAUDE.md      # 120000 means git stores a symlink
+```
+
+**This is not worth repairing, and repairing it badly costs you both files.**
+Everything on this page works either way: the degraded files still name their
+target, and nothing reads them at build or test time. `git status` stays clean
+in both states, so there is nothing to clear up.
+
+If you want the real thing anyway, the obvious two lines are a trap and this
+page used to print them. `git config core.symlinks true` fails outright where
+the value is already set twice — it needs `--replace-all` — and `git checkout
+-- .` is a no-op on files git considers unmodified, which these are. Force it
+without Developer Mode and `git checkout` removes the regular files, fails to
+create the symlinks, and leaves neither:
+
+```
+error: unable to create symlink CLAUDE.md: Permission denied
+```
+
+So: turn Developer Mode on first (Settings → For developers), confirm it, and
+only then replace the files rather than checking them out:
+
+```sh
+git config --replace-all core.symlinks true
+rm CLAUDE.md .github/copilot-instructions.md
+git checkout -- CLAUDE.md .github/copilot-instructions.md
+git ls-files -s CLAUDE.md && ls -l CLAUDE.md    # a symlink, not 9 bytes
+```
+
+If that errors, you do not have Developer Mode, and the answer is to leave it
+alone.
 
 Skipping it does not break the app; it breaks the CI gates, which run out of
 `governance/qm` and then fail for a reason that has nothing to do with your
@@ -49,13 +88,27 @@ Every runtime dependency the app declares imports:
 
 ```
 
-A bare `python -m unittest discover` fails with `ModuleNotFoundError: No module
-named 'fastapi'` — the system interpreter does not have the project's
-dependencies. Everything below assumes `uv run`.
+A bare `python -m unittest discover` may fail with `ModuleNotFoundError: No
+module named 'fastapi'` — that is the *system* interpreter, which does not have
+the project's dependencies. Whether you get it depends on what `python` resolves
+to in your shell: inside an activated `.venv` it is the project interpreter and
+the same command runs fine, which makes it a poor thing to rely on either way.
+`uv run` is the answer that does not depend on the shell, and everything below
+assumes it.
 
 ## The command
 
-One command runs the tests and these pages:
+```sh
+uv run carlos check
+```
+
+That is the round every other document names, and it is the one to learn. It
+runs the suite and these pages — about 520 tests, two and a half minutes, the
+last of which drives real Chromium.
+
+`carlos --help` lists the rest; `carlos --dry-run <round>` prints the command a
+round runs without running it, because each is a command you could type
+yourself. This one is:
 
 ```sh
 uv run pytest tests walkthrough --doctest-glob=*.md
@@ -68,7 +121,7 @@ that way is collected by nobody and stays green forever.
 ## Running it
 
 ```sh
-uv run python src/main.py
+uv run carlos serve
 ```
 
 `http://localhost:8000`. The bare address redirects to the workspace at
@@ -92,16 +145,43 @@ refresh away.
 
 **Stopping it is not what you think.** `pkill -f` leaves the process bound on
 Windows, and `/healthz` will answer from a server started an hour ago while you
-believe you are looking at your change. Count the listeners:
+believe you are looking at your change. Two rounds exist for exactly this:
 
 ```sh
-netstat -ano | grep ':8000' | grep -c LISTENING
+uv run carlos stop      # stops every server holding the port, and proves it free
+uv run carlos status    # what state this checkout is in, including who is serving
 ```
 
-More than one means the answer you are reading may not be from the code in your
-tree. Kill by PID with `taskkill //F //PID <pid>`.
+`status` prints the serving instance and pid. If that instance is not the one you
+just started, you are reading somebody else's process — which is the failure this
+environment produces most often, and it cost this project a session.
+
+If you need to do it by hand, the commands are per-platform. **Windows**, under
+Git Bash:
+
+```sh
+netstat -ano | grep ':8000' | grep LISTENING    # the last column is the pid
+taskkill //F //PID <pid>
+```
+
+`grep -c` counts rather than printing, so it can tell you *whether* something is
+listening and never which pid to kill. Drop the `-c` when you need the second
+line.
+
+**macOS and Linux**:
+
+```sh
+lsof -ti :8000
+kill -9 $(lsof -ti :8000)
+```
+
+More than one listener means the answer you are reading may not be from the code
+in your tree.
 
 ## Where to go next
 
 `02-the-catalogue.md` is the data model, and it is the shortest path to
 understanding what this app is for.
+
+`04-cookbook.md` is the command table for somebody already set up — every round,
+and the command each one runs.

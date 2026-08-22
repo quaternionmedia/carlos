@@ -133,6 +133,19 @@ class Parameter {
 // A socket is a button: press one, press its partner, and a cable exists. Says
 // which side it is on, because with devices turning independently that is the
 // difference between a lead you can see and one that runs round the back.
+// What a screen reader is told a control is set to.
+//
+// It was `Math.round(value)` in all three places that publish it, and the fine
+// step is `span / 1000` - 0.127 on a 0-127 knob. Rounding erased it, so a
+// screen-reader user pressing Shift+Arrow heard the same number four times
+// before it moved. The control worked; the announcement did not.
+//
+// Three decimals rather than the raw float: `toFixed` alone would announce
+// "64.000", and `Number()` drops the zeros so a whole value still reads "64".
+function announced(value) {
+    return String(Number(Number(value).toFixed(3)));
+}
+
 function jackAria(jack, side) {
     const label = `${jack.label || jack.name} (${jack.signal} ${jack.type}, ${side})`;
     return `tabindex="0" role="button" title="${attr(label)}" aria-label="${attr(label)}"`;
@@ -451,7 +464,7 @@ function knobAria(param) {
         + ` aria-label="${attr(param.label)}"`
         + ` aria-valuemin="${attr(param.minValue)}"`
         + ` aria-valuemax="${attr(param.maxValue)}"`
-        + ` aria-valuenow="${attr(Math.round(param.value))}"`;
+        + ` aria-valuenow="${attr(announced(param.value))}"`;
 }
 
 // ===================================
@@ -1263,7 +1276,7 @@ class EurorackModule {
             }
             knobEl.style?.setProperty?.('--value', String(parameter.fraction));
             // The value a screen reader reads has to be the value on screen.
-            knobEl.setAttribute('aria-valuenow', String(Math.round(parameter.value)));
+            knobEl.setAttribute('aria-valuenow', announced(parameter.value));
             // What a `parameter` screen shows, and what a `last-event` screen
             // shows when a control rather than a pad was the last thing to
             // move. Set here because this is the one path every kind of
@@ -1429,7 +1442,7 @@ class EurorackModule {
         const knobEl = this.element?.querySelector(`[data-param="${param.name}"]`);
         if (!knobEl) return null;
 
-        knobEl.setAttribute?.('aria-valuenow', String(Math.round(param.value)));
+        knobEl.setAttribute?.('aria-valuenow', announced(param.value));
         // Where it stands, for the controls CSS positions rather than turns. A
         // fader has no indicator to rotate, so this is the only thing that
         // moves it; a knob has both and only uses the rotation.
@@ -2632,8 +2645,14 @@ class EurorackSystem {
 
             const header = document.createElement('div');
             header.className = 'rack-group-header';
+            // `group.label` comes from an imported document, and import
+            // validates ids, membership and versions but never a label's
+            // content. Every other interpolation in this file goes through
+            // `attr` and the status line is `textContent`; this was the one
+            // spot that did not, so a hostile patch could put markup on the
+            // page of whoever opened it.
             header.innerHTML = `
-                <span class="rack-group-label">${group.label}</span>
+                <span class="rack-group-label">${attr(group.label)}</span>
                 <span class="rack-group-count">${group.members.length}</span>
             `;
             const remove = document.createElement('button');

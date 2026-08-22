@@ -54,4 +54,10 @@ dev = [
     "playwright>=1.62.0",
     "pytest>=9.1.1",
     "pytest-playwright>=0.9.0",
+    # `carlos gates` runs the corpus's workflow runner, which parses the
+    # workflow YAML. It was in no dependency group, so the documented command
+    # exited 1 with `pyyaml is required` under the `uv sync` interpreter and
+    # worked here only because a system Python happened to carry it -- an
+    # accident of Windows process resolution, not a configuration.
+    "pyyaml>=6.0",
 ]

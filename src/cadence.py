@@ -192,6 +192,15 @@ CADENCE: tuple[EndpointCadence, ...] = (
         why="The MIDI vocabulary this build understands. A build-time fact.",
     ),
     EndpointCadence(
+        path="/api/midi/encode",
+        method="POST",
+        side_effect="none",
+        staleness_budget_seconds=None,
+        min_interval_seconds=None,
+        why="Turns the caller's own message into bytes, or refuses it. Nothing "
+            "is kept, and nothing is sent - the caller does the sending.",
+    ),
+    EndpointCadence(
         path="/api/midi/parse",
         method="POST",
         side_effect="none",

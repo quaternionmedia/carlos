@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 try:
     from .db import DatabaseManager
@@ -417,6 +417,49 @@ async def midi_info():
     }
 
 
+def _midi_explain(error: Exception) -> str:
+    """What went wrong, without naming the library that noticed.
+
+    Pydantic's own string carries the model name, an echo of the caller's input,
+    a `type=` code and a versioned docs URL - `errors.pydantic.dev/2.11/...`,
+    which tells a reader exactly which advisories to look up. `patch_format`
+    already strips all of that for the patch endpoints; this is the same
+    treatment for the MIDI ones, which were the last routes echoing the raw
+    exception.
+    """
+    if isinstance(error, ValidationError):
+        problems = []
+        for item in error.errors():
+            where = ".".join(str(part) for part in item.get("loc", ())) or "message"
+            problems.append(f"{where}: {item.get('msg', 'is not valid')}")
+        return "; ".join(problems) or "not a valid MIDI message"
+    if isinstance(error, TypeError):
+        return "bytes must be a list of integers"
+    if isinstance(error, ValueError):
+        return "every byte must be a whole number from 0 to 255"
+    return "not a valid MIDI message"
+
+
+@app.post("/api/midi/encode")
+async def midi_encode(payload: dict):
+    """Turn a message into the bytes a device will receive, or refuse it.
+
+    The inverse of `/api/midi/parse`, and the check a caller can run before it
+    sends anything. A device that receives a malformed message reports that it
+    was malformed and can never say which byte, so the useful place to find out
+    is here, while it is still a message.
+    """
+    try:
+        return {"ok": True, "bytes": midi.encode(payload.get("message", payload))}
+    except midi.MidiError as exc:
+        return JSONResponse(status_code=422, content={"ok": False, "error": str(exc)})
+    except (ValidationError, TypeError, ValueError) as exc:
+        return JSONResponse(
+            status_code=422,
+            content={"ok": False, "error": _midi_explain(exc)},
+        )
+
+
 @app.post("/api/midi/parse")
 async def midi_parse(payload: dict):
     """Turn raw MIDI bytes into a message.
@@ -429,6 +472,15 @@ async def midi_parse(payload: dict):
         message = midi.parse(payload.get("bytes", []))
     except midi.MidiError as exc:
         return JSONResponse(status_code=422, content={"ok": False, "error": str(exc)})
+    except (ValidationError, TypeError, ValueError) as exc:
+        # A malformed message is the caller's problem to see, not a traceback in
+        # this process's log. `MidiError` covers what `midi.parse` raises
+        # deliberately; these are what it raises by arithmetic, and a data byte
+        # out of range is the commonest of them.
+        return JSONResponse(
+            status_code=422,
+            content={"ok": False, "error": _midi_explain(exc)},
+        )
     return {"ok": True, "message": message.model_dump(exclude_none=True)}
 
 
@@ -444,6 +496,14 @@ async def midi_route(payload: dict):
         bindings = [midi.load_binding(b) for b in payload.get("bindings", [])]
     except midi.MidiError as exc:
         return JSONResponse(status_code=422, content={"ok": False, "error": str(exc)})
+    except TypeError:
+        # `{"bindings": 5}` and `{"bindings": null}` are not iterable, and the
+        # comprehension raised before any binding was read. A string and a dict
+        # both iterate, which is why this looked covered.
+        return JSONResponse(
+            status_code=422,
+            content={"ok": False, "error": "bindings must be a list"},
+        )
 
     raw = payload.get("bytes")
     try:
@@ -454,7 +514,7 @@ async def midi_route(payload: dict):
     except Exception as exc:
         return JSONResponse(
             status_code=422,
-            content={"ok": False, "error": f"not a message: {exc}"},
+            content={"ok": False, "error": f"not a message: {_midi_explain(exc)}"},
         )
 
     activity = midi.route(bindings, message)

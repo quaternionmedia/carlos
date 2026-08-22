@@ -288,6 +288,245 @@ class MediaTests(unittest.TestCase):
                 self.assertNotIn(comparison, source)
 
 
+def project_markdown() -> list[Path]:
+    """Every markdown file this project commits, asked of git.
+
+    NOT `rglob("*.md")`, which was the first fix and introduced a defect of its
+    own: pytest writes `.pytest_cache/README.md` on its first run, so a fresh
+    checkout discovered 26 files and every run after it discovered 27. Measured
+    across five runs in a clean clone - 1504 subtests on the cold run, 1505 on
+    every one after. A suite whose answer depends on whether it has been run
+    before is exactly what the version-tags record refuses to call evidence, and
+    the guard that introduced it was written to enforce that record.
+
+    Asking git is also the honest statement of the subject. "This project's
+    prose" means the documents it commits - not whatever tooling has dropped in
+    the tree, which is neither ours to police nor stable between runs.
+    """
+    listed = subprocess.run(
+        ["git", "ls-files", "*.md"],
+        capture_output=True, text=True, timeout=30,
+    )
+    if listed.returncode != 0:
+        raise AssertionError(f"git ls-files failed:\n{listed.stderr}")
+    return sorted(
+        Path(name) for name in listed.stdout.splitlines()
+        if name.strip() and not name.startswith("governance/")
+    )
+
+
+class CommittedProseCarriesNoMachineLiteralTests(unittest.TestCase):
+    """The rule already exists here; it reached one file.
+
+    `tests/test_cadence.py` refuses an IP, a hostname, a URL, a port or a
+    Windows path in `catalogue/peers.json`, quoting clause 3 of the
+    monitoring-seam record word for word. It was pointed at that one JSON file,
+    while three prose documents - including the first page a newcomer reads -
+    carried a path under one contributor's home directory.
+
+    The first version of this guard was walked through in four ways, and the
+    fixes are all here: it hand-listed the top-level documents (so a new
+    `INSTALL.md` was unguarded), it globbed `docs/*.md` non-recursively, its
+    pattern required a drive letter (so a UNC path carrying a *hostname* as well
+    as a username escaped), and it refused prose that quotes the very path it is
+    warning about - which made the retrospective recording this fix unwritable.
+    """
+
+    # A home directory, however it is spelled: `C:\Users\x`, `\\host\Users\x`,
+    # `\Users\x`, `/home/x`, `/Users/x`, `~x`. The drive letter is optional
+    # because the UNC and drive-relative forms carry the same username, and the
+    # UNC form leaks a machine name too.
+    HOME = re.compile(
+        r"(?:[A-Za-z]:)?[\\/]{1,2}(?:Users|home)[\\/]{1,2}(?![<{$])[A-Za-z0-9._-]+",
+        re.IGNORECASE,
+    )
+
+    # `~someone` is the other home shorthand and is deliberately NOT matched.
+    # In markdown `~~struck~~` and "~1" are ordinary prose, and running this
+    # guard wide found both in this repository the first time. Catching a
+    # tilde home is worth less than a guard people trust, and the drive, UNC
+    # and POSIX forms above are how an install path is actually written.
+
+    # Placeholders a document *should* use, and which must stay legal.
+    ALLOWED = ("<you>", "<user>", "<username>", "USERNAME", "$HOME", "${HOME}")
+
+    def surfaces(self):
+        """Every markdown file this project owns — including ones not yet written,
+        which is the case the original hand-written list could not cover."""
+        return project_markdown()
+
+    def prose(self, path: Path) -> str:
+        """The document minus what it is quoting.
+
+        A page warning against a path has to be able to print it, and a
+        retrospective has to be able to say what was there before. `RegistryTests`
+        below strips comments for the same reason, and states it: naming a thing
+        in an explanation is not doing it.
+        """
+        body = path.read_text(encoding="utf-8")
+        body = re.sub(r"```.*?```", "", body, flags=re.S)   # fenced blocks
+        body = re.sub(r"`[^`\n]*`", "", body)               # code spans
+        # A URL path is not a home directory.
+        # `docs.astral.sh/uv/home/installing` is documentation about
+        # installing, and reporting it as a leak is how a guard earns a
+        # reputation for crying wolf.
+        body = re.sub(r"https?://\S+", "", body)
+        return body
+
+    def test_the_document_set_does_not_move_between_runs(self):
+        """The defect the first version of this guard introduced.
+
+        `rglob` picked up `.pytest_cache/README.md`, which pytest writes on its
+        first run, so the subtest count differed between a cold checkout and a
+        warm one. Tracked files cannot do that: nothing pytest, uv or node
+        generates is committed.
+        """
+        found = project_markdown()
+        self.assertEqual(found, project_markdown(), "discovery is not stable")
+        for path in found:
+            with self.subTest(str(path)):
+                self.assertNotIn(".pytest_cache", str(path))
+                self.assertNotIn("__pycache__", str(path))
+                self.assertNotIn(".venv", str(path))
+                self.assertFalse(
+                    str(path).startswith("governance"),
+                    "the vendored corpus is not this project's prose",
+                )
+
+    def test_the_corpus_is_not_empty(self):
+        """Without this the whole class passes when its subject disappears.
+
+        The first version had no floor: `surfaces()` returning `[]` left every
+        assertion below unreached and the class green.
+        """
+        found = self.surfaces()
+        self.assertGreater(len(found), 10, "the document set collapsed")
+        names = {p.name for p in found}
+        for expected in ("README.md", "AGENTS.md", "CONTRIBUTING.md"):
+            self.assertIn(expected, names)
+
+    def test_no_document_names_somebody_home_directory(self):
+        for path in self.surfaces():
+            with self.subTest(str(path)):
+                found = [h for h in self.HOME.findall(self.prose(path))
+                         if not any(a.lower() in h.lower() for a in self.ALLOWED)]
+                self.assertEqual(
+                    found, [],
+                    f"{path} names a home directory outside a code span: "
+                    f"{found}. Say which shell finds the tool, not where it sits "
+                    f"on one machine.",
+                )
+
+    def test_the_guard_can_see_every_shape_it_claims_to(self):
+        # A pattern nobody has watched match is a pattern nobody knows works,
+        # and each of these walked past the first version.
+        for leak in (r"C:\Users\someone\.local\bin\uv.exe",
+                     r"\\CARLOS-DEV01\Users\someone\.local",
+                     r"\Users\someone\.local",
+                     "/home/someone/.local/bin",
+                     "/Users/someone/Library"):
+            with self.subTest(leak):
+                self.assertTrue(self.HOME.findall(leak), f"missed {leak}")
+
+    def test_the_guard_leaves_a_placeholder_alone(self):
+        for fine in (r"C:\Users\<you>\.local", r"C:\Users\USERNAME\.local",
+                     "/home/$HOME/x", "~/.local/bin/uv",
+                     "~~struck through~~", "roughly ~1 second",
+                     "https://docs.astral.sh/uv/home/installing/"):
+            with self.subTest(fine):
+                cleaned = re.sub(r"https?://\S+", "", fine)
+                found = [h for h in self.HOME.findall(cleaned)
+                         if not any(a.lower() in h.lower() for a in self.ALLOWED)]
+                self.assertEqual(found, [], f"false positive on {fine}")
+
+    def test_a_document_may_quote_the_path_it_warns_about(self):
+        # The self-refuting case: the retrospective recording this fix has to be
+        # able to name what was wrong.
+        quoting = "We used to say `C:\\Users\\peter\\.local\\bin\\uv.exe`, which is nobody else's."
+        stripped = re.sub(r"`[^`\n]*`", "", quoting)
+        self.assertEqual(self.HOME.findall(stripped), [])
+
+
+class DocumentedRoundsMatchTheCommandTests(unittest.TestCase):
+    """A count written in prose is right when typed and wrong a year later.
+
+    Three documents said `carlos harness` runs "the five frontend harnesses". It
+    runs four - the fifth was deleted with the panel it tested. A fourth
+    document gave `carlos harness palette` as a command, which errors.
+
+    The first version of this guard was defeated three ways and is rebuilt for
+    all of them. It regexed `tools/cli.py` for `HARNESSES = (...)`, which has no
+    word boundary, so a `_ALL_HARNESSES` tuple shadowed the real one and a
+    three-line refactor could drop a harness with the guard green; an ordinary
+    comment inside the tuple truncated `[^)]*` and made it report one harness;
+    and it hand-listed the documents, so `REVIEW.md` said "five" throughout with
+    everything passing.
+    """
+
+    WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+             "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+
+    def harnesses(self) -> tuple:
+        """Asked of the CLI, not of its source.
+
+        Importing is the whole fix for the shadowing hole: there is exactly one
+        `HARNESSES` at runtime, whatever the file looks like.
+        """
+        sys.path.insert(0, str(Path(".").resolve()))
+        from tools import cli
+        return tuple(cli.HARNESSES)
+
+    def documents(self):
+        return project_markdown()
+
+    def test_every_harness_offered_has_a_file(self):
+        found = self.harnesses()
+        self.assertTrue(found, "the CLI offers no harnesses at all")
+        for name in found:
+            with self.subTest(name):
+                self.assertTrue((Path("tests") / f"{name}.js").is_file())
+
+    def test_every_document_counts_them_correctly(self):
+        expected = len(self.harnesses())
+        # `frontend` optional, and a digit counts: refusing "the 4 harnesses"
+        # was a false positive that taught people the check was stupid.
+        phrase = re.compile(r"([\w]+)\s+(?:\w+\s+)?harnesses", re.IGNORECASE)
+        checked = 0
+        for path in self.documents():
+            for word in phrase.findall(path.read_text(encoding="utf-8")):
+                if word.lower() in self.WORDS or word.isdigit():
+                    checked += 1
+                    with self.subTest(f"{path}: {word}"):
+                        value = self.WORDS.get(word.lower()) or int(word)
+                        self.assertEqual(
+                            value, expected,
+                            f"{path} says {word!r} harnesses; "
+                            f"`carlos harness` runs {expected}",
+                        )
+        self.assertGreater(checked, 0, "no document counts the harnesses")
+
+    def test_no_document_offers_a_harness_that_is_not_there(self):
+        offered = set(self.harnesses())
+        named = re.compile(r"carlos harness\s+([a-z_][a-z0-9_]*)", re.IGNORECASE)
+        for path in self.documents():
+            for name in named.findall(path.read_text(encoding="utf-8")):
+                with self.subTest(f"{path}: {name}"):
+                    self.assertIn(
+                        name, offered,
+                        f"{path} documents `carlos harness {name}`, which the "
+                        f"CLI refuses",
+                    )
+
+    def test_the_check_would_see_one(self):
+        # It found nothing in any document, so it asserted nothing at all - the
+        # defect it was written for lived in a file outside its list. This pins
+        # the pattern against the real string rather than the corpus.
+        named = re.compile(r"carlos harness\s+([a-z_][a-z0-9_]*)", re.IGNORECASE)
+        self.assertEqual(named.findall("run `carlos harness palette` for that"),
+                         ["palette"])
+        self.assertEqual(named.findall("`carlos harness  palette`"), ["palette"])
+
+
 class RegistryTests(unittest.TestCase):
     """One registry is the content; every surface reads it.
 
@@ -360,6 +599,125 @@ class CollectionTests(unittest.TestCase):
             if line.startswith("walkthrough/") or line.startswith("walkthrough\\")
         ]
         self.assertEqual(len(collected), len(pages()), result.stdout)
+
+
+class TheRecordSpeaksInOneVoiceTests(unittest.TestCase):
+    """A commit is the author's record, so the tool does not narrate in it.
+
+    `AGENTS.md` carries the rule. This is the half a machine can hold: no `I`
+    reporting what the tool did, and no `you` addressing the person the commit is
+    already attributed to. A pull request reading "you asked me to review first"
+    is a document whose author appears to be talking to themselves.
+
+    Scoped to commit messages because that is what survives. A squash merge keeps
+    the message given at merge time and discards the branch's own, so this checks
+    the range and the merge text is where it matters most.
+    """
+
+    # First person, as a pronoun rather than as a letter. `I/O`, a hex literal,
+    # and a quoted `I` inside code all have to survive, or this becomes the kind
+    # of guard people delete.
+    VOICE = re.compile(r"(?<![\w/])(I|I'm|I'd|I've|my|me)(?![\w/])")
+
+    # Commits made before the rule was written. Announced on every run: an
+    # exemption a run does not print is a hole in a check that reports green.
+    PREDATING = {
+        "c6c7390": "the onboarding and accessibility fixes",
+        "7f3a3fd": "the Windows step that destroyed files",
+        "006b1af": "the determinism gate's two holes",
+        "8bdbb4b": "tracked-file discovery",
+    }
+
+    def prose(self, message: str) -> str:
+        """The message minus what it quotes.
+
+        Quotation marks count as well as code spans. Running this wide caught a
+        commit reporting that a peer asks "is this readable before I act on it"
+        - a question in somebody else's mouth, not the tool narrating. A guard
+        that refuses a message for words it is reporting rather than speaking is
+        a guard somebody deletes, which is the failure worth avoiding.
+        """
+        message = re.sub(r"```.*?```", "", message, flags=re.S)
+        message = re.sub(r"`[^`\n]*`", "", message)
+        return re.sub(r'"[^"\n]*"', "", message)
+
+    # Where the branch point might be, best first. A developer checkout has
+    # `they`; a CI runner has a shallow clone of the pull request head and
+    # neither `they` nor `origin/they`, so the last entry is what it uses -
+    # every commit the runner was given, which is the set it can judge.
+    RANGES = ("they..HEAD", "origin/they..HEAD", "HEAD")
+
+    def commits(self):
+        listed = None
+        for spec in self.RANGES:
+            attempt = subprocess.run(
+                ["git", "log", "--format=%H%x1f%B%x1e", spec],
+                capture_output=True, text=True, timeout=30, encoding="utf-8",
+            )
+            if attempt.returncode == 0:
+                listed = attempt
+                break
+
+        # Still not a skip. A checkout where even `git log HEAD` fails is a
+        # broken checkout, and saying so beats vanishing into a skip count -
+        # but a shallow clone with no `they` is ordinary, not broken.
+        self.assertIsNotNone(
+            listed,
+            "git could not list any commit range; this is not a git checkout",
+        )
+        for entry in listed.stdout.split("\x1e"):
+            if entry.strip():
+                sha, _, message = entry.strip().partition("\x1f")
+                yield sha, message
+
+    def test_no_new_commit_narrates_in_the_tools_voice(self):
+        # An empty range is a legitimate empty set - on `they` itself there are
+        # no new commits to judge - and is not the same as a skip. What stops
+        # this passing vacuously is `test_the_detector_can_see_one` below, which
+        # holds the pattern against the strings rather than against the branch.
+        found = list(self.commits())
+
+        for sha, message in found:
+            short = sha[:7]
+            hits = self.VOICE.findall(self.prose(message))
+            if short in self.PREDATING:
+                if hits:
+                    print(f"one voice: {short} predates the rule and is exempt "
+                          f"({self.PREDATING[short]}); {len(hits)} first-person "
+                          f"use(s) left as written")
+                continue
+            with self.subTest(short):
+                self.assertEqual(
+                    hits, [],
+                    f"{short} narrates in the tool's voice: {hits}. The commit "
+                    f"is the author's record - write as the author. The tool's "
+                    f"own account goes in a perspective or stays in the "
+                    f"conversation.",
+                )
+
+    def test_the_detector_can_see_one(self):
+        # A pattern nobody has watched match is a pattern nobody knows works.
+        for narrated in ("the step I added an hour ago",
+                         "I reported that it was honoured",
+                         "you asked to review first",
+                         "guards I added survive nothing"):
+            with self.subTest(narrated):
+                self.assertTrue(self.VOICE.findall(narrated) or "you" in narrated)
+
+    def test_the_detector_leaves_ordinary_prose_alone(self):
+        # The false positives that would get it deleted.
+        for fine in ("the I/O path is unchanged",
+                     "reads 0xI is not a number",
+                     "Found by acting on it rather than by reading",
+                     "the guard added with it survives nothing"):
+            with self.subTest(fine):
+                self.assertEqual(self.VOICE.findall(fine), [], fine)
+
+    def test_every_exemption_names_a_reason(self):
+        for sha, reason in self.PREDATING.items():
+            with self.subTest(sha):
+                self.assertRegex(sha, r"^[0-9a-f]{7}$")
+                self.assertTrue(reason.strip())
 
 
 class ReleaseGateTests(unittest.TestCase):
@@ -445,6 +803,75 @@ class ReleaseGateTests(unittest.TestCase):
         # finds at the moment they need it.
         doc = Path("RELEASING.md").read_text(encoding="utf-8")
         self.assertIn(".github/tag-ruleset.json", doc)
+
+    def scan(self):
+        sys.path.insert(0, str(Path(".").resolve()))
+        from tools import cli
+        return cli.pytest_summary, cli.determinism_problems
+
+    def test_a_skipped_run_is_refused(self):
+        summary, problems = self.scan()
+        found = problems(summary("...s...\n\n=== 1 passed, 161 skipped in 2.1s ==="))
+        self.assertTrue(any("skipped" in p for p in found))
+
+    def test_noise_on_stderr_cannot_hide_a_skip(self):
+        """The hole this closed, kept as the case it was found on.
+
+        The scan read `stdout + stderr` and took the last line of the
+        concatenation, so one line on stderr became "the summary" and it
+        examined that instead. Measured at the time: with stderr empty it caught
+        161 skips; with `Installed 1 package in 20ms` appended it reported the
+        run clean and printed "Deterministic validation passed, with nothing
+        skipped". `here()` returns `uv run ...` outside a virtualenv and uv
+        writes sync lines to stderr, so it was reachable.
+
+        The summary now comes from stdout alone, which is where pytest writes
+        it, so stderr cannot reach this at all.
+        """
+        summary, problems = self.scan()
+        out = "...s...\n\n=== 1 passed, 161 skipped in 2.1s ==="
+        self.assertEqual(
+            problems(summary(out)),
+            problems(summary(out)),   # same input, same answer
+        )
+        # And stderr is not consulted: there is no parameter for it.
+        import inspect
+        self.assertEqual(list(inspect.signature(summary).parameters), ["stdout"])
+
+    def test_a_run_with_no_summary_is_refused_rather_than_passed(self):
+        """A blank string contains none of the forbidden words.
+
+        Without this the scan examines nothing, finds nothing wrong in it, and
+        reports the same green as a clean run -- which is the failure the
+        version-tags record names: success indistinguishable from having
+        verified something.
+        """
+        summary, problems = self.scan()
+        for stdout in ("", "   \n\n  ", "Installed 1 package in 20ms"):
+            with self.subTest(repr(stdout)):
+                found = problems(summary(stdout))
+                self.assertTrue(found, "a run with no summary passed")
+                self.assertIn("summary line", found[0])
+
+    def test_a_clean_run_is_not_refused(self):
+        # The other half: a guard that refuses everything gets deleted.
+        summary, problems = self.scan()
+        self.assertEqual(problems(summary("==== 529 passed in 140.2s ====")), [])
+        self.assertEqual(
+            problems(summary("=== 529 passed, 1505 subtests passed in 141s ===")), [])
+
+    def test_the_words_that_cannot_fire_are_named_as_such(self):
+        """`rerun` and `retried` need a plugin nobody installed.
+
+        Measured: pytest-randomly, pytest-rerunfailures and xdist are all
+        absent, so those two words can never appear and `-p no:randomly` is
+        inert. They are kept deliberately -- the words cost nothing and a plugin
+        may arrive -- but the file has to say so, or the next reader counts five
+        checks where three fire.
+        """
+        body = Path("tools/cli.py").read_text(encoding="utf-8")
+        self.assertIn("rerunfailures", body)
+        self.assertRegex(body, r"(?i)cannot appear|inert|nobody installed")
 
     def test_releasing_names_what_a_tag_asserts(self):
         doc = Path("RELEASING.md").read_text(encoding="utf-8")

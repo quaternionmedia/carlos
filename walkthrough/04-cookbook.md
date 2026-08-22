@@ -50,7 +50,6 @@ So these still work, and CI types them directly rather than installing anything:
 | Instead of | You can type |
 | --- | --- |
 | `carlos check` | `uv run pytest tests walkthrough --doctest-glob=*.md` |
-| `carlos harness palette` | `node tests/palette.js` |
 | one page | `uv run pytest walkthrough/02-the-catalogue.md --doctest-glob=*.md` |
 
 Both paths are named in that first command deliberately. `testpaths` is ignored
@@ -111,6 +110,7 @@ Every device owes a simple and a complex example:
 /api/catalogue/devices/{device_id}
 /api/catalogue/devices/{device_id}/examples
 /api/midi
+/api/midi/encode
 /api/midi/parse
 /api/midi/route
 /api/opening
