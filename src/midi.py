@@ -155,6 +155,102 @@ def parse(data: "bytes | list[int]") -> MidiMessage:
     raise MidiError(f"unhandled status 0x{status:02X}")
 
 
+def encode(message: "MidiMessage | dict") -> list[int]:
+    """Turn a message into the bytes a device will receive, or refuse it.
+
+    The inverse of `parse`, and the only way anything leaves this application.
+    Every send goes through here, so a malformed message is refused with the
+    reason rather than handed to a device that will report it as garbage - which
+    is the failure this exists for: a device saying "malformed" tells you
+    something was wrong and never which byte.
+
+    The refusal is deliberately stricter than the wire. MIDI itself cannot
+    express a note of 200 - the eighth bit marks a status byte - so a value out
+    of range does not produce a bad note, it produces a byte the device reads as
+    a new message and then starves for data. That is why a single bad value can
+    desynchronise a stream rather than sound wrong.
+
+    `parse(encode(m)) == m` for every message this can build, which is the
+    property the tests assert rather than a table of expected bytes.
+    """
+    if not isinstance(message, MidiMessage):
+        try:
+            message = MidiMessage.model_validate(message)
+        except ValidationError as error:
+            # The same shaping `load_binding` does below: pydantic's own string
+            # carries the model name, an echo of the input and a versioned docs
+            # URL, none of which help somebody holding a message that will not
+            # send.
+            problems = "; ".join(
+                f"{'.'.join(str(part) for part in item['loc'])}: "
+                f"{item['msg'].removeprefix('Value error, ')}"
+                for item in error.errors()
+            )
+            raise MidiError(problems) from None
+
+    kind = message.type
+
+    transport = {"clock": CLOCK, "start": START, "stop": STOP, "continue": CONTINUE}
+    if kind in transport:
+        return [transport[kind]]
+
+    if message.channel is None:
+        raise MidiError(f"a {kind} message needs a channel")
+    status_channel = message.channel - 1
+
+    def seven(name: str, value: "int | None", default: "int | None" = None) -> int:
+        if value is None:
+            if default is None:
+                raise MidiError(f"a {kind} message needs {name}")
+            value = default
+        if not 0 <= value <= 127:
+            raise MidiError(
+                f"{name} is {value}; MIDI carries 0-127 in a data byte, and "
+                f"anything above it sets the bit that marks a status byte"
+            )
+        return value
+
+    if kind == "note_on":
+        return [NOTE_ON | status_channel,
+                seven("a note", message.note),
+                seven("a velocity", message.value, 64)]
+
+    if kind == "note_off":
+        # Sent as a real note-off rather than note-on-with-zero. Both are legal
+        # and devices differ on which they prefer; the explicit one is never
+        # mistaken for a note that failed to sound.
+        return [NOTE_OFF | status_channel,
+                seven("a note", message.note),
+                seven("a velocity", message.value, 0)]
+
+    if kind == "cc":
+        return [CONTROL_CHANGE | status_channel,
+                seven("a controller", message.controller),
+                seven("a value", message.value, 0)]
+
+    if kind == "program":
+        return [PROGRAM_CHANGE | status_channel, seven("a program", message.value)]
+
+    if kind == "aftertouch":
+        # Polyphonic when it names a note, channel-wide when it does not.
+        if message.note is not None:
+            return [POLY_AFTERTOUCH | status_channel,
+                    seven("a note", message.note),
+                    seven("a pressure", message.value, 0)]
+        return [CHANNEL_AFTERTOUCH | status_channel, seven("a pressure", message.value)]
+
+    if kind == "pitchbend":
+        value = message.value if message.value is not None else 8192
+        if not 0 <= value <= 16383:
+            raise MidiError(
+                f"a pitch bend is {value}; it is 14 bits, so 0-16383, "
+                f"sent as two 7-bit bytes"
+            )
+        return [PITCH_BEND | status_channel, value & 0x7F, (value >> 7) & 0x7F]
+
+    raise MidiError(f"nothing knows how to send a {kind} message")
+
+
 class MidiSource(BaseModel):
     """Which messages a binding is interested in.
 

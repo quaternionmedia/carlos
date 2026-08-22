@@ -53,6 +53,83 @@ function midiParse(bytes) {
     }
 }
 
+// The inverse of `midiParse`, and the only way anything leaves this app.
+//
+// Mirrors `encode` in src/midi.py, and `tests/test_midi_and_modes.py` asserts
+// the two agree byte for byte - a browser that sends different bytes from the
+// seam is two applications wearing one name.
+//
+// Every send goes through here. A malformed message is refused with the reason
+// rather than handed to a device, because MIDI marks a status byte with the
+// eighth bit: a data byte of 200 is read as the start of a new message and the
+// device then starves for data. One bad value desynchronises the stream rather
+// than sounding wrong, which is why a device reports "malformed" and can never
+// say which byte.
+const MIDI_TRANSPORT = { clock: 0xF8, start: 0xFA, continue: 0xFB, stop: 0xFC };
+
+function midiEncode(message) {
+    const kind = message?.type;
+    if (!kind) throw new Error('a message needs a type');
+
+    if (kind in MIDI_TRANSPORT) return [MIDI_TRANSPORT[kind]];
+
+    const channel = message.channel;
+    if (channel === undefined || channel === null) {
+        throw new Error(`a ${kind} message needs a channel`);
+    }
+    if (!Number.isInteger(channel) || channel < 1 || channel > 16) {
+        throw new Error(`channel is ${channel}; MIDI channels are 1-16`);
+    }
+    const nibble = channel - 1;
+
+    const seven = (name, value, fallback) => {
+        const got = (value === undefined || value === null) ? fallback : value;
+        if (got === undefined) throw new Error(`a ${kind} message needs ${name}`);
+        if (!Number.isInteger(got) || got < 0 || got > 127) {
+            throw new Error(
+                `${name} is ${got}; MIDI carries 0-127 in a data byte, and `
+                + 'anything above it sets the bit that marks a status byte');
+        }
+        return got;
+    };
+
+    if (kind === 'note_on') {
+        return [0x90 | nibble, seven('a note', message.note),
+                seven('a velocity', message.value, 64)];
+    }
+    if (kind === 'note_off') {
+        return [0x80 | nibble, seven('a note', message.note),
+                seven('a velocity', message.value, 0)];
+    }
+    if (kind === 'cc') {
+        return [0xB0 | nibble, seven('a controller', message.controller),
+                seven('a value', message.value, 0)];
+    }
+    if (kind === 'program') {
+        return [0xC0 | nibble, seven('a program', message.value)];
+    }
+    if (kind === 'aftertouch') {
+        if (message.note !== undefined && message.note !== null) {
+            return [0xA0 | nibble, seven('a note', message.note),
+                    seven('a pressure', message.value, 0)];
+        }
+        return [0xD0 | nibble, seven('a pressure', message.value)];
+    }
+    if (kind === 'pitchbend') {
+        const value = (message.value === undefined || message.value === null)
+            ? 8192 : message.value;
+        if (!Number.isInteger(value) || value < 0 || value > 16383) {
+            throw new Error(
+                `a pitch bend is ${value}; it is 14 bits, so 0-16383, `
+                + 'sent as two 7-bit bytes');
+        }
+        return [0xE0 | nibble, value & 0x7F, (value >> 7) & 0x7F];
+    }
+
+    throw new Error(`nothing knows how to send a ${kind} message`);
+}
+
+
 function midiIntensity(message) {
     if (message.type === 'note_off' || message.type === 'stop') return 0;
     if (message.type === 'pitchbend') return (message.value || 0) / 16383;
@@ -104,6 +181,78 @@ function midiRoute(bindings, message) {
 // ===================================================================
 // THE PORT
 // ===================================================================
+// Where messages go out, and the guard they pass on the way.
+//
+// Held apart from `MidiInput` because the failure modes do not overlap: an
+// input that never fires is usually a permission or a cable, while an output
+// that never arrives is usually a message a device refused. `send` returns what
+// it sent so a caller can show it, and throws with the reason when it will not.
+class MidiOutput {
+    constructor({ onStatus = () => {} } = {}) {
+        this.onStatus = onStatus;
+        this.access = null;
+        this.ports = [];
+        this.port = null;
+        this.sent = 0;
+        this.refused = 0;
+        this.lastRefusal = null;
+    }
+
+    async connect(access = null) {
+        this.access = access || this.access;
+        if (!this.access) {
+            if (typeof navigator === 'undefined' || !navigator.requestMIDIAccess) {
+                this.onStatus({ state: 'unsupported', detail: 'no Web MIDI here' });
+                return false;
+            }
+            try {
+                this.access = await navigator.requestMIDIAccess({ sysex: false });
+            } catch (error) {
+                this.onStatus({ state: 'refused', detail: error.message });
+                return false;
+            }
+        }
+        this.ports = [...this.access.outputs.values()];
+        this.port = this.ports[0] || null;
+        this.onStatus({
+            state: this.ports.length ? 'connected' : 'no-ports',
+            detail: this.ports.length
+                ? this.ports.map(p => p.name).join(', ')
+                : 'no MIDI outputs are attached',
+        });
+        return Boolean(this.ports.length);
+    }
+
+    choose(id) {
+        const found = this.ports.find(p => p.id === id || p.name === id);
+        if (found) this.port = found;
+        return found || null;
+    }
+
+    // Encode, then send. Never the other way round: a device that reports a
+    // malformed message cannot say which byte, so the check has to happen on
+    // this side while the message is still a message.
+    send(message) {
+        let bytes;
+        try {
+            bytes = midiEncode(message);
+        } catch (error) {
+            this.refused += 1;
+            this.lastRefusal = { message, reason: error.message };
+            this.onStatus({ state: 'malformed', detail: error.message });
+            throw error;
+        }
+        if (!this.port) {
+            this.onStatus({ state: 'no-ports', detail: 'nothing to send to' });
+            return { bytes, sent: false };
+        }
+        this.port.send(bytes);
+        this.sent += 1;
+        return { bytes, sent: true };
+    }
+}
+
+
 class MidiInput {
     constructor({ onActivity, onStatus, onMessage }) {
         this.onActivity = onActivity;

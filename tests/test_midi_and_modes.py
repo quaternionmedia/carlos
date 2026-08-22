@@ -12,6 +12,212 @@ from src.main import midi_info, midi_parse, midi_route
 NODE = shutil.which("node")
 
 
+class EncodeIsTheInverseOfParseTests(unittest.TestCase):
+    """`parse(encode(m)) == m`, asserted over the space rather than a table.
+
+    A table of expected bytes tests that somebody typed the table correctly. The
+    property is what a device depends on, and it holds or it does not.
+
+    This exists because a malformed message is not a wrong note. MIDI marks a
+    status byte with the eighth bit, so a data byte of 200 is read as the start
+    of a new message and the device then starves for data - one bad value
+    desynchronises the stream rather than sounding wrong, which is why a device
+    reports "malformed" and never says which byte.
+    """
+
+    def round_trip(self, message: dict):
+        bytes_out = midi.encode(dict(message))
+        for byte in bytes_out:
+            self.assertTrue(0 <= byte <= 255, f"{byte} is not a byte")
+        return midi.parse(bytes_out).model_dump(exclude_none=True)
+
+    def test_every_channel_and_note_survives_the_trip(self):
+        for channel in (1, 8, 16):
+            for note in (0, 60, 127):
+                for velocity in (1, 64, 127):
+                    message = {"type": "note_on", "channel": channel,
+                               "note": note, "value": velocity}
+                    with self.subTest(f"ch{channel} n{note} v{velocity}"):
+                        self.assertEqual(self.round_trip(message), message)
+
+    def test_a_note_off_stays_a_note_off(self):
+        # Sent as a real note-off rather than note-on-with-velocity-zero. Both
+        # are legal; the explicit one is never mistaken for a note that failed.
+        message = {"type": "note_off", "channel": 3, "note": 60, "value": 0}
+        self.assertEqual(self.round_trip(message), message)
+
+    def test_control_change_survives(self):
+        for controller in (0, 74, 127):
+            message = {"type": "cc", "channel": 1,
+                       "controller": controller, "value": 64}
+            with self.subTest(controller):
+                self.assertEqual(self.round_trip(message), message)
+
+    def test_pitch_bend_survives_its_fourteen_bits(self):
+        # The one that splits across two bytes, LSB first - the likeliest
+        # encoder to get backwards, and a backwards one still produces valid
+        # bytes, so only the round trip catches it.
+        for value in (0, 1, 8192, 16382, 16383):
+            message = {"type": "pitchbend", "channel": 1, "value": value}
+            with self.subTest(value):
+                self.assertEqual(self.round_trip(message), message)
+
+    def test_transport_messages_are_a_single_byte(self):
+        for kind in ("clock", "start", "stop", "continue"):
+            with self.subTest(kind):
+                self.assertEqual(len(midi.encode({"type": kind})), 1)
+                self.assertEqual(midi.parse(midi.encode({"type": kind})).type, kind)
+
+    def test_channel_aftertouch_and_poly_are_told_apart(self):
+        # The same word for two wire messages: polyphonic when it names a note,
+        # channel-wide when it does not.
+        poly = {"type": "aftertouch", "channel": 2, "note": 60, "value": 90}
+        self.assertEqual(self.round_trip(poly), poly)
+        whole = {"type": "aftertouch", "channel": 2, "value": 90}
+        self.assertEqual(self.round_trip(whole), whole)
+        self.assertEqual(len(midi.encode(poly)), 3)
+        self.assertEqual(len(midi.encode(whole)), 2)
+
+
+class BothEncodersAgreeTests(unittest.TestCase):
+    """The browser and the seam send the same bytes, or they are two apps.
+
+    `static/midi.js` says it mirrors `src/midi.py`. For parsing, a disagreement
+    shows up as a mapping that behaves differently depending where the message
+    arrived - annoying and visible. For *sending* it is worse: the two would put
+    different bytes on the wire for the same instruction, and the one that is
+    wrong is discovered by a device refusing it.
+
+    So this runs both over the same messages and compares the arrays, in the
+    same spirit as `FrontendContractTests` for the patch format.
+    """
+
+    MESSAGES = [
+        {"type": "note_on", "channel": 1, "note": 60, "value": 100},
+        {"type": "note_on", "channel": 16, "note": 0, "value": 1},
+        {"type": "note_on", "channel": 10, "note": 36, "value": 127},
+        {"type": "note_off", "channel": 3, "note": 60, "value": 0},
+        {"type": "cc", "channel": 1, "controller": 74, "value": 64},
+        {"type": "cc", "channel": 16, "controller": 0, "value": 127},
+        {"type": "program", "channel": 5, "value": 12},
+        {"type": "aftertouch", "channel": 2, "note": 60, "value": 90},
+        {"type": "aftertouch", "channel": 2, "value": 90},
+        {"type": "pitchbend", "channel": 1, "value": 0},
+        {"type": "pitchbend", "channel": 1, "value": 8192},
+        {"type": "pitchbend", "channel": 1, "value": 16383},
+        {"type": "clock"},
+        {"type": "start"},
+        {"type": "stop"},
+        {"type": "continue"},
+    ]
+
+    @unittest.skipUnless(NODE, "node is not installed")
+    def test_the_browser_encodes_what_the_seam_encodes(self):
+        script = (
+            "const fs=require('fs');"
+            "const src=fs.readFileSync('static/midi.js','utf8');"
+            "const make=new Function(src+';return midiEncode;');"
+            "const midiEncode=make();"
+            "const out=JSON.parse(process.argv[1]).map(m=>{"
+            "  try { return midiEncode(m); } catch (e) { return {error: e.message}; }"
+            "});"
+            "process.stdout.write(JSON.stringify(out));"
+        )
+        result = subprocess.run(
+            [NODE, "-e", script, json.dumps(self.MESSAGES)],
+            capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        from_browser = json.loads(result.stdout)
+
+        self.assertEqual(len(from_browser), len(self.MESSAGES))
+        for message, browser in zip(self.MESSAGES, from_browser):
+            with self.subTest(message["type"] + str(message.get("value", ""))):
+                self.assertNotIsInstance(
+                    browser, dict, f"the browser refused {message}: {browser}")
+                self.assertEqual(
+                    browser, midi.encode(dict(message)),
+                    f"the two encoders disagree about {message}",
+                )
+
+    @unittest.skipUnless(NODE, "node is not installed")
+    def test_both_refuse_the_same_malformed_messages(self):
+        bad = [
+            {"type": "note_on", "channel": 1, "note": 200, "value": 1},
+            {"type": "note_on", "channel": 0, "note": 60, "value": 1},
+            {"type": "note_on", "channel": 17, "note": 60, "value": 1},
+            {"type": "note_on", "note": 60, "value": 1},
+            {"type": "pitchbend", "channel": 1, "value": 20000},
+            {"type": "nonsense", "channel": 1},
+        ]
+        script = (
+            "const fs=require('fs');"
+            "const src=fs.readFileSync('static/midi.js','utf8');"
+            "const midiEncode=new Function(src+';return midiEncode;')();"
+            "const out=JSON.parse(process.argv[1]).map(m=>{"
+            "  try { midiEncode(m); return 'accepted'; } catch (e) { return 'refused'; }"
+            "});"
+            "process.stdout.write(JSON.stringify(out));"
+        )
+        result = subprocess.run(
+            [NODE, "-e", script, json.dumps(bad)],
+            capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        for message, browser in zip(bad, json.loads(result.stdout)):
+            with self.subTest(str(message)):
+                self.assertEqual(browser, "refused",
+                                 f"the browser accepted {message}")
+                with self.assertRaises(midi.MidiError):
+                    midi.encode(dict(message))
+
+
+class NothingMalformedLeavesTests(unittest.TestCase):
+    """What `encode` refuses, and that it says which value was wrong."""
+
+    def refusal(self, message: dict) -> str:
+        with self.assertRaises(midi.MidiError) as caught:
+            midi.encode(message)
+        return str(caught.exception)
+
+    def test_a_data_byte_above_127_is_refused_with_the_reason(self):
+        for field, message in (
+            ("note", {"type": "note_on", "channel": 1, "note": 200, "value": 64}),
+            ("velocity", {"type": "note_on", "channel": 1, "note": 60, "value": 200}),
+            ("controller", {"type": "cc", "channel": 1, "controller": 200, "value": 1}),
+        ):
+            with self.subTest(field):
+                said = self.refusal(message)
+                self.assertRegex(said, r"127|less than or equal")
+
+    def test_a_channel_outside_one_to_sixteen_is_refused(self):
+        for channel in (0, 17, -1):
+            with self.subTest(channel):
+                self.refusal({"type": "note_on", "channel": channel,
+                              "note": 60, "value": 64})
+
+    def test_a_message_with_no_channel_is_refused(self):
+        self.assertIn("channel", self.refusal({"type": "note_on", "note": 60}))
+
+    def test_a_pitch_bend_past_fourteen_bits_is_refused(self):
+        self.assertIn("16383", self.refusal(
+            {"type": "pitchbend", "channel": 1, "value": 20000}))
+
+    def test_the_refusal_does_not_name_the_library(self):
+        said = self.refusal({"type": "note_on", "channel": 1, "note": 200, "value": 1})
+        for leak in ("pydantic", "errors.pydantic.dev", "MidiMessage", "input_value"):
+            with self.subTest(leak):
+                self.assertNotIn(leak, said)
+
+    def test_a_sound_message_is_not_refused(self):
+        # The other half. A guard that refuses everything is not a guard.
+        self.assertEqual(
+            midi.encode({"type": "note_on", "channel": 10, "note": 36, "value": 100}),
+            [0x99, 36, 100],
+        )
+
+
 class ParseTests(unittest.TestCase):
     """Real MIDI arrives as status and data bytes. A build that only accepts a
     friendly JSON shape has anticipated a description of a signal, not a

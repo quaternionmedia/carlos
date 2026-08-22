@@ -173,6 +173,10 @@ class NoneMeansNoneTests(unittest.TestCase):
             ("POST", "/api/peers/{peer_id}/{endpoint_name}/plan"):
                 lambda: main.plan_outbound("gear-inventory", "check", document),
             ("GET", "/api/midi"): lambda: main.midi_info(),
+            ("POST", "/api/midi/encode"):
+                lambda: main.midi_encode(
+                    {"message": {"type": "note_on", "channel": 1,
+                                 "note": 60, "value": 100}}),
             ("POST", "/api/midi/parse"): lambda: main.midi_parse({"bytes": [144, 60, 100]}),
             ("POST", "/api/midi/route"):
                 lambda: main.midi_route({"bytes": [144, 60, 100], "bindings": []}),

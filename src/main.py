@@ -440,6 +440,26 @@ def _midi_explain(error: Exception) -> str:
     return "not a valid MIDI message"
 
 
+@app.post("/api/midi/encode")
+async def midi_encode(payload: dict):
+    """Turn a message into the bytes a device will receive, or refuse it.
+
+    The inverse of `/api/midi/parse`, and the check a caller can run before it
+    sends anything. A device that receives a malformed message reports that it
+    was malformed and can never say which byte, so the useful place to find out
+    is here, while it is still a message.
+    """
+    try:
+        return {"ok": True, "bytes": midi.encode(payload.get("message", payload))}
+    except midi.MidiError as exc:
+        return JSONResponse(status_code=422, content={"ok": False, "error": str(exc)})
+    except (ValidationError, TypeError, ValueError) as exc:
+        return JSONResponse(
+            status_code=422,
+            content={"ok": False, "error": _midi_explain(exc)},
+        )
+
+
 @app.post("/api/midi/parse")
 async def midi_parse(payload: dict):
     """Turn raw MIDI bytes into a message.

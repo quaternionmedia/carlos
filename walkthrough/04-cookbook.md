@@ -110,6 +110,7 @@ Every device owes a simple and a complex example:
 /api/catalogue/devices/{device_id}
 /api/catalogue/devices/{device_id}/examples
 /api/midi
+/api/midi/encode
 /api/midi/parse
 /api/midi/route
 /api/opening
