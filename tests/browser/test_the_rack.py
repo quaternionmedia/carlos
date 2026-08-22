@@ -622,6 +622,171 @@ class TestTheLeadsFollowAScroll:
         )
 
 
+class TestTurningAControlIsNotSummoningAMenu:
+    """Holding a knob to turn it slowly must not also bloom a ring.
+
+    Both gestures begin the same way - press and hold - and they were told
+    apart by a list of class names that had gone stale. `.knob` is the compact
+    rack; the rack the app opens in draws an `irl-knob`, which matched nothing,
+    so a deliberate turn turned the knob *and* opened a menu over the top of
+    it. Measured: eight of the ten things a finger can land on were unguarded.
+
+    A quick turn always worked, which is what made it read as intermittent -
+    the collision only starts once the press outlives `longPressMs` (350ms).
+    """
+
+    HELD = 700   # comfortably past longPressMs, as a slow turn is
+
+    def a_ring_is_bloomed(self, page):
+        """A layer that is up and is not merely the menu's resting bar."""
+        return page.evaluate(
+            """() => {
+                const layer = document.querySelector('.rad-layer');
+                return Boolean(layer)
+                    && !layer.classList.contains('is-resting')
+                    && layer.childElementCount > 0;
+            }"""
+        )
+
+    def hold(self, page, selector, travel=-30, exactly=False):
+        """Press, hold past the threshold, then drag - a slow, deliberate turn.
+
+        `exactly` means the press has to land on that element itself and not on
+        something sitting on top of it. A pad grid is mostly pads, so its centre
+        is a pad; without this, a test meant to press the grid presses a button
+        and proves the opposite of what it says.
+        """
+        where = page.evaluate(
+            """([sel, exactly]) => {
+                // What a control is, stated here rather than read from the
+                // app. The app's own gate is the thing under test: borrowing
+                // it would make an over-broad gate rule out every point and
+                // report `nowhere to press` instead of `the menu is gone`.
+                const CONTROL = '[role="slider"], [role="button"], '
+                    + '[role="switch"], [role="checkbox"], [role="spinbutton"], '
+                    + 'button, input, select';
+                // The first match in the DOM is usually below the fold, where
+                // `elementFromPoint` answers null for every point in it. Walk
+                // the candidates and take the first that is really on screen.
+                for (const el of document.querySelectorAll(sel)) {
+                    const r = el.getBoundingClientRect();
+                    if (r.bottom < 0 || r.top > innerHeight - 4) continue;
+                    if (r.width < 8 || r.height < 8) continue;
+                    if (!exactly) {
+                        return { x: Math.round(r.left + r.width / 2),
+                                 y: Math.round(r.top + r.height / 2),
+                                 value: el.getAttribute('aria-valuenow') };
+                    }
+                    // Backdrop is whatever gap the controls leave, and a panel
+                    // is covered by its own knobs and sockets - so scan for a
+                    // point landing on this element or on some trim of it,
+                    // rather than assuming the middle is bare.
+                    for (let iy = 1; iy < 10; iy++) {
+                        for (let ix = 1; ix < 10; ix++) {
+                            const x = Math.round(r.left + r.width * ix / 10);
+                            const y = Math.round(r.top + r.height * iy / 10);
+                            if (y < 0 || y > innerHeight - 2) continue;
+                            const hit = document.elementFromPoint(x, y);
+                            if (!hit || !el.contains(hit)) continue;
+                            if (hit.closest(CONTROL)) continue;
+                            return { x, y, landedOn: hit.className,
+                                     value: el.getAttribute('aria-valuenow') };
+                        }
+                    }
+                }
+                return null;
+            }""",
+            [selector, exactly],
+        )
+        assert where, f"no {selector} on the rack to press"
+        page.mouse.move(where["x"], where["y"])
+        page.mouse.down()
+        page.wait_for_timeout(self.HELD)
+        page.mouse.move(where["x"], where["y"] + travel, steps=6)
+        page.wait_for_timeout(120)
+        bloomed = self.a_ring_is_bloomed(page)
+        after = page.evaluate(
+            "(sel) => document.querySelector(sel).getAttribute('aria-valuenow')",
+            selector,
+        )
+        page.mouse.up()
+        page.wait_for_timeout(120)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(150)
+        return {"bloomed": bloomed, "before": where["value"], "after": after}
+
+    def test_a_slow_turn_turns_the_knob_and_summons_nothing(self, page):
+        # Away from whichever end it is resting at, so a control already at its
+        # ceiling cannot report as stuck.
+        at_rest = page.evaluate(
+            "() => Number(document.querySelector('.irl-knob')"
+            ".getAttribute('aria-valuenow'))")
+        held = self.hold(page, ".irl-knob", travel=30 if at_rest > 63 else -30)
+
+        assert held["after"] != held["before"], (
+            "the knob did not turn at all, so this proves nothing about "
+            "whether a ring would have interrupted the turn"
+        )
+        assert not held["bloomed"], (
+            "holding a knob for {}ms turned it and bloomed a ring over the "
+            "top of it".format(self.HELD)
+        )
+
+    @pytest.mark.parametrize("control", [".irl-fader-cap", ".irl-switch-body"])
+    def test_the_other_controls_are_not_menu_summons_either(self, page, control):
+        assert not self.hold(page, control)["bloomed"], (
+            f"holding {control} bloomed a ring instead of working the control"
+        )
+
+    @pytest.mark.parametrize("background", [".irl-panel", ".irl-grid"])
+    def test_the_menu_still_blooms_on_bare_backdrop(self, page, background):
+        """The other half: a guard that swallowed the menu would also pass.
+
+        A press on a device's own backdrop is how the ring is summoned, and an
+        over-broad guard takes it away. The pad grid is the case that catches
+        it: `closest` walks ancestors, so a bare `[role]` test finds the
+        `role="group"` the grid wears and loses the menu everywhere inside it.
+
+        A panel alone does not catch that - it has no role above it, so it
+        blooms under a broad guard too, and a suite that only pressed a panel
+        passed a guard that had already swallowed the grid.
+        """
+        assert self.hold(page, background, exactly=True)["bloomed"], (
+            f"holding bare {background} no longer summons the ring - the "
+            f"guard is catching more than the controls"
+        )
+
+    def test_every_announced_control_is_guarded(self, page):
+        """The list cannot go stale again without this failing.
+
+        Read from the page rather than copied into the test: `main.js` is a
+        classic script, so its top-level constant is the one the gate itself
+        uses. A control added tomorrow arrives announced - that is what makes
+        a role durable where a class name was not.
+        """
+        unguarded = page.evaluate(
+            """() => {
+                const gate = HANDLES_ITS_OWN_PRESS;
+                const missed = [];
+                document.querySelectorAll(
+                    '[role="slider"], [role="button"], [role="switch"], '
+                    + '[role="checkbox"], [role="spinbutton"]'
+                ).forEach(el => {
+                    // By kind, not one line per control: an unguarded knob
+                    // is a hundred identical entries otherwise.
+                    if (!el.closest(gate)) {
+                        missed.push(el.className.split(" ")[0]
+                                    || el.tagName.toLowerCase());
+                    }
+                });
+                return [...new Set(missed)].sort();
+            }"""
+        )
+        assert unguarded == [], (
+            f"announced as controls but left to the menu: {unguarded}"
+        )
+
+
 class TestEverySocketSaysWhatItIs:
     """Labels on the laid-out panels, not only the abstract ones.
 

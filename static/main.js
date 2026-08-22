@@ -716,13 +716,37 @@ document.addEventListener('contextmenu', (event) => {
                    { ignoreNextUp: true });
 });
 
+// What the menu keeps out of the way of.
+//
+// Named by role, not by class. This read `.knob, .jack, button, input, select`,
+// which was true of the compact rack and false of the one the app actually
+// opens in: an `irl` knob is `.irl-knob` and matches none of it. Measured -
+// eight of the ten things a finger can land on were unguarded, and holding a
+// knob for 700ms to turn it slowly turned the knob *and* bloomed a ring over
+// the top of it. A quick turn was fine, which is why it read as intermittent:
+// the collision starts at `longPressMs`.
+//
+// A role is the durable question because a control has to announce itself
+// anyway - the attribute a screen reader reads is the same one that says "this
+// handles its own press", so a new control cannot arrive already announced and
+// still be missed here. Class names went stale precisely because nothing else
+// depended on them.
+//
+// Widget roles only. `closest` walks ancestors, so a bare `[role]` test finds
+// the `role="group"` a pad grid wears and swallows the menu everywhere inside
+// it - measured at 6 of 8 press targets lost. A label inside a control is
+// caught on purpose: pressing a knob's label is pressing the knob.
+const HANDLES_ITS_OWN_PRESS = '[role="slider"], [role="button"], '
+    + '[role="switch"], [role="checkbox"], [role="spinbutton"], '
+    + 'button, input, select';
+
 // Long-press arms release-select: one gesture from press to commit.
 document.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     // A resting bar is not a menu in the way: it is where the menu
     // lives. Only a bloomed ring owns the next press.
     if (radMenu.open && !radMenu.resting) return;
-    if (event.target.closest?.('.knob, .jack, button, input, select')) return;
+    if (event.target.closest?.(HANDLES_ITS_OWN_PRESS)) return;
 
     const context = contextAt(event);
     if (!context) return;
