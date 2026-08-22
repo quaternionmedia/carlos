@@ -21,7 +21,7 @@ uv run pytest tests walkthrough --doctest-glob=*.md
 | Round | What it does |
 | --- | --- |
 | `carlos check` | The suite **and** the walkthrough. Run this before a pull request |
-| `carlos harness` | The four frontend harnesses, under Node. Name one to run just it |
+| `carlos harness` | The five frontend harnesses, under Node. Name one to run just it |
 | `carlos browser` | The browser suite, in real Chromium |
 | `carlos serve` | Run the app, on a predictable port |
 | `carlos stop` | Free the port, and prove it is free |

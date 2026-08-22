@@ -130,16 +130,90 @@ class MidiInput {
         return typeof navigator !== 'undefined' && Boolean(navigator.requestMIDIAccess);
     }
 
+    // Why MIDI will not work here, in words that name the actual cause.
+    //
+    // `available` was answering one question with two meanings. Web MIDI is only
+    // exposed in a secure context, so on `http://192.168.1.151:8000` -- the LAN
+    // address this server prints at startup, and the one the onboarding page
+    // recommends for an on-device test -- `navigator.requestMIDIAccess` is
+    // simply absent, and the app said "this browser has no Web MIDI". The
+    // browser has it. The page is not a secure context. Measured in Chromium:
+    // loopback reports `isSecureContext: true` and the API present; the LAN
+    // address reports false and absent.
+    diagnose() {
+        if (typeof navigator === 'undefined') {
+            return { state: 'unsupported', detail: 'no navigator in this runtime' };
+        }
+        if (typeof window !== 'undefined' && window.isSecureContext === false) {
+            const here = (typeof location !== 'undefined' && location.origin) || 'this address';
+            return {
+                state: 'insecure-context',
+                detail: `Web MIDI needs a secure context and ${here} is not one. `
+                    + 'Open the rack on localhost, put it behind HTTPS, or '
+                    + 'forward the port so it arrives as localhost: '
+                    + '`ssh -L 8000:localhost:8000 <host>`. The LAN address '
+                    + 'this server prints will not do on its own.',
+            };
+        }
+        if (!navigator.requestMIDIAccess) {
+            return {
+                state: 'unsupported',
+                detail: 'this browser exposes no Web MIDI, and the page is a '
+                    + 'secure context - so it is the browser or its settings',
+            };
+        }
+        return null;
+    }
+
+    // Whether the remedy is likely to be an ALSA one.
+    //
+    // Deliberately a hint rather than a branch in the logic: the browser cannot
+    // see ALSA, so all this does is name the next command instead of leaving
+    // "no inputs are attached" as a dead end.
+    onLinux() {
+        const platform = (typeof navigator !== 'undefined'
+            && (navigator.userAgentData?.platform || navigator.platform)) || '';
+        return /linux|arm/i.test(platform);
+    }
+
+    // granted | denied | prompt | unknown.
+    //
+    // Worth asking separately, because a browser that blocks MIDI by policy or
+    // by a shield reports `denied` without ever prompting, and that is
+    // indistinguishable from a dismissed prompt in the failure alone.
+    async permissionState() {
+        if (typeof navigator === 'undefined' || !navigator.permissions?.query) {
+            return 'unknown';
+        }
+        try {
+            const status = await navigator.permissions.query(
+                { name: 'midi', sysex: false });
+            return status.state;
+        } catch {
+            // Some browsers refuse to answer for `midi` at all, which is not
+            // the same as refusing MIDI.
+            return 'unknown';
+        }
+    }
+
     async connect() {
-        if (!this.available) {
-            this.onStatus({ state: 'unsupported',
-                detail: 'this browser has no Web MIDI' });
+        const wrong = this.diagnose();
+        if (wrong) {
+            this.onStatus(wrong);
             return false;
         }
         try {
             this.access = await navigator.requestMIDIAccess({ sysex: false });
         } catch (error) {
-            this.onStatus({ state: 'refused', detail: error.message });
+            const permission = await this.permissionState();
+            this.onStatus({
+                state: 'refused',
+                detail: permission === 'denied'
+                    ? 'permission is denied for this site - check the browser\'s '
+                      + 'MIDI site setting, and any shield or extension that '
+                      + 'blocks device access'
+                    : `${error.message} (permission: ${permission})`,
+            });
             return false;
         }
 
@@ -153,7 +227,12 @@ class MidiInput {
             state: this.ports.length ? 'connected' : 'no-ports',
             detail: this.ports.length
                 ? this.ports.map(p => p.name).join(', ')
-                : 'Web MIDI is available but no inputs are attached',
+                : 'Web MIDI is available and no inputs are attached'
+                  + (this.onLinux()
+                     ? ' - on Linux the browser reaches MIDI through ALSA, so '
+                       + 'check `aconnect -l` first: a port ALSA cannot see is '
+                       + 'invisible to every browser on the machine'
+                     : ''),
         });
         return true;
     }

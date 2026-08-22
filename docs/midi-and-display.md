@@ -136,6 +136,91 @@ curl -s -X POST http://127.0.0.1:8000/api/midi/route \
        "bytes":[153,36,100]}'
 ```
 
+## When no MIDI arrives
+
+Four causes, in the order worth eliminating. `MIDI ▸ Status` names whichever one
+it can see; the last two it cannot, because they sit below the browser.
+
+### The page is not a secure context
+
+**The commonest, and the one this project walks people into.** Web MIDI is only
+exposed on a secure origin. Measured in Chromium against this server:
+
+| Opened at | `isSecureContext` | `navigator.requestMIDIAccess` |
+|---|---|---|
+| `http://127.0.0.1:8000` | `true` | present |
+| `http://192.168.1.151:8000` | `false` | **absent** |
+
+`carlos serve` prints the LAN address at startup and the onboarding page
+recommends it for an on-device test, so this is easy to hit — and until now the
+app reported *"this browser has no Web MIDI"*, which blamed the wrong thing. It
+says `insecure-context` now.
+
+Three ways out, cheapest first:
+
+```sh
+# 1. open it on the machine that is serving
+http://localhost:8000
+
+# 2. or forward the port, so it arrives as localhost on the far end
+ssh -L 8000:localhost:8000 <host>
+
+# 3. or put it behind HTTPS
+```
+
+The tunnel is the one to reach for when the rack runs on a headless box: the
+browser sees `localhost`, so the origin is secure, and nothing about the server
+changes.
+
+### The browser is blocking it
+
+Chromium-family browsers gate Web MIDI behind a permission, and some — Brave
+among them — add their own shield on top of the standard site setting. Two
+different things can say no, and a refusal alone does not tell you which:
+
+- the site setting, under the browser's MIDI content settings
+  (`brave://settings/content/midi`, `chrome://settings/content/midi`);
+- a shield or extension blocking device access for that site.
+
+`MIDI ▸ Status` now reports the permission state — `granted`, `denied`,
+`prompt`, or `unknown`. **`denied` without ever having seen a prompt means
+something decided for you**, which points at the second list item rather than
+the first. `unknown` means the browser declined to answer the query, which is
+not the same as refusing MIDI.
+
+### On Linux, ALSA has not got the device either
+
+A browser on Linux reaches MIDI through ALSA, so a port ALSA cannot see is
+invisible to every browser on the machine. This is the layer the app cannot
+inspect, so `MIDI ▸ Status` says so and names the command instead:
+
+```sh
+aconnect -l          # every sequencer port ALSA knows about
+amidi -l             # raw MIDI devices
+```
+
+Nothing listed means the problem is below the browser. Then:
+
+```sh
+lsmod | grep snd_seq        # the sequencer module must be loaded
+sudo modprobe snd-seq       # load it now
+groups | grep audio         # your user needs to be in `audio`
+```
+
+On a Raspberry Pi the sequencer module is the usual culprit — it is not always
+loaded by default, and `snd_seq` in `/etc/modules` makes it stick across a
+reboot. A class-compliant USB device that appears in `lsusb` but not in
+`aconnect -l` is almost always this.
+
+### A port is open and nothing is coming down it
+
+`MIDI ▸ Status` reports `N port(s)` and `N message(s) in` separately for exactly
+this. A port with zero messages after you have played something means the device
+is connected and silent: wrong cable, wrong DIN direction, or a controller with
+local control on and its output off. `MIDI ▸ Test` sends a synthetic note
+through the same path, so a rack that lights up on the test and not on the
+hardware has narrowed the fault to the hardware side.
+
 ## Display modes
 
 Two ways to draw the same rack, switched from **Display** in the canvas menu and

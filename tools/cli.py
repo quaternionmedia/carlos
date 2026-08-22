@@ -56,6 +56,7 @@ HARNESSES = (
     "rack_behaviour",
     "cable_tracing",
     "click_layers",
+    "midi_diagnose",
 )
 
 # The one check command, spelled once. Both paths are named deliberately:

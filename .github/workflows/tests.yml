@@ -60,6 +60,7 @@ jobs:
           node tests/rack_behaviour.js
           node tests/cable_tracing.js
           node tests/click_layers.js
+          node tests/midi_diagnose.js
 
   browser:
     name: The browser page

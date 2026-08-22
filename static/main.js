@@ -610,14 +610,28 @@ function routeIntent(intent) {
             midiInput.connect();
             break;
 
-        case 'midi:status':
-            system.status.update(
-                `MIDI: ${midiInput.ports.length} port(s), `
+        case 'midi:status': {
+            // The counts, and then why they are zero if they are. `available`
+            // used to answer both questions with one bit and blamed the browser
+            // for a page served over the wrong scheme.
+            const wrong = midiInput.diagnose();
+            const counts = `MIDI: ${midiInput.ports.length} port(s), `
                 + `${system.midi.length} binding(s), `
-                + `${midiInput.received} message(s) in, ${midiInput.matched} matched`
-                + (midiInput.available ? '' : ' - no Web MIDI in this browser')
-            );
+                + `${midiInput.received} message(s) in, ${midiInput.matched} matched`;
+            if (wrong) {
+                system.status.update(`${counts} - ${wrong.detail}`);
+                break;
+            }
+            midiInput.permissionState().then(permission => {
+                const quiet = midiInput.ports.length && !midiInput.received
+                    ? ' - a port is open and nothing has arrived on it yet'
+                    : '';
+                system.status.update(
+                    `${counts}, permission ${permission}${quiet}`
+                );
+            });
             break;
+        }
 
         case 'midi:test':
             // A rack with nothing plugged in still has to be demonstrable.
