@@ -267,6 +267,44 @@ the first strand wears a plug, and only at an end that is really a socket —
 otherwise a four-lane USB lead wears eight, and a split lead grows a connector
 in mid-air.
 
+### A lead shows which plug is on it
+
+Each end of a lead wears the plug of the socket it is actually in, taken from
+the connector axis rather than from the lead. There are seven shapes — a slim
+mini jack, a fuller 1/4in, a collared XLR, a round DIN shell, a flat USB tab, an
+RJ45 with its latch, and a flat ribbon header — and they are deliberately close
+cousins. At a glance a rack should read as leads, not as a key of connector
+types; the difference is there when looked at.
+
+**The two ends need not match.** A 3.5mm output into a 1/4in input is a real
+patch, and drawing both ends alike is the tool quietly asserting that no adapter
+is involved. Where they differ, the status line says so as the lead is dropped —
+`needs a 3.5mm-to-1/4in adapter`, or `needs a USB-C-to-USB-B lead` when what is
+missing is a different cable rather than a converter. A like-for-like patch says
+nothing, so the advice means something when it appears.
+
+Weight comes off the same axis: a Eurorack patch cable and a 1/4in line lead are
+not the same object. The multiples live in the palette beside the base weight,
+written out rather than multiplied in the rule —
+`calc(var(--cable-weight) * 0.85)` renders correctly but a computed
+`stroke-width` holding a calc serialises as `calc(0.935px)`, which `parseFloat`
+reads as NaN. That was measured: it broke the test asserting the drum strand is
+the thickest, because `2 > NaN` is false.
+
+**A plug that does not fit is refused, and the refusal names the plugs.** Reasons
+are ordered by how concrete they are, so this is the first one asked after
+patching a socket into itself. Asked about a USB-C going into a 3.5mm socket it
+used to answer `midi does not go into clock` — true, about a different axis, and
+no use to anyone holding the wrong cable.
+
+The mating rules exist twice, in `catalogue.py` and in `models.js`, because the
+browser has to answer *does this plug fit* during a drag and cannot wait on the
+server. That duplication is deliberate and guarded: a test reads the tables back
+out of the JavaScript and runs the browser's own `connectorFit` over all one
+hundred pairs of connectors, comparing each with the server's answer. The
+connector axis reached this state in the first place by being recorded on every
+socket in the catalogue and checked by nothing.
+
 ### Controls turn about their own centre
 
 An indicator is positioned from the middle of whatever carries it, and turns

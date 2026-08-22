@@ -959,6 +959,44 @@ body[data-ring="pinned"] {
     stroke-width: var(--cable-weight);
 }
 
+/* A lead is as heavy as the plug on it. A Eurorack patch cable and a 1/4in
+   line lead are not the same object, and a rack of both should read that way
+   without anything being labelled - so weight comes off the connector axis,
+   the same axis the plug shape comes off.
+
+   Written out rather than multiplied. `calc(var(--cable-weight) * 0.85)` is the
+   obvious way to say `85% of the base weight`, and it renders correctly - but a
+   computed `stroke-width` holding a calc() serialises as `calc(0.935px)`, and
+   anything reading that back with `parseFloat` gets NaN. Measured: it broke the
+   test that checks the drum strand is the thickest, because `2 > NaN` is false.
+   The multiple each one is of the 1.1 base is in the comment beside it.
+
+   These live in the palette next to the base weight, which is the point: they
+   are the same kind of decision, and a theme that wants heavier cables has one
+   block to edit rather than seven rules to find.
+
+   Placed above the drum and traced weights on purpose. Those carry the same
+   specificity and say something that outranks which plug is on the end - `you
+   are looking at this one`, `this is a drum lane` - so they have to come after
+   to win. Anything added below this block inherits that argument. */
+:root {
+    --cable-weight-mini: 0.94;      /* 0.85x - 3.5mm Eurorack patch cable */
+    --cable-weight-quarter: 1.1;    /* 1x    - the reference weight */
+    --cable-weight-xlr: 1.43;       /* 1.3x  - the heaviest thing on a desk */
+    --cable-weight-din: 1.27;       /* 1.15x - 5-pin MIDI */
+    --cable-weight-usb: 1.1;        /* 1x */
+    --cable-weight-rj45: 1.21;      /* 1.1x  - cat5, and it looks it */
+    --cable-weight-header: 0.88;    /* 0.8x  - ribbon: flat and light */
+}
+
+.cable.is-plug-mini { stroke-width: var(--cable-weight-mini); }
+.cable.is-plug-quarter { stroke-width: var(--cable-weight-quarter); }
+.cable.is-plug-xlr { stroke-width: var(--cable-weight-xlr); }
+.cable.is-plug-din { stroke-width: var(--cable-weight-din); }
+.cable.is-plug-usb { stroke-width: var(--cable-weight-usb); }
+.cable.is-plug-rj45 { stroke-width: var(--cable-weight-rj45); }
+.cable.is-plug-header { stroke-width: var(--cable-weight-header); }
+
 /* Wiring that leaves round the back reads as rear wiring wherever the device
    happens to be pointing. */
 /* The plug takes the colour of the lead wearing it - a rear cable's end stays

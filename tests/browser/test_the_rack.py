@@ -787,6 +787,154 @@ class TestTurningAControlIsNotSummoningAMenu:
         )
 
 
+class TestAConnectorIsNotASignal:
+    """What plugs in, what it carries, and how it is carried are three things.
+
+    They were one field. `signal` held `usb` and `network`, which are neither of
+    them signals, and the rules built on top inherited the muddle: bus-ness was
+    a property of a signal, so an RJ45 snake was not a bus; MIDI's sixteen
+    channels were a property of USB, so a USB audio interface link counted as
+    channelled. Meanwhile `connector` was recorded for all 122 sockets in the
+    catalogue and read by nothing at all.
+    """
+
+    def test_every_socket_publishes_the_plug_it_takes(self, page):
+        got = page.evaluate(
+            """() => {
+                const all = [...document.querySelectorAll('.jack')];
+                return {
+                    total: all.length,
+                    stated: all.filter(j => j.dataset.connector).length,
+                    kinds: [...new Set(all.map(j => j.dataset.connector))].sort(),
+                };
+            }"""
+        )
+        assert got["total"] > 0, "no sockets on the rack to ask"
+        assert got["stated"] == got["total"], (
+            f"{got['total'] - got['stated']} sockets do not say which plug "
+            f"they take"
+        )
+        # More than one kind, or the attribute proves nothing about the axis.
+        assert len(got["kinds"]) > 3, got["kinds"]
+
+    def test_a_socket_says_its_plug_out_loud(self, page):
+        """The connector belongs in the name a screen reader reads.
+
+        Which plug a socket takes is the difference between a lead that works
+        and one that does not.
+        """
+        labels = page.evaluate(
+            """() => [...document.querySelectorAll('.jack')]
+                .slice(0, 12)
+                .map(j => [j.dataset.connector, j.getAttribute('aria-label')])"""
+        )
+        assert labels
+        for connector, label in labels:
+            assert connector in (label or ""), (
+                f"a {connector} socket announces itself as {label!r}"
+            )
+
+    def test_each_end_of_a_lead_wears_its_own_plug(self, page):
+        """A lead between unlike sockets is an adapter, and it should look it.
+
+        Drawing both ends alike is the tool quietly asserting that no adapter
+        is involved.
+        """
+        ends = page.evaluate(
+            """() => [...document.querySelectorAll('path.cable[marker-start]')]
+                .map(p => ({
+                    start: p.getAttribute('marker-start'),
+                    end: p.getAttribute('marker-end'),
+                }))
+                .filter(e => e.end)"""
+        )
+        assert ends, "no lead on the rack wears a plug at both ends"
+        for end in ends:
+            assert end["start"].startswith("url(#cable-end-"), end
+            assert end["end"].startswith("url(#cable-end-"), end
+
+    def test_a_lead_is_as_heavy_as_its_plug(self, page):
+        """Weight comes off the connector axis, so unlike leads read unlike.
+
+        Read as a number on purpose: `calc(var(--cable-weight) * 0.85)` renders
+        correctly and serialises as `calc(0.935px)`, which `parseFloat` reads as
+        NaN - measured when it broke the test that checks the drum strand is
+        the thickest, because `2 > NaN` is false.
+        """
+        weights = page.evaluate(
+            """() => {
+                const seen = {};
+                document.querySelectorAll('path.cable').forEach(p => {
+                    const plug = [...p.classList]
+                        .find(c => c.startsWith('is-plug-'));
+                    if (!plug) return;
+                    const w = parseFloat(getComputedStyle(p).strokeWidth);
+                    seen[plug] = w;
+                });
+                return seen;
+            }"""
+        )
+        assert weights, "no lead carries a plug class"
+        for plug, weight in weights.items():
+            assert weight == weight, f"{plug} has an unreadable width"
+            assert weight > 0, f"{plug} is drawn at {weight}"
+
+    def test_a_plug_that_does_not_fit_is_refused_and_says_why(self, page):
+        """And a legal patch that needs an adapter says so without refusing.
+
+        Asked of the model rather than through a drag: the gesture is tested
+        elsewhere, and this is about the rule.
+        """
+        said = page.evaluate(
+            """() => {
+                const jacks = [];
+                for (const m of system.modules.values()) {
+                    for (const j of m.jacks.values()) jacks.push(j);
+                }
+                const find = (c, t) =>
+                    jacks.find(j => j.connector === c && j.type === t);
+                const ask = (a, b) => {
+                    const one = find(a, 'output'), two = find(b, 'input');
+                    if (!one || !two) return null;
+                    return {
+                        refusal: one.refusalReason(two),
+                        advice: one.adapterAdvice(two),
+                    };
+                };
+                return {
+                    unlike: ask('USB-C', '3.5mm'),
+                    adapter: ask('3.5mm', '1/4in'),
+                    alike: ask('3.5mm', '3.5mm'),
+                };
+            }"""
+        )
+
+        unlike = said["unlike"]
+        assert unlike, "no USB output and 3.5mm input on the rack to ask about"
+        assert unlike["refusal"], "a USB plug went into a 3.5mm socket"
+        # The plainest fact available, and about the axis that actually stops
+        # you: this answered `midi does not go into clock` until the reasons
+        # were ordered by how concrete they are.
+        assert "3.5mm" in unlike["refusal"] and "USB-C" in unlike["refusal"], (
+            f"refused, but for the wrong reason: {unlike['refusal']!r}"
+        )
+
+        adapter = said["adapter"]
+        assert adapter, "no 3.5mm output and 1/4in input on the rack"
+        assert not adapter["refusal"], (
+            f"a 3.5mm into a 1/4in is a real patch, refused: "
+            f"{adapter['refusal']!r}"
+        )
+        assert adapter["advice"] and "adapter" in adapter["advice"], (
+            f"patched silently, needing an adapter: {adapter['advice']!r}"
+        )
+
+        alike = said["alike"]
+        assert alike and not alike["refusal"] and not alike["advice"], (
+            f"a like-for-like patch should be silent, said {alike!r}"
+        )
+
+
 class TestEverySocketSaysWhatItIs:
     """Labels on the laid-out panels, not only the abstract ones.
 
