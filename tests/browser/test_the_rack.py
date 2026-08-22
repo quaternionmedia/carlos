@@ -544,6 +544,84 @@ class TestMovingADevice:
         assert page.errors == []
 
 
+class TestTheLeadsFollowAScroll:
+    """A row never wraps, so a rack wider than the window scrolls sideways.
+
+    Cable endpoints are measured from laid-out elements, so scrolling moves the
+    sockets without moving the layer the leads were drawn on. Measured before
+    the fix, on a 1000px window: the device moved -180px and its lead moved 0,
+    leaving the cable pointing at where the socket used to be.
+
+    The listener has to be on the document and in the capture phase - a scroll
+    event does not bubble, so one on `window` never hears a shelf scroll at all.
+    """
+
+    def a_scrolling_shelf(self, page):
+        """A shelf that overflows, holding a device with a lead on it."""
+        return page.evaluate(
+            """() => {
+                for (const shelf of document.querySelectorAll('.rack-shelf')) {
+                    if (shelf.scrollWidth <= shelf.clientWidth + 4) continue;
+                    for (const module of shelf.querySelectorAll('.module')) {
+                        const id = module.dataset.moduleId;
+                        const lead = [...document.querySelectorAll('path.cable')]
+                            .find(p => (p.dataset.cable || '').includes(id + ':'));
+                        if (lead) {
+                            shelf.dataset.probe = '1';
+                            module.dataset.probe = '1';
+                            document.body.dataset.probeCable = lead.dataset.cable;
+                            return { id, cable: lead.dataset.cable };
+                        }
+                    }
+                }
+                return null;
+            }"""
+        )
+
+    def where(self, page):
+        # The lead is re-found by key rather than by a flag: a redraw replaces
+        # every path, so a marker set before the scroll does not survive one.
+        return page.evaluate(
+            """() => {
+                const shelf = document.querySelector('.rack-shelf[data-probe]');
+                const module = document.querySelector('.module[data-probe]');
+                const key = document.body.dataset.probeCable;
+                const lead = document.querySelector(
+                    `path.cable[data-cable="${key}"]`);
+                if (!lead) return null;
+                return {
+                    device: Math.round(module.getBoundingClientRect().left),
+                    lead: Math.round(lead.getBoundingClientRect().left),
+                };
+            }"""
+        )
+
+    def test_a_lead_stays_on_its_socket_when_the_row_scrolls(self, page):
+        page.set_viewport_size({"width": 1000, "height": 900})
+        page.wait_for_timeout(200)
+
+        chosen = self.a_scrolling_shelf(page)
+        assert chosen, "no overflowing shelf holds a patched device at this size"
+
+        before = self.where(page)
+        page.evaluate(
+            "() => { document.querySelector('.rack-shelf[data-probe]')"
+            ".scrollLeft = 180; }")
+        until(page, "() => document.querySelector('.rack-shelf[data-probe]')"
+                    ".scrollLeft === 180")
+        page.wait_for_timeout(200)   # the redraw is coalesced to a frame
+        after = self.where(page)
+        assert after, "the lead vanished instead of moving"
+
+        moved_device = after["device"] - before["device"]
+        moved_lead = after["lead"] - before["lead"]
+        assert moved_device != 0, "the shelf did not actually scroll"
+        assert abs(moved_device - moved_lead) <= 2, (
+            f"the device moved {moved_device}px and its lead moved "
+            f"{moved_lead}px - the cable is pointing at where the socket was"
+        )
+
+
 class TestEverySocketSaysWhatItIs:
     """Labels on the laid-out panels, not only the abstract ones.
 
