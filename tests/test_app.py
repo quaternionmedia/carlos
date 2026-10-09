@@ -269,6 +269,30 @@ class AppSmokeTests(unittest.TestCase):
         self.assertIn("/api/patch/format", routes)
         self.assertIn("/api/patch/validate", routes)
 
+    def test_the_workspace_page_renders(self):
+        """`/rack` is rendered here, not only declared.
+
+        Every other check in this class asks whether a route exists. The page
+        itself was rendered by nothing but the browser job, so a starlette that
+        dropped the `TemplateResponse(name, {"request": ...})` form turned it
+        into a 500 that the hermetic suite passed straight over, and the
+        browser job reported only as thirty-second timeouts.
+        """
+        from starlette.requests import Request
+
+        from src.main import rack
+
+        asked = Request({
+            "type": "http", "method": "GET", "path": "/rack",
+            "headers": [], "query_string": b"", "scheme": "http",
+            "server": ("127.0.0.1", 4186), "root_path": "",
+            "app": app, "router": app.router,
+        })
+        answered = asyncio.run(rack(asked))
+
+        self.assertEqual(answered.status_code, 200)
+        self.assertIn("Carlos - Synth Patch Workspace", answered.body.decode())
+
     def test_demo_is_local_first(self):
         html = Path("templates/demo.html").read_text()
 

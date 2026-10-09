@@ -249,9 +249,9 @@ async def rack(request: Request):
     template is wrong at the next release and nothing notices.
     """
     return templates.TemplateResponse(
+        request,
         "demo.html",
         {
-            "request": request,
             "title": settings.app_name,
             "version": settings.version,
         },
