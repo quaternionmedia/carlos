@@ -235,6 +235,13 @@ def _can_check(url: str) -> None:
     except (urllib.error.URLError, OSError, ValueError) as error:
         click.echo(f"check could not run: nothing answers at {url} ({error})", err=True)
         sys.exit(CANNOT_SAY)
+    # Python exits 1 when `-m` names a module it cannot run, which is also the
+    # status of a failed assertion: a broken pytest would read as Carlos failing.
+    runner = subprocess.run(here(["pytest", "--version"]), capture_output=True, text=True)
+    if runner.returncode != 0:
+        click.echo("check could not run: pytest does not run here: "
+                   f"{(runner.stderr or runner.stdout).strip()[-200:]}", err=True)
+        sys.exit(CANNOT_SAY)
     try:
         from playwright.sync_api import sync_playwright
 

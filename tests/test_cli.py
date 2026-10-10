@@ -178,6 +178,24 @@ class TheDemoContractTests(unittest.TestCase):
         self.assertEqual(result.exit_code, cli.CANNOT_SAY)
         self.assertIn("nothing answers at http://127.0.0.1:9/", result.output)
 
+    def test_check_with_a_broken_pytest_cannot_say_rather_than_fail(self):
+        # Python exits 1 for a module it cannot run: a failed assertion's status.
+        broken = subprocess.CompletedProcess([], 1, "", "No module named pytest.__main__")
+
+        class Answering:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        with tempfile.TemporaryDirectory() as scratch,                 unittest.mock.patch.object(cli.urllib.request, "urlopen",
+                                           lambda *a, **k: Answering()),                 unittest.mock.patch.object(cli.subprocess, "run", lambda *a, **k: broken):
+            result = self.runner.invoke(cli.main, [
+                "check", "--url", "http://127.0.0.1:18420/rack", "--shots", scratch])
+        self.assertEqual(result.exit_code, cli.CANNOT_SAY)
+        self.assertIn("pytest does not run here", result.output)
+
 
 class StatusTellsTheTruthTests(unittest.TestCase):
     def test_a_clean_tree_reads_clean(self):
