@@ -13,16 +13,21 @@ do that, in the same run that produces the picture.
 from __future__ import annotations
 
 import atexit
+import os
 import socket
 import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-MEDIA = Path(__file__).resolve().parent / "media"
+# `carlos check --url` points the shutter elsewhere, so a check of a server
+# somebody else started writes no picture into the checkout.
+MEDIA = Path(os.environ.get("CARLOS_WALKTHROUGH_SHOTS")
+             or Path(__file__).resolve().parent / "media")
 
 # How long to wait for the server to answer before calling it unreachable.
 # Generous, because a cold start on Windows imports FastAPI first.
@@ -75,6 +80,10 @@ class LiveApp:
     A port of its own rather than 4186: a developer's own server is usually up,
     and a page that quietly measured *that* would be testing whatever code
     happened to be running rather than the code in the tree.
+
+    With `CARLOS_WALKTHROUGH_URL` set -- `carlos check --url` sets it -- the
+    page is pointed at a server on purpose: it attaches to the one answering
+    there, and neither starts nor stops one.
     """
 
     # A free port is free when it is asked for and taken by the time it is used,
@@ -84,11 +93,22 @@ class LiveApp:
     ATTEMPTS = 3
 
     def __init__(self) -> None:
+        self.process: subprocess.Popen | None = None
+        attached = os.environ.get("CARLOS_WALKTHROUGH_URL")
+        if attached:
+            parts = urllib.parse.urlsplit(attached)
+            self.attached = True
+            self.base = f"{parts.scheme}://{parts.netloc}"
+            self.port = parts.port
+            return
+        self.attached = False
         self.port = _free_port()
         self.base = f"http://127.0.0.1:{self.port}"
-        self.process: subprocess.Popen | None = None
 
     def start(self) -> "LiveApp":
+        if self.attached:
+            self._await_health()
+            return self
         for attempt in range(1, self.ATTEMPTS + 1):
             try:
                 return self._start_once()

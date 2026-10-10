@@ -185,14 +185,92 @@ def main(ctx: click.Context, dry_run: bool) -> None:
 
 
 @main.command()
+@click.option("--url", default=None,
+              help="Check the server already answering here: the browser page alone.")
+@click.option("--shots", "shots_dir", default=None,
+              type=click.Path(file_okay=False, path_type=Path),
+              help="With --url: where that page writes its pictures.")
 @click.pass_context
-def check(ctx: click.Context) -> None:
+def check(ctx: click.Context, url: str | None, shots_dir: Path | None) -> None:
     """The suite and the walkthrough. The command to run before a pull request.
 
     Runs the tests *and* the executable documentation, because the pages are
     where the examples a reader copies are proved.
+
+    With `--url` and `--shots` it runs the browser page alone, attached to the
+    server answering at that address instead of one of its own, and writes the
+    pictures where `--shots` says. That is the check half of the performing
+    family's demo contract, declared in the qm corpus's ci/family-demo.yaml.
     """
-    ctx.exit(run(here(list(CHECK)), canonical=uv(list(CHECK)), **_opts(ctx)))
+    if url is None:
+        if shots_dir is not None:
+            raise click.UsageError("--shots goes with --url")
+        ctx.exit(run(here(list(CHECK)), canonical=uv(list(CHECK)), **_opts(ctx)))
+    if shots_dir is None:
+        raise click.UsageError("--url needs --shots, so its pictures land outside the checkout")
+    if not ctx.obj["dry_run"]:
+        _can_check(url)
+        shots_dir = shots_dir.resolve()
+        shots_dir.mkdir(parents=True, exist_ok=True)
+    argv = ["pytest", BROWSER_PAGE, "--doctest-glob=*.md", "-p", "no:cacheprovider"]
+    env = {"CARLOS_WALKTHROUGH_URL": url,
+           "CARLOS_WALKTHROUGH_SHOTS": str(shots_dir),
+           "PYTHONDONTWRITEBYTECODE": "1"}
+    ctx.exit(run(here(argv), canonical=uv(argv), env=env, **_opts(ctx)))
+
+
+# What `check --url` exits with when there is nothing to check against. The
+# page raises rather than skips when its server or browser is missing, which is
+# right for a build -- a red build -- and wrong for a check of somebody else's
+# server, where it would read as Carlos failing. The contract's third answer is
+# "could not say", and this is the one place it is formed.
+CANNOT_SAY = 3
+
+
+def _can_check(url: str) -> None:
+    """Exit 3 unless something answers at `url` and Chromium starts."""
+    try:
+        with urllib.request.urlopen(url, timeout=5):
+            pass
+    except (urllib.error.URLError, OSError, ValueError) as error:
+        click.echo(f"check could not run: nothing answers at {url} ({error})", err=True)
+        sys.exit(CANNOT_SAY)
+    try:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as driver:
+            driver.chromium.launch().close()
+    except Exception as error:  # an import or a launch: either way, no browser
+        click.echo(f"check could not run: Chromium would not start: {error}", err=True)
+        sys.exit(CANNOT_SAY)
+
+
+@main.command()
+@click.option("--host", default="127.0.0.1", show_default=True, help="Address to bind.")
+@click.option("--port", type=int, required=True, help="Port to bind.")
+@click.option("--state", required=True,
+              type=click.Path(file_okay=False, path_type=Path),
+              help="Directory the database is kept in.")
+@click.pass_context
+def serve(ctx: click.Context, host: str, port: int, state: Path) -> None:
+    """Run the app on the address given, with its database under STATE.
+
+    `carlos dev` with nothing defaulted: `CARLOS_HOST`, `CARLOS_PORT` and
+    `CARLOS_DB` are the three settings the app reads, and this names all of
+    them. It is the serve half of the performing family's demo contract, so a
+    demo's server is on the port it reserved and keeps its database in that
+    run's scratch directory rather than in `data/`.
+    """
+    state = state.resolve()
+    if not ctx.obj["dry_run"]:
+        state.mkdir(parents=True, exist_ok=True)
+    env = {"CARLOS_HOST": host, "CARLOS_PORT": str(port),
+           "CARLOS_DB": str(state / "db.json")}
+    ctx.exit(run(
+        here(["python", "src/main.py"]),
+        canonical=uv(["python", "src/main.py"]),
+        env=env, **_opts(ctx),
+    ))
 
 
 @main.command()

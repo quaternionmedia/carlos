@@ -15,7 +15,9 @@ arriving by a different door.
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -125,6 +127,56 @@ class ItDispatchesTests(unittest.TestCase):
         )
         self.assertFalse(marker.exists(), "--dry-run ran the command")
 
+
+
+class TheDemoContractTests(unittest.TestCase):
+    """`serve` and `check --url`: the performing family's demo contract.
+
+    Neither may be run for real here -- `serve` binds a port and `check --url`
+    drives a browser -- so what is held is what each dispatches, and that a
+    check with nothing to check against says so rather than failing.
+    """
+
+    def setUp(self):
+        self.runner = CliRunner()
+
+    def test_serve_dispatches_the_app_with_every_setting_named(self):
+        captured = {}
+
+        def fake_run(argv, **kwargs):
+            captured.update(argv=argv, **kwargs)
+            return 0
+
+        with tempfile.TemporaryDirectory() as scratch,                 unittest.mock.patch.object(cli, "run", fake_run):
+            state = Path(scratch) / "state"
+            result = self.runner.invoke(cli.main, [
+                "serve", "--host", "127.0.0.1", "--port", "18420", "--state", str(state)])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertEqual(captured["canonical"], ["uv", "run", "python", "src/main.py"])
+            self.assertEqual(captured["env"], {
+                "CARLOS_HOST": "127.0.0.1", "CARLOS_PORT": "18420",
+                "CARLOS_DB": str(state.resolve() / "db.json")})
+            self.assertTrue(state.is_dir())
+
+    def test_check_url_runs_the_browser_page_alone_and_says_where_to_look(self):
+        result = self.runner.invoke(cli.main, [
+            "--dry-run", "check", "--url", "http://127.0.0.1:18420/rack", "--shots", "out"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn(
+            "uv run pytest walkthrough/05-in-the-browser.md --doctest-glob=*.md", result.output)
+
+    def test_url_and_shots_come_together(self):
+        for args in (["check", "--url", "http://127.0.0.1:1/"], ["check", "--shots", "out"]):
+            with self.subTest(args):
+                self.assertEqual(self.runner.invoke(cli.main, args).exit_code, 2)
+
+    def test_check_with_nothing_answering_cannot_say_rather_than_fail(self):
+        # Port 9 is discard: nothing serves HTTP there, and nothing is bound here.
+        with tempfile.TemporaryDirectory() as scratch:
+            result = self.runner.invoke(cli.main, [
+                "check", "--url", "http://127.0.0.1:9/", "--shots", scratch])
+        self.assertEqual(result.exit_code, cli.CANNOT_SAY)
+        self.assertIn("nothing answers at http://127.0.0.1:9/", result.output)
 
 
 class StatusTellsTheTruthTests(unittest.TestCase):

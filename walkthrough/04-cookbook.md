@@ -24,6 +24,7 @@ uv run pytest tests walkthrough --doctest-glob=*.md
 | `carlos harness` | The five frontend harnesses, under Node. Name one to run just it |
 | `carlos browser` | The browser suite, in real Chromium |
 | `carlos dev` | Run the app, on a predictable port |
+| `carlos serve` | Run the app on a given address, with its database in a given directory |
 | `carlos stop` | Free the port, and prove it is free |
 | `carlos shots` | Regenerate the walkthrough screenshots |
 | `carlos gates` | The governance gates, as CI runs them |
@@ -35,10 +36,15 @@ other, so a round the CLI grows and this page does not name is a failing test:
 
 ```python
 >>> sorted(cli.main.commands)
-['browser', 'check', 'dev', 'gates', 'harness', 'release-check', 'shots',
- 'signatures', 'status', 'stop']
+['browser', 'check', 'dev', 'gates', 'harness', 'release-check', 'serve',
+ 'shots', 'signatures', 'status', 'stop']
 
 ```
+
+`carlos serve --host H --port P --state DIR` and `carlos check --url U --shots
+DIR` are the performing family's demo contract, which the qm corpus declares
+once for every member: the first runs the app with all three of its settings
+named, the second runs the browser page against a server that is already up.
 
 **The CLI dispatches and implements nothing.** No verdict is formed in it, no
 exit code is prettified, and `carlos gates` exits non-zero today because the

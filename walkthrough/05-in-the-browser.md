@@ -24,7 +24,9 @@ sitting beside it. The regression protection is the assertions.
 ```
 
 `LiveApp.start()` polls `/healthz` and raises `Unreachable` if it never
-answers. A port of its own, not 4186: a developer's own server is usually up,
+answers. `carlos check --url <address> --shots <directory>` runs this page
+against a server that is already up instead: `LiveApp` attaches to it, and the
+pictures go to that directory rather than beside this page. A port of its own, not 4186: a developer's own server is usually up,
 and measuring that one would test whatever code happened to be running.
 
 Both the server and the browser register their own shutdown as they start.
