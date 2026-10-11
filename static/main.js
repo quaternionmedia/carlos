@@ -119,11 +119,12 @@ async function openingRack() {
 // EXAMPLES
 // ===================================
 // Every device ships a simple and a complex example. They are ordinary patch
-// documents, so loading one is the same code path as importing a file.
+// documents, so loading one is the same code path as importing a file. The
+// document it loaded comes back, or null, so a cue from the hub can face it.
 async function loadExample(kind, deviceId) {
     if (!deviceId) {
         system.status.update('Pick a device to load an example for');
-        return;
+        return null;
     }
 
     try {
@@ -135,11 +136,13 @@ async function loadExample(kind, deviceId) {
         const document_ = examples[kind];
         if (!document_) {
             system.status.update(`${deviceId} ships no ${kind} example yet`);
-            return;
+            return null;
         }
         system.importState(document_);
+        return document_;
     } catch (error) {
         system.status.update(`Could not load that example: ${error.message}`);
+        return null;
     }
 }
 
@@ -852,4 +855,5 @@ function triggerImport() {
     document.getElementById('patch-file')?.click();
 }
 
-bootstrap();
+// Kept, so what waits for the opening rack can wait for it: static/family.js.
+const booted = bootstrap();

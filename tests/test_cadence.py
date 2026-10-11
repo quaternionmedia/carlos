@@ -180,6 +180,7 @@ class NoneMeansNoneTests(unittest.TestCase):
             ("POST", "/api/midi/parse"): lambda: main.midi_parse({"bytes": [144, 60, 100]}),
             ("POST", "/api/midi/route"):
                 lambda: main.midi_route({"bytes": [144, 60, 100], "bindings": []}),
+            ("GET", "/family/state"): lambda: main.family_state(),
         }
         make = by_path.get((method, path))
         if make is None:

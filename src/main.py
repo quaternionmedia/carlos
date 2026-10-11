@@ -1,3 +1,4 @@
+import json
 import os
 import tomllib
 import uuid
@@ -15,12 +16,13 @@ from pydantic import BaseModel, Field, ValidationError
 try:
     from .db import DatabaseManager
     from .defaults import DEFAULT_PORT
-    from . import cadence, catalogue, interop, midi, patch_format
+    from . import cadence, catalogue, family, interop, midi, patch_format
 except ImportError:
     from db import DatabaseManager
     from defaults import DEFAULT_PORT
     import cadence
     import catalogue
+    import family
     import interop
     import midi
     import patch_format
@@ -614,6 +616,37 @@ async def validate_patch(document: dict):
         "modules": len(patch.modules),
         "connections": len(patch.connections),
     }
+
+
+# The rack as the hub has left it. In this process and nowhere else: a restart
+# begins again at revision 0, facing the way the opening rig faces.
+rack_from_the_hub = family.Rack(catalogue.opening_rack())
+
+
+@app.post("/family/cue")
+async def family_cue(request: Request):
+    """Take one cue's action for this member from the performing family's hub.
+
+    The body is read here rather than declared, so that a body which is not
+    JSON, or not an object, is answered in this route's own words with a 422
+    rather than in FastAPI's. See `src/family.py`.
+    """
+    try:
+        body = json.loads(await request.body())
+    except ValueError:  # not JSON, or not UTF-8
+        return JSONResponse(status_code=422,
+                            content={"ok": False, "error": "the body is not JSON"})
+    status, answer = rack_from_the_hub.receive(body)
+    return JSONResponse(status_code=status, content=answer)
+
+
+@app.api_route("/family/state", methods=PAGE)
+async def family_state():
+    """The patch and facing the hub has left the rack in, and the cue that did it.
+
+    Every open rack tab reads this once a second, which is how a cue reaches it.
+    """
+    return rack_from_the_hub.snapshot()
 
 
 def lan_address() -> str | None:

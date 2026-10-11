@@ -216,6 +216,30 @@ CADENCE: tuple[EndpointCadence, ...] = (
         min_interval_seconds=None,
         why="Answers which bindings a message would match, against the caller's own rack.",
     ),
+    EndpointCadence(
+        path="/family/cue",
+        method="POST",
+        side_effect="persists",
+        staleness_budget_seconds=None,
+        min_interval_seconds=None,
+        why=(
+            "The performing family's hub delivering a cue: it loads an example "
+            "or turns the rack, in the state this process holds for every open "
+            "tab. Called when a cue fires, never on a schedule."
+        ),
+    ),
+    EndpointCadence(
+        path="/family/state",
+        method="GET",
+        side_effect="none",
+        staleness_budget_seconds=0,
+        min_interval_seconds=1,
+        why=(
+            "Where the hub has left the rack: true only now, since the next cue "
+            "changes it. Every open rack tab asks once a second, which is what "
+            "lets a cue reach it without a reload."
+        ),
+    ),
 )
 
 
