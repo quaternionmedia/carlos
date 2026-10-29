@@ -1548,3 +1548,41 @@ button.irl-cell.is-struck {
     text-overflow: clip;
     white-space: nowrap;
 }
+
+/* A rig held from outside (static/family.js). Each device and each lead is
+   shown at the level its sender gave it, and a device's lines are said under
+   its name. The levels are the sender's judgement; these rules are only how
+   carlos shows them, in the palette's own green for what is well and in two
+   hues nothing else on the rack uses for what asks for a person. */
+:root {
+    --held-ok: var(--rad-signal);
+    --held-warn: #ffcc4d;
+    --held-fault: #ff5c7a;
+    --held-none: var(--rad-ink-dim);
+}
+
+.module[data-held] {
+    box-shadow: 0 0 0 2px var(--held-none);
+}
+.module[data-held="ok"] { box-shadow: 0 0 0 2px var(--held-ok); }
+.module[data-held="warn"] { box-shadow: 0 0 0 2px var(--held-warn); }
+.module[data-held="fault"] { box-shadow: 0 0 0 2px var(--held-fault); }
+
+.held-says {
+    list-style: none;
+    margin: 2px 0 6px;
+    padding: 0 6px;
+    font-size: 10px;
+    line-height: 1.35;
+    color: var(--rad-ink-dim);
+    white-space: normal;
+}
+.module[data-held="warn"] .held-says li:first-child { color: var(--held-warn); }
+.module[data-held="fault"] .held-says li:first-child { color: var(--held-fault); }
+.module[data-held="ok"] .held-says li:first-child { color: var(--held-ok); }
+
+/* A lead declared and not seen is drawn broken, so it reads as a lead that
+   should be there rather than one that is. */
+.cable.is-held-fault { stroke: var(--held-fault); stroke-dasharray: 5 4; }
+.cable.is-held-warn { stroke: var(--held-warn); }
+.cable.is-held-none { stroke: var(--held-none); stroke-dasharray: 2 4; }

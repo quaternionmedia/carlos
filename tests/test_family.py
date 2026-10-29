@@ -61,7 +61,7 @@ class TheRackTests(unittest.TestCase):
             "member": "carlos", "cue": None,
             "state": {"patch": None,
                       "facing": family.document_facing(catalogue.opening_rack()),
-                      "revision": 0}})
+                      "revision": 0, "held": None}})
 
     def test_a_patch_names_an_example_by_its_device_and_kind(self):
         status, answer = self.rack.receive(
@@ -69,7 +69,8 @@ class TheRackTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(answer, {"ok": True, "state": {
-            "patch": "novation.launchpad-x.complex", "facing": "top", "revision": 1}})
+            "patch": "novation.launchpad-x.complex", "facing": "top", "revision": 1,
+            "held": None}})
         self.assertEqual(self.rack.snapshot()["cue"]["number"], "3")
 
     def test_loading_a_patch_faces_the_rack_the_way_its_document_does(self):
@@ -84,7 +85,8 @@ class TheRackTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(answer["state"],
-                         {"patch": "moog.dfam.complex", "facing": "back", "revision": 2})
+                         {"patch": "moog.dfam.complex", "facing": "back", "revision": 2,
+                          "held": None})
 
     def test_every_side_is_a_turn_it_takes(self):
         for side in family.SIDES:
@@ -116,6 +118,102 @@ class TheRackTests(unittest.TestCase):
         expected = {f"{device}.{kind}" for device in catalogue.load_all()
                     for kind in ("simple", "complex")}
         self.assertEqual(names, expected)
+
+
+# A rig held from outside: a board carlos's catalogue does not have, sent with
+# it, patched into a device it does, with a state on each.
+BOARD = {"id": "espressif.esp32-devkitc", "maker": "Espressif", "model": "ESP32-DevKitC V4",
+         "category": "board", "summary": "A devkit.",
+         "jacks": [{"name": "usb", "label": "USB", "type": "output", "signal": "data",
+                    "carrier": "usb", "connector": "micro-USB", "side": "right"}]}
+HOST = {"id": "apothecary.host", "maker": "Apothecary", "model": "Host",
+        "category": "computer", "summary": "The computer.",
+        "jacks": [{"name": "usb", "label": "USB", "type": "input", "signal": "data",
+                   "carrier": "usb", "connector": "USB-A", "side": "back"}]}
+LEAD = {"source": {"module": "devkit", "jack": "usb"},
+        "target": {"module": "host", "jack": "usb"}}
+
+
+def a_hold(**changed) -> dict:
+    hold = {
+        "patch": {"format": "carlos.patch", "version": 3, "name": "garage",
+                  "modules": [{"id": "devkit", "type": BOARD["id"], "view": "right"},
+                              {"id": "host", "type": HOST["id"]}],
+                  "connections": [LEAD]},
+        "devices": [BOARD, HOST],
+        "states": {"modules": {"devkit": {"level": "fault",
+                                          "says": ["absent: expected, and not answering"]}},
+                   "connections": [{**LEAD, "level": "fault",
+                                    "says": ["declared: the board is not answering"]}]},
+    }
+    hold.update(changed)
+    return hold
+
+
+NOT_HELD = {
+    "a hold that is not an object": "garage",
+    "a patch that is not one": a_hold(patch={"format": "carlos.patch", "version": 99}),
+    "a type neither in the catalogue nor sent": a_hold(devices=[HOST]),
+    "a device with no id": a_hold(devices=[{**BOARD, "id": "esp32"}, HOST]),
+    "a jack of no type": a_hold(devices=[
+        {**BOARD, "jacks": [{**BOARD["jacks"][0], "type": "both"}]}, HOST]),
+    "a level carlos does not colour": a_hold(states={"modules": {
+        "devkit": {"level": "red", "says": []}}}),
+    "lines that are not text": a_hold(states={"modules": {
+        "devkit": {"level": "ok", "says": "present"}}}),
+    "a state for a module not in the patch": a_hold(states={"modules": {
+        "printer": {"level": "ok", "says": []}}}),
+    "a state for a lead not in the patch": a_hold(states={"connections": [
+        {"source": {"module": "host", "jack": "usb"},
+         "target": {"module": "devkit", "jack": "usb"}, "level": "ok", "says": []}]}),
+    "a field a hold does not have": a_hold(owner="apothecary"),
+}
+
+
+class AHeldRigTests(unittest.TestCase):
+    def setUp(self):
+        catalogue.load_all.cache_clear()
+        self.rack = family.Rack(catalogue.opening_rack())
+
+    def test_a_held_rig_is_held_whole_and_faced_as_its_document(self):
+        status, answer = self.rack.receive(cue("garage", {"hold": a_hold()}, "apothecary"))
+
+        self.assertEqual(status, 200)
+        held = answer["state"]["held"]
+        self.assertEqual(held["patch"], a_hold()["patch"])
+        self.assertEqual([d["id"] for d in held["devices"]], [BOARD["id"], HOST["id"]])
+        self.assertEqual(held["states"]["modules"]["devkit"]["level"], "fault")
+        self.assertEqual(held["states"]["connections"][0]["says"],
+                         ["declared: the board is not answering"])
+        self.assertEqual(answer["state"]["patch"], None)
+        self.assertEqual(answer["state"]["facing"], "right")
+
+    def test_its_devices_are_held_for_it_and_not_put_in_the_catalogue(self):
+        self.rack.receive(cue("1", {"hold": a_hold()}))
+        self.assertNotIn(BOARD["id"], catalogue.load_all())
+
+    def test_a_turn_keeps_it_and_an_example_lets_it_go(self):
+        self.rack.receive(cue("1", {"hold": a_hold()}))
+        self.rack.receive(cue("2", {"turn": "back"}))
+        self.assertIsNotNone(self.rack.held)
+        self.rack.receive(cue("3", {"patch": "moog.dfam.simple"}))
+        self.assertIsNone(self.rack.held)
+
+    def test_a_held_device_may_use_words_the_catalogue_does_not(self):
+        # A micro-USB socket on a board: neither is in carlos's vocabulary, and
+        # neither is carlos's to judge in a rig it only holds.
+        self.assertEqual(self.rack.receive(cue("1", {"hold": a_hold()}))[0], 200)
+
+    def test_a_hold_carlos_cannot_draw_is_422_and_changes_nothing(self):
+        self.rack.receive(cue("1", {"hold": a_hold()}))
+        before = self.rack.snapshot()
+
+        for what, hold in NOT_HELD.items():
+            with self.subTest(what):
+                status, answer = self.rack.receive(cue("9", {"hold": hold}))
+                self.assertEqual(status, 422, answer)
+                self.assertTrue(answer["error"])
+                self.assertEqual(self.rack.snapshot(), before)
 
 
 class DocumentFacingTests(unittest.TestCase):

@@ -10,6 +10,11 @@
 // the rig it opened on until the next cue lands, and then draws all of it:
 // what a tab draws is a function of the state, not of the cues it happened to
 // see.
+//
+// A rig held from outside is drawn as it is sent: its devices for that rig
+// only, its cables as they are, and each state as its level and its lines. The
+// sender knows what is in the rig; this draws it. A held rig is what the rack
+// is, so a tab that opens on one draws it at once.
 const HUB_POLL_MS = 1000;
 
 const hub = {
@@ -19,7 +24,35 @@ const hub = {
     // last loaded from: the opening rig until the hub names a patch.
     patch: null,
     document: null,
+    // The hold last drawn, as its JSON, so a hold sent again unchanged is not
+    // drawn again.
+    held: null,
 };
+
+// The held rig drawn: its devices, then its states, then the rack from its
+// document, so each device and each cable is drawn with its state.
+function drawTheHeldRig(held) {
+    ModuleFactory.held = Object.fromEntries(held.devices.map(device => [device.id, device]));
+    HELD_MODULE_STATES.clear();
+    HELD_LEAD_STATES.clear();
+    Object.entries(held.states.modules).forEach(([id, state]) => {
+        HELD_MODULE_STATES.set(id, state);
+    });
+    held.states.connections.forEach(lead => {
+        HELD_LEAD_STATES.set(
+            `${lead.source.module}:${lead.source.jack}->${lead.target.module}:${lead.target.jack}`,
+            lead);
+    });
+    system.importState(held.patch);
+}
+
+// Let a held rig go: what loads next is the rack's own.
+function letTheHeldRigGo() {
+    ModuleFactory.held = {};
+    HELD_MODULE_STATES.clear();
+    HELD_LEAD_STATES.clear();
+    hub.held = null;
+}
 
 // Mirrors `document_facing` in src/family.py: the commonest view among a
 // document's modules, the first one seen breaking a tie, and front for none.
@@ -71,14 +104,26 @@ async function followTheHub() {
         return;
     }
     const { cue, state } = snapshot;
-    if (hub.revision === null) {
+    if (hub.revision === null && !state.held) {
         hub.revision = state.revision;
         return;
     }
     if (state.revision === hub.revision) return;
 
     let loaded = null;
-    if (state.patch && state.patch !== hub.patch) {
+    if (state.held) {
+        const key = JSON.stringify(state.held);
+        if (key !== hub.held) {
+            drawTheHeldRig(state.held);
+            hub.held = key;
+            hub.patch = null;
+            hub.document = state.held.patch;
+            loaded = state.held.patch;
+        }
+    } else if (hub.held) {
+        letTheHeldRigGo();
+    }
+    if (!state.held && state.patch && state.patch !== hub.patch) {
         const cut = state.patch.lastIndexOf('.');
         loaded = await loadExample(state.patch.slice(cut + 1), state.patch.slice(0, cut));
         // `loadExample` has said why on the status line; the next look retries.
@@ -91,8 +136,9 @@ async function followTheHub() {
     hub.revision = state.revision;
 
     const what = loaded ? `"${loaded.name}"` : `facing ${state.facing}`;
-    system.status.update(
-        `Cue ${cue?.number ?? '?'} from the hub: ${what} - ${system.viewSummary()}`);
+    system.status.update(state.held
+        ? `Held from ${cue?.name ?? 'outside'}: ${what} - ${system.viewSummary()}`
+        : `Cue ${cue?.number ?? '?'} from the hub: ${what} - ${system.viewSummary()}`);
 }
 
 // Looks are chained rather than on an interval, so a slow one - an example

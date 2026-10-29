@@ -2,20 +2,35 @@
 
 ShowRunner, the family's hub, fires a cue and delivers each member its part of
 the cue's `family` block. Carlos's part is one of two things a person does to
-the rack by hand: load an example from the menu, or turn the rack.
+the rack by hand: load an example from the menu, or turn the rack. A third
+action is a rig held from outside: another application that knows a rig sends
+it whole, and carlos holds it and draws it.
 
     POST /family/cue    {"cue": {"number": "3", "name": "...", "fired_at": "..."},
                          "action": {"patch": "<device>.<simple|complex>"}
-                                or {"turn": "<side>"}}
+                                or {"turn": "<side>"}
+                                or {"hold": {"patch": <carlos.patch>,
+                                             "devices": [<device entry>, ...],
+                                             "states": {"modules": {<id>: <state>},
+                                                        "connections": [<lead state>]}}}}
                         200 {"ok": true, "state": {...}}
                         422 {"ok": false, "error": "..."}  for anything else
     GET  /family/state  200 {"member": "carlos", "cue": {...} | null,
                              "state": {"patch": name | null, "facing": side,
-                                       "revision": n}}
+                                       "revision": n, "held": <the hold> | null}}
 
 **The server holds the truth for these two actions**, which is new: the rack
 has lived in the tab that draws it. An open tab reads `GET /family/state` and
 draws whatever changed since it last looked, in place.
+
+**A held rig is drawn, never judged.** What is in it and what state each part
+of it is in are the sender's to know: carlos checks only that it can draw it --
+the document reads as a `carlos.patch`, every type it names is a catalogue
+device or one of the `devices` sent with it, and each state is a level from
+`LEVELS` and the lines that say it. The devices are held for this rig and
+nowhere else: they are not in the palette or the catalogue, so they keep the
+vocabulary of whoever sent them. A held rig's cables are drawn as sent. Loading
+an example lets go of it; a turn keeps it.
 
 `patch` names an example by its file, `catalogue/examples/<device>.<kind>.json`,
 which is the device and the kind the menu loads it by. Loading one faces the
@@ -29,16 +44,25 @@ saw them all.
 
 from __future__ import annotations
 
+import re
+
 try:
-    from . import catalogue
+    from . import catalogue, patch_format
 except ImportError:
     import catalogue
+    import patch_format
 
 MEMBER = "carlos"
 
 # The sides a device can have, in cycling order. Mirrors `SIDE_ORDER` in
 # static/models.js, and tests/test_family.py holds the two together.
 SIDES = ("front", "back", "top", "bottom", "left", "right")
+
+# How much a held state asks of a person, least first. The rack colours by it
+# and reads nothing else: `says` is shown as it is sent.
+LEVELS = ("none", "ok", "warn", "fault")
+JACK_TYPES = ("input", "output")
+DEVICE_ID = re.compile(r"^[a-z0-9-]+\.[a-z0-9-]+$")
 
 
 def examples() -> dict[str, dict]:
@@ -78,17 +102,108 @@ def _shown(value: object) -> str:
     return text if len(text) <= 80 else text[:77] + "..."
 
 
+def _text_list(value: object, where: str) -> list:
+    if not isinstance(value, list) or not all(isinstance(line, str) for line in value):
+        raise Refused(f"{where} says what it says as a list of lines, not {_shown(value)}")
+    return value
+
+
+def _state(value: object, where: str) -> dict:
+    if not isinstance(value, dict) or value.get("level") not in LEVELS:
+        raise Refused(f"{where} is {{level, says}} with a level of {', '.join(LEVELS)}, "
+                      f"not {_shown(value)}")
+    return {"level": value["level"], "says": _text_list(value.get("says", []), where)}
+
+
+def _device(value: object) -> dict:
+    """A device sent with a held rig, checked for what drawing it needs."""
+    if not isinstance(value, dict) or not isinstance(value.get("id"), str) \
+            or not DEVICE_ID.match(value["id"]):
+        raise Refused(f"a held device has an id like maker.model, not {_shown(value)}")
+    jacks = value.get("jacks")
+    if not isinstance(jacks, list):
+        raise Refused(f"{value['id']}'s jacks are a list")
+    names = set()
+    for jack in jacks:
+        if not isinstance(jack, dict) or not isinstance(jack.get("name"), str) \
+                or jack.get("type") not in JACK_TYPES \
+                or jack.get("side", "front") not in SIDES \
+                or not isinstance(jack.get("connector"), str) \
+                or not isinstance(jack.get("signal"), str):
+            raise Refused(f"{value['id']} has a jack carlos cannot draw: {_shown(jack)}")
+        if jack["name"] in names:
+            raise Refused(f"{value['id']} has two jacks called {jack['name']}")
+        names.add(jack["name"])
+    return value
+
+
+def _held(value: object) -> dict:
+    """A rig sent whole, checked for what drawing it needs and nothing else."""
+    if not isinstance(value, dict) or set(value) - {"patch", "devices", "states"}:
+        raise Refused("a hold is {patch, devices, states}")
+    try:
+        document = patch_format.load(value.get("patch")).model_dump()
+    except patch_format.PatchFormatError as error:
+        raise Refused(f"the held patch is not a carlos.patch: {error}") from None
+    devices = [_device(d) for d in value.get("devices") or []]
+    by_id = {d["id"]: d for d in devices}
+    if len(by_id) != len(devices):
+        raise Refused("two held devices share an id")
+    known = catalogue.load_all()
+    for module in document["modules"]:
+        if module["type"] not in by_id and module["type"] not in known:
+            raise Refused(f"module {module['id']} is a {module['type']}, which is neither "
+                          "in the catalogue nor sent with the rig")
+    modules = {m["id"] for m in document["modules"]}
+    states = value.get("states") or {}
+    if not isinstance(states, dict):
+        raise Refused("states are {modules, connections}")
+    module_states = states.get("modules") or {}
+    if not isinstance(module_states, dict):
+        raise Refused("states.modules is an object, by module id")
+    for module_id in module_states:
+        if module_id not in modules:
+            raise Refused(f"states.modules names {_shown(module_id)}, not in the patch")
+    lead_states = states.get("connections") or []
+    if not isinstance(lead_states, list):
+        raise Refused("states.connections is a list")
+    leads = {(c["source"]["module"], c["source"]["jack"], c["target"]["module"],
+              c["target"]["jack"]) for c in document["connections"]}
+    checked_leads = []
+    for lead in lead_states:
+        try:
+            key = (lead["source"]["module"], lead["source"]["jack"],
+                   lead["target"]["module"], lead["target"]["jack"])
+        except (TypeError, KeyError):
+            raise Refused(f"a lead's state names its source and target: {_shown(lead)}") from None
+        if key not in leads:
+            raise Refused(f"states.connections names a lead not in the patch: {_shown(lead)}")
+        checked_leads.append({"source": lead["source"], "target": lead["target"],
+                              **_state(lead, "a lead's state")})
+    return {
+        "patch": value["patch"],
+        "devices": devices,
+        "states": {
+            "modules": {k: _state(v, f"module {k}'s state") for k, v in module_states.items()},
+            "connections": checked_leads,
+        },
+    }
+
+
 class Rack:
-    """What the hub talks to: the rack's patch and facing, and the last cue."""
+    """What the hub talks to: the rack's patch and facing, the rig held from
+    outside, and the last cue."""
 
     def __init__(self, opening: dict | None = None) -> None:
         self.cue: dict | None = None
         self.patch: str | None = None
         self.facing = document_facing(opening)
+        self.held: dict | None = None
         self.revision = 0
 
     def state(self) -> dict:
-        return {"patch": self.patch, "facing": self.facing, "revision": self.revision}
+        return {"patch": self.patch, "facing": self.facing, "revision": self.revision,
+                "held": self.held}
 
     def snapshot(self) -> dict:
         return {"member": MEMBER, "cue": self.cue, "state": self.state()}
@@ -111,10 +226,19 @@ class Rack:
             raise Refused("cue must be an object: {number, name, fired_at}")
         action = body.get("action")
         if not isinstance(action, dict) or len(action) != 1 \
-                or not set(action) <= {"patch", "turn"}:
-            raise Refused('carlos takes {"patch": "<device>.<kind>"} or '
-                          f'{{"turn": "<side>"}}, one at a time, not {_shown(action)}')
+                or not set(action) <= {"patch", "turn", "hold"}:
+            raise Refused('carlos takes {"patch": "<device>.<kind>"}, '
+                          '{"turn": "<side>"} or {"hold": {patch, devices, states}}, '
+                          f'one at a time, not {_shown(action)}')
         (verb, value), = action.items()
+        if verb == "hold":
+            held = _held(value)
+
+            def change():
+                self.patch, self.held = None, held
+                self.facing = document_facing(held["patch"])
+
+            return change
         if verb == "patch":
             document = examples().get(value) if isinstance(value, str) else None
             if document is None:
@@ -123,6 +247,7 @@ class Rack:
 
             def change():
                 self.patch, self.facing = value, document_facing(document)
+                self.held = None
 
             return change
         if value not in SIDES:

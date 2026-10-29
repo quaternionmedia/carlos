@@ -169,8 +169,9 @@ its part. Carlos takes it on the port it is served on:
 | Route | Body | Answers |
 | --- | --- | --- |
 | `POST /family/cue` | `{"cue": {"number", "name", "fired_at"}, "action": {"patch": "<device>.<kind>"}}` or `"action": {"turn": "<side>"}` | `200 {"ok": true, "state": {...}}` |
+| | or `"action": {"hold": {"patch", "devices", "states"}}`, a rig held from outside | |
 | | anything it does not understand | `422 {"ok": false, "error": "..."}` |
-| `GET /family/state` | | `200 {"member": "carlos", "cue": {...} or null, "state": {"patch", "facing", "revision"}}` |
+| `GET /family/state` | | `200 {"member": "carlos", "cue": {...} or null, "state": {"patch", "facing", "revision", "held"}}` |
 
 The server holds what the cues did, and every open rack tab draws it within a
 second of it changing, in place. A patch is an example named by its device and
@@ -185,9 +186,9 @@ side turns to it, the rest keep the side their document gave them.
 ...     return {"cue": {"number": number, "name": "Second tune",
 ...                     "fired_at": "2026-10-10T20:00:00+00:00"}, "action": action}
 >>> rack.receive(cue("3", {"patch": "novation.launchpad-x.complex"}))
-(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'top', 'revision': 1}})
+(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'top', 'revision': 1, 'held': None}})
 >>> rack.receive(cue("4", {"turn": "back"}))
-(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'back', 'revision': 2}})
+(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'back', 'revision': 2, 'held': None}})
 >>> rack.receive(cue("5", {"turn": "sideways"}))[0]
 422
 >>> rack.snapshot()['cue']['number'], rack.revision
@@ -199,6 +200,31 @@ What the hub left is held in the serving process and nowhere else, so a
 restart begins again at revision 0. A tab follows from the moment it opens: one
 opened after a cue keeps the rig it opened on until the next cue, and then
 draws the whole of the state.
+
+A rig held from outside is the third action. An application that knows a rig
+-- what is plugged into what, and what state each part is in -- sends it whole:
+a patch document, the devices it names that the catalogue does not have, and a
+level and some lines for each device and lead. Carlos checks only that it can
+draw it, and draws it: the devices for that rig alone, the cables as sent, each
+state as a colour and its lines. Loading an example lets it go; a turn keeps it.
+
+```python
+>>> board = {"id": "espressif.esp32-devkitc", "maker": "Espressif", "model": "DevKitC",
+...          "category": "board", "summary": "A devkit.",
+...          "jacks": [{"name": "usb", "label": "USB", "type": "output", "signal": "data",
+...                     "carrier": "usb", "connector": "micro-USB", "side": "right"}]}
+>>> hold = {"patch": {"format": "carlos.patch", "version": 3, "name": "bench",
+...                   "modules": [{"id": "devkit", "type": board["id"]}]},
+...         "devices": [board],
+...         "states": {"modules": {"devkit": {"level": "fault",
+...                                           "says": ["absent: expected, and not answering"]}}}}
+>>> status, answer = rack.receive(cue("6", {"hold": hold}))
+>>> status, answer["state"]["held"]["states"]["modules"]["devkit"]["level"]
+(200, 'fault')
+>>> rack.receive(cue("7", {"hold": {**hold, "devices": []}}))[1]["error"]
+'module devkit is a espressif.esp32-devkitc, which is neither in the catalogue nor sent with the rig'
+
+```
 
 ## Reshaping a patch for somebody else
 

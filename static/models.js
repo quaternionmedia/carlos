@@ -176,8 +176,26 @@ const CONNECTOR_LOOK = {
     'IDC-16': 'header',
 };
 
+// A held rig keeps its sender's words for connectors (see static/family.js), so
+// one this table does not name is drawn by what it most plainly is: anything
+// called USB as a USB plug, anything else as the commonest jack.
 function lookOfConnector(connector) {
-    return CONNECTOR_LOOK[connector] || 'quarter';
+    return CONNECTOR_LOOK[connector]
+        || (/USB/.test(connector || '') ? 'usb' : 'quarter');
+}
+
+// The state each lead of a held rig is in, by `PatchBayManager.keyOf`: a level
+// and the lines that say it, set by static/family.js and read where a cable is
+// drawn. Empty for any rig carlos was not sent.
+const HELD_LEAD_STATES = new Map();
+// The same for each device of a held rig, by module id, read as it is rendered.
+const HELD_MODULE_STATES = new Map();
+
+// What a held state says, under the device's name: one line each, as sent.
+function heldSays(state) {
+    if (!state) return '';
+    const lines = state.says.map(line => `<li>${attr(line)}</li>`).join('');
+    return `<ul class="held-says">${lines}</ul>`;
 }
 
 // Each plug, as a shape in a 4x4 box: narrow where the cable enters, wide where
@@ -891,6 +909,10 @@ class EurorackModule {
         moduleEl.className = 'module';
         moduleEl.dataset.moduleId = this.id;
         moduleEl.dataset.view = this.view;
+        // A held rig's state for this device: coloured by its level, its lines
+        // said under the name. Read at every render, so a redraw keeps it.
+        const held = HELD_MODULE_STATES.get(this.id);
+        if (held) moduleEl.dataset.held = held.level;
 
         // A device drawn as laid out is drawn at something like its real size
         // relative to its neighbours - that comparison is most of what `irl`
@@ -908,6 +930,7 @@ class EurorackModule {
                     ${this.name}
                     ${side === 'front' ? '' : `<span class="side-tag">${side}</span>`}
                 </div>
+                ${heldSays(held)}
                 ${this.faceBody(side)}
             </div>
         `).join('') + `
@@ -1681,6 +1704,13 @@ class ModuleFactory {
     // drift the frontend contract tests were invented to chase.
     static definitions = {};
     static categories = [];
+    // The devices a held rig was sent with (static/family.js), by id: drawn
+    // for that rig, and in neither the palette nor the catalogue.
+    static held = {};
+
+    static definitionOf(type) {
+        return this.definitions[type] || this.held[type] || null;
+    }
 
     static load(payload) {
         this.categories = payload.categories || [];
@@ -1706,7 +1736,7 @@ class ModuleFactory {
     }
 
     static create(type) {
-        const def = this.definitions[type];
+        const def = this.definitionOf(type);
         if (!def) throw new Error(`Unknown device: ${type}`);
 
         const module = new EurorackModule(type, def.model || def.id);
@@ -2402,6 +2432,14 @@ class PatchBayManager {
                 // thing than a Eurorack patch cable, and a rack of each should
                 // read that way without anything being labelled.
                 classes.push(`is-plug-${lookOfConnector(source.connector)}`);
+                const held = HELD_LEAD_STATES.get(PatchBayManager.keyOf(source, target));
+                if (held) {
+                    classes.push(`is-held-${held.level}`);
+                    const said = document.createElementNS(
+                        'http://www.w3.org/2000/svg', 'title');
+                    said.textContent = held.says.join('\n');
+                    path.appendChild(said);
+                }
                 if (piece.hidden) classes.push('is-occluded');
                 if (lane) {
                     classes.push('is-lane');
@@ -3345,7 +3383,7 @@ class EurorackSystem {
 
         const modules = document.modules || [];
         modules.forEach(m => {
-            if (!ModuleFactory.definitions[m.type]) {
+            if (!ModuleFactory.definitionOf(m.type)) {
                 throw new Error(`Unknown module type: ${m.type}`);
             }
         });
