@@ -1606,3 +1606,18 @@ button.irl-cell.is-struck {
 .irl-knob[data-held="fault"],
 .irl-fader[data-held="fault"],
 .irl-switch[data-held="fault"] { outline-color: var(--held-fault); }
+
+/* A socket a held rig gives a state of its own: a plug seen where no lead is
+   named, a lead's end with nothing in it, one too small in the picture to
+   read. Ringed in its level, so one small socket among many is found by its
+   colour, and its title says why. Keyboard focus keeps its own ring. */
+.jack[data-held]:not(:focus-visible) {
+    outline: 2px solid var(--held-none);
+    outline-offset: 1px;
+}
+.jack[data-held="ok"]:not(:focus-visible) { outline-color: var(--held-ok); }
+.jack[data-held="warn"]:not(:focus-visible) { outline-color: var(--held-warn); }
+.jack[data-held="fault"]:not(:focus-visible) {
+    outline-color: var(--held-fault);
+    outline-style: dashed;
+}

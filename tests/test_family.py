@@ -171,6 +171,30 @@ NOT_HELD = {
         "level": "ok", "says": [], "controls": {"tempo": {"level": "warn", "says": []}}}}}),
     "controls that are not by name": a_hold(states={"modules": {"devkit": {
         "level": "ok", "says": [], "controls": ["tempo"]}}}),
+    "a jack its device does not have": a_hold(states={"modules": {"devkit": {
+        "level": "ok", "says": [], "jacks": {"midi": {"level": "warn", "says": []}}}}}),
+    "jacks that are not by name": a_hold(states={"modules": {"devkit": {
+        "level": "ok", "says": [], "jacks": ["usb"]}}}),
+    "a jack's state of no level": a_hold(states={"modules": {"devkit": {
+        "level": "ok", "says": [], "jacks": {"usb": {"says": []}}}}}),
+    # Leads the rack could not draw, which a tab would leave out without a word.
+    "a lead to a jack its device does not have": a_hold(patch={
+        **a_hold()["patch"], "connections": [
+            {**LEAD, "target": {"module": "host", "jack": "ethernet"}}]}),
+    "a lead joining two inputs": a_hold(patch={
+        **a_hold()["patch"],
+        "modules": a_hold()["patch"]["modules"] + [
+            {"id": "sub", "type": "moog.subharmonicon"}, {"id": "dfam", "type": "moog.dfam"}],
+        "connections": [{"source": {"module": "sub", "jack": "clock_in"},
+                         "target": {"module": "dfam", "jack": "adv_clock_in"}}]}),
+    "a lead joining two buses of different signals": a_hold(devices=[
+        BOARD, {**HOST, "jacks": [{**HOST["jacks"][0], "signal": "midi"}]}]),
+    "the same lead twice": a_hold(patch={**a_hold()["patch"], "connections": [LEAD, LEAD]}),
+    "the same lead twice, named the other way round": a_hold(patch={
+        **a_hold()["patch"],
+        "connections": [LEAD, {"source": LEAD["target"], "target": LEAD["source"]}]}),
+    "one lead's state twice": a_hold(states={"connections": [
+        {**LEAD, "level": "ok", "says": []}, {**LEAD, "level": "fault", "says": []}]}),
 }
 
 
@@ -210,6 +234,40 @@ class AHeldRigTests(unittest.TestCase):
             "level": "warn", "says": ["not read: no pointer to see"]}})
         # A module whose state names no control is held as it always was.
         self.assertNotIn("controls", answer["state"]["held"]["states"]["modules"]["devkit"])
+
+    def test_a_module_s_state_may_say_what_state_some_of_its_jacks_are_in(self):
+        hold = a_hold()
+        hold["states"]["modules"]["devkit"]["jacks"] = {
+            "usb": {"level": "warn", "says": ["seen: a plug, at a guess"]}}
+
+        status, answer = self.rack.receive(cue("1", {"hold": hold}))
+
+        self.assertEqual(status, 200, answer)
+        self.assertEqual(answer["state"]["held"]["states"]["modules"]["devkit"]["jacks"],
+                         {"usb": {"level": "warn", "says": ["seen: a plug, at a guess"]}})
+
+    def test_a_lead_named_input_first_is_held_with_its_state(self):
+        # The rack draws it output first; the patch and its state name it as sent.
+        backwards = {"source": {"module": "dfam", "jack": "adv_clock_in"},
+                     "target": {"module": "sub", "jack": "clock_out"}}
+        hold = a_hold(patch={**a_hold()["patch"],
+                             "modules": [{"id": "sub", "type": "moog.subharmonicon"},
+                                         {"id": "dfam", "type": "moog.dfam"}],
+                             "connections": [backwards]},
+                      states={"connections": [{**backwards, "level": "ok", "says": ["seen"]}]})
+
+        status, answer = self.rack.receive(cue("1", {"hold": hold}))
+
+        self.assertEqual(status, 200, answer)
+        self.assertEqual(answer["state"]["held"]["states"]["connections"][0]["level"], "ok")
+
+    def test_every_shipped_example_held_as_it_is_is_a_rig_it_takes(self):
+        # The lead rule is the rack's own: every lead carlos ships is one it draws.
+        for name, document in family.examples().items():
+            with self.subTest(name):
+                status, answer = self.rack.receive(
+                    cue("1", {"hold": {"patch": document, "devices": [], "states": {}}}))
+                self.assertEqual(status, 200, answer)
 
     def test_its_devices_are_held_for_it_and_not_put_in_the_catalogue(self):
         self.rack.receive(cue("1", {"hold": a_hold()}))

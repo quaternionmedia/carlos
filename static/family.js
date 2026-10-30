@@ -15,9 +15,10 @@
 // only, its cables as they are, and each state as its level and its lines. The
 // sender knows what is in the rig; this draws it. A held rig is what the rack
 // is, so a tab that opens on one draws it at once. The same rig held again -- the
-// same devices on the same sides, the same leads -- at new values and states is
-// turned in place, so a rig followed through a concert turns rather than being
-// drawn again for every frame.
+// same devices on the same sides -- at new values, leads and states is turned in
+// place, so a rig followed through a concert turns rather than being drawn again
+// for every frame: a lead moved to another socket is that one cable taken out
+// and put in, and the devices stand where they are.
 const HUB_POLL_MS = 1000;
 
 const hub = {
@@ -35,13 +36,13 @@ const hub = {
 };
 
 // What makes a held rig the rig it is, as one string: its devices, the side
-// each shows, its leads, how it is drawn and the devices sent with it. Two
-// holds that agree on it are one rig at two moments.
+// each shows, how it is drawn and the devices sent with it. Two holds that
+// agree on it are one rig at two moments, whatever leads each has: a rig's
+// leads are what changes most often, a plug at a time.
 function rigOf(held) {
     const patch = held.patch || {};
     return JSON.stringify({
         modules: (patch.modules || []).map(m => [m.id, m.type, m.view || 'front']),
-        connections: patch.connections || [],
         groups: patch.groups || [],
         display: patch.display || null,
         devices: held.devices,
@@ -56,11 +57,53 @@ function holdTheStates(held) {
     Object.entries(held.states.modules).forEach(([id, state]) => {
         HELD_MODULE_STATES.set(id, state);
     });
+    // By both ways round: the rack draws a cable output first, whichever end
+    // the patch names first, and the server lets a lead's state name it only as
+    // the patch does, once.
     held.states.connections.forEach(lead => {
-        HELD_LEAD_STATES.set(
-            `${lead.source.module}:${lead.source.jack}->${lead.target.module}:${lead.target.jack}`,
-            lead);
+        const source = `${lead.source.module}:${lead.source.jack}`;
+        const target = `${lead.target.module}:${lead.target.jack}`;
+        HELD_LEAD_STATES.set(`${source}->${target}`, lead);
+        HELD_LEAD_STATES.set(`${target}->${source}`, lead);
     });
+}
+
+// A lead as its two sockets, whichever is named first: what makes it the lead.
+function socketsOf(one, other) {
+    return [one, other].sort().join(' & ');
+}
+
+// The rack's cables made the hold's leads: each one the hold no longer has
+// taken out, each new one put in, and the rest left as they are, drawn once at
+// the end. What changed, as how many went out and came in.
+function repatchTheHeldRig(connections) {
+    const bay = system.patchBay;
+    const wanted = new Map((connections || []).map(conn => [
+        socketsOf(`${conn.source.module}:${conn.source.jack}`,
+                  `${conn.target.module}:${conn.target.jack}`),
+        conn]));
+    const drawn = new Set();
+    let out = 0;
+    [...bay.connections].forEach(({ source, target }) => {
+        const sockets = socketsOf(`${source.module.id}:${source.name}`,
+                                  `${target.module.id}:${target.name}`);
+        if (wanted.has(sockets)) {
+            drawn.add(sockets);
+        } else {
+            bay.remove(PatchBayManager.keyOf(source, target), { redraw: false });
+            out += 1;
+        }
+    });
+    let into = 0;
+    wanted.forEach((conn, sockets) => {
+        if (drawn.has(sockets)) return;
+        const source = system.modules.get(conn.source.module)?.jacks.get(conn.source.jack);
+        const target = system.modules.get(conn.target.module)?.jacks.get(conn.target.jack);
+        if (source && target && bay.createConnection(source, target, { redraw: false })) {
+            into += 1;
+        }
+    });
+    return { out, into };
 }
 
 // The held rig drawn: its devices, then its states, then the rack from its
@@ -72,9 +115,9 @@ function drawTheHeldRig(held) {
     hub.rig = rigOf(held);
 }
 
-// The rig already drawn, at this hold's values and states: each device turned
-// where it stands, and the cables drawn again for their states. What moved, by
-// device.
+// The rig already drawn, at this hold's values, leads and states: each device
+// turned where it stands, its leads re-patched, and the cables drawn again for
+// their states. What moved, by device.
 function turnTheHeldRig(held) {
     holdTheStates(held);
     const moved = {};
@@ -83,6 +126,7 @@ function turnTheHeldRig(held) {
         const turned = module ? module.retouchHeld(m.parameters) : [];
         if (turned.length) moved[m.id] = turned;
     });
+    repatchTheHeldRig(held.patch.connections);
     system.patchBay.redrawAll();
     return moved;
 }

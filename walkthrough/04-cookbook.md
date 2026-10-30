@@ -206,12 +206,16 @@ A rig held from outside is the third action. An application that knows a rig
 a patch document, the devices it names that the catalogue does not have, and a
 level and some lines for each device and lead. Carlos checks only that it can
 draw it, and draws it: the devices for that rig alone, the cables as sent, each
-state as a colour and its lines. A device's state may give some of its controls
-a state of their own -- one the sender could not read, say -- and that control
-is drawn faded, its title saying why. The same rig held again at new values and
-states is turned where it stands rather than drawn again, so a rig followed
-through a concert turns frame by frame. Loading an example lets it go; a turn
-keeps it.
+state as a colour and its lines. A lead it could not draw as a cable -- to a
+jack its device does not have, from one output into another, or sent twice --
+is refused, rather than left off the rack without a word. A device's state may
+give some of its controls and its jacks a state of their own: a control the
+sender could not read is drawn faded, a socket is ringed in its level, and each
+title says why. The same rig held again -- the same devices on the same sides --
+at new values, leads and states is turned where it stands rather than drawn
+again, so a rig followed through a concert turns frame by frame, and a lead
+moved to another socket is that one cable taken out and put in. Loading an
+example lets it go; a turn keeps it.
 
 ```python
 >>> board = {"id": "espressif.esp32-devkitc", "maker": "Espressif", "model": "DevKitC",
@@ -228,6 +232,9 @@ keeps it.
 (200, 'fault')
 >>> rack.receive(cue("7", {"hold": {**hold, "devices": []}}))[1]["error"]
 'module devkit is a espressif.esp32-devkitc, which is neither in the catalogue nor sent with the rig'
+>>> lead = {"source": {"module": "devkit", "jack": "usb"}, "target": {"module": "devkit", "jack": "ethernet"}}
+>>> rack.receive(cue("8", {"hold": {**hold, "patch": {**hold["patch"], "connections": [lead]}}}))[1]["error"]
+"lead 0's target is 'ethernet' on devkit, which its device does not have"
 
 ```
 

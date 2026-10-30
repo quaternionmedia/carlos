@@ -212,6 +212,16 @@ function heldTitle(param, held) {
     return held ? [param.label, ...held.says].join('\n') : param.label;
 }
 
+// The state a held rig gives one jack of one device, or null: a plug in it no
+// lead names, say. Drawn on the socket, and said in its title.
+function heldJack(moduleId, name) {
+    return HELD_MODULE_STATES.get(moduleId)?.jacks?.[name] || null;
+}
+
+function heldJackTitle(label, held) {
+    return held ? [label, ...held.says].join('\n') : label;
+}
+
 // Each plug, as a shape in a 4x4 box: narrow where the cable enters, wide where
 // it meets the socket. They are deliberately close cousins - at a glance a rack
 // should read as leads, not as a key of connector types - and differ where a
@@ -312,14 +322,19 @@ function announced(value) {
     return String(Number(Number(value).toFixed(3)));
 }
 
-function jackAria(jack, side) {
-    // The connector belongs in the name a screen reader reads out. Which plug
-    // a socket takes is the difference between a lead that works and one that
-    // does not, and it was recorded for every socket in the catalogue while
-    // being said out loud for none of them.
-    const label = `${jack.label || jack.name} `
-        + `(${jack.connector} ${jack.signal} ${jack.type}, ${side})`;
-    return `tabindex="0" role="button" title="${attr(label)}" aria-label="${attr(label)}"`;
+function jackAria(jack, side, held = null) {
+    const label = jackLabel(jack, side);
+    return `tabindex="0" role="button" title="${attr(heldJackTitle(label, held))}" `
+        + `aria-label="${attr(label)}"`
+        + (held ? ` data-held="${attr(held.level)}"` : '');
+}
+
+// The connector belongs in the name a screen reader reads out. Which plug
+// a socket takes is the difference between a lead that works and one that
+// does not, and it was recorded for every socket in the catalogue while
+// being said out loud for none of them.
+function jackLabel(jack, side) {
+    return `${jack.label || jack.name} (${jack.connector} ${jack.signal} ${jack.type}, ${side})`;
 }
 
 // Every side a layout puts something on. Mirrors `Layout.sides_used()`.
@@ -1072,7 +1087,7 @@ class EurorackModule {
                     <div class="jack" data-jack="${attr(name)}" data-type="${attr(jack.type)}"
                          data-signal="${attr(jack.signal)}" data-side="${attr(side)}"
                          data-connector="${attr(jack.connector)}"
-                         ${jackAria(jack, side)}></div>
+                         ${jackAria(jack, side, heldJack(this.id, name))}></div>
                     <span class="irl-jack-label">${jack.label || name}</span>
                 </div>`;
         }).join('');
@@ -1213,7 +1228,7 @@ class EurorackModule {
                     <div class="jack" data-jack="${attr(name)}" data-type="${attr(type)}"
                          data-signal="${attr(jack.signal)}" data-side="${attr(side)}"
                          data-connector="${attr(jack.connector)}"
-                         ${jackAria(jack, side)}></div>
+                         ${jackAria(jack, side, heldJack(this.id, name))}></div>
                     <span class="jack-label">${jack.label || name}</span>
                 </div>
             `).join('');
@@ -1713,6 +1728,15 @@ class EurorackModule {
             else delete control.dataset.held;
             control.setAttribute('title', heldTitle(param, said));
         });
+        element.querySelectorAll('.jack[data-jack]').forEach(socket => {
+            const jack = this.jacks.get(socket.dataset.jack);
+            if (!jack) return;
+            const said = heldJack(this.id, jack.name);
+            if (said) socket.dataset.held = said.level;
+            else delete socket.dataset.held;
+            socket.setAttribute('title',
+                                heldJackTitle(jackLabel(jack, socket.dataset.side), said));
+        });
         return moved;
     }
 
@@ -1994,7 +2018,10 @@ class PatchBayManager {
 
     // Pull one lead out. The jacks either end keep whatever else is plugged
     // into them: an output feeding three inputs loses one cable, not three.
-    remove(key) {
+    //
+    // `redraw: false` leaves the drawing to the caller, which re-patches many
+    // leads at once and draws them once at the end.
+    remove(key, { redraw = true } = {}) {
         const conn = this.find(key);
         if (!conn) return null;
 
@@ -2012,7 +2039,7 @@ class PatchBayManager {
             );
         });
 
-        this.redrawAll();
+        if (redraw) this.redrawAll();
         return conn;
     }
 
@@ -2024,7 +2051,7 @@ class PatchBayManager {
         );
     }
 
-    createConnection(jack1, jack2) {
+    createConnection(jack1, jack2, { redraw = true } = {}) {
         if (jack1.connect(jack2)) {
             // Normalize so the record always reads output -> input, which is
             // what the interchange format stores. A cable's sides are read off
@@ -2038,7 +2065,7 @@ class PatchBayManager {
             const target = bus || jack1.type === 'output' ? jack2 : jack1;
             this.connections.push({ source, target, cable: null });
             this.markThrough(source, target);
-            this.redrawAll();
+            if (redraw) this.redrawAll();
             return true;
         }
         return false;
