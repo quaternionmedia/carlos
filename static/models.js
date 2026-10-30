@@ -194,8 +194,22 @@ const HELD_MODULE_STATES = new Map();
 // What a held state says, under the device's name: one line each, as sent.
 function heldSays(state) {
     if (!state) return '';
-    const lines = state.says.map(line => `<li>${attr(line)}</li>`).join('');
-    return `<ul class="held-says">${lines}</ul>`;
+    return `<ul class="held-says">${heldLines(state)}</ul>`;
+}
+
+function heldLines(state) {
+    return (state?.says || []).map(line => `<li>${attr(line)}</li>`).join('');
+}
+
+// The state a held rig gives one control of one device, or null: the sender
+// could not read it, say. Drawn on the control, and said where its name is.
+function heldControl(moduleId, name) {
+    return HELD_MODULE_STATES.get(moduleId)?.controls?.[name] || null;
+}
+
+// A control's title: its name, and under it what a held state says of it.
+function heldTitle(param, held) {
+    return held ? [param.label, ...held.says].join('\n') : param.label;
 }
 
 // Each plug, as a shape in a 4x4 box: narrow where the cable enters, wide where
@@ -616,8 +630,9 @@ function hostSystem() {
 // A knob is a slider that happens to be round. Saying so is what makes it
 // reachable by keyboard and legible to a screen reader; the two arrangements
 // draw it differently and mean exactly the same control.
-function knobAria(param) {
-    return `tabindex="0" role="slider" title="${attr(param.label)}"`
+function knobAria(param, held = null) {
+    return `tabindex="0" role="slider" title="${attr(heldTitle(param, held))}"`
+        + (held ? ` data-held="${attr(held.level)}"` : '')
         + ` aria-label="${attr(param.label)}"`
         + ` aria-valuemin="${attr(param.minValue)}"`
         + ` aria-valuemax="${attr(param.maxValue)}"`
@@ -968,7 +983,8 @@ class EurorackModule {
 
     renderParameters() {
         return Array.from(this.parameters.entries()).map(([name, param]) => `
-            <div class="knob" data-param="${attr(name)}" ${knobAria(param)}>
+            <div class="knob" data-param="${attr(name)}"
+                 ${knobAria(param, heldControl(this.id, name))}>
                 <div class="knob-base">
                     <div class="knob-indicator"></div>
                 </div>
@@ -1102,7 +1118,7 @@ class EurorackModule {
                      style="${seat};
                             --travel:${travel * 100}%;
                             ${across ? 'height' : 'width'}:${travel * 100}%"
-                     ${knobAria(parameter)}>
+                     ${knobAria(parameter, heldControl(this.id, name))}>
                     <div class="irl-fader-slot"></div>
                     <div class="irl-fader-cap"></div>
                 </div>`;
@@ -1111,7 +1127,7 @@ class EurorackModule {
         if (kind === 'switch') {
             return `
                 <div class="irl-switch" data-param="${attr(name)}" style="${seat}"
-                     ${knobAria(parameter)}>
+                     ${knobAria(parameter, heldControl(this.id, name))}>
                     <div class="irl-switch-body"><div class="knob-indicator"></div></div>
                 </div>`;
         }
@@ -1119,7 +1135,7 @@ class EurorackModule {
         // knob and encoder differ by their ring, which is CSS, not markup.
         return `
             <div class="irl-knob irl-${attr(kind)}" data-param="${attr(name)}"
-                 style="${seat}" ${knobAria(parameter)}>
+                 style="${seat}" ${knobAria(parameter, heldControl(this.id, name))}>
                 <div class="knob-base"><div class="knob-indicator"></div></div>
                 <span class="irl-knob-label">${parameter.label}</span>
             </div>`;
@@ -1665,6 +1681,39 @@ class EurorackModule {
             anime({ targets: indicator, rotate: param.rotation, duration, easing, delay });
         }
         return knobEl;
+    }
+
+    // The same rig held again at new values and states, turned where it stands:
+    // each control that moved is painted to its value, and the device's state,
+    // its lines and each control's own state are put on the elements already
+    // drawn. Nothing is drawn again, so a rig followed through a concert turns
+    // rather than flickers. What moved, by parameter name.
+    retouchHeld(values) {
+        const moved = [];
+        Object.entries(values || {}).forEach(([name, value]) => {
+            const param = this.parameters.get(name);
+            if (!param || param.value === value) return;
+            param.setValue(value);
+            this.paintKnob(param, { duration: 300 });
+            moved.push(name);
+        });
+        const element = this.element;
+        if (!element) return moved;
+        const held = HELD_MODULE_STATES.get(this.id);
+        if (held) element.dataset.held = held.level;
+        else delete element.dataset.held;
+        element.querySelectorAll('.held-says').forEach(list => {
+            list.innerHTML = heldLines(held);
+        });
+        this.parameters.forEach((param, name) => {
+            const control = element.querySelector(`[data-param="${attr(name)}"]`);
+            if (!control) return;
+            const said = heldControl(this.id, name);
+            if (said) control.dataset.held = said.level;
+            else delete control.dataset.held;
+            control.setAttribute('title', heldTitle(param, said));
+        });
+        return moved;
     }
 
     // State management

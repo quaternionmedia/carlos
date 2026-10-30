@@ -116,3 +116,102 @@ def test_a_tab_opened_after_a_cue_draws_the_whole_state_at_the_next(app, browser
         assert late.errors == []
     finally:
         late.close()
+
+
+# A rig held from outside, as a concert's frames arrive: a DFAM and a
+# Subharmonicon from the catalogue, the clock between them, drawn as laid out.
+CLOCK = {"source": {"module": "sub", "jack": "clock_out"},
+         "target": {"module": "dfam", "jack": "adv_clock_in"}}
+
+
+def a_frame(tempo: float, cutoff: float, *, unread: bool = False, plugged: bool = True) -> dict:
+    """One frame's hold: the DFAM's tempo and cutoff where a picture read them."""
+    dfam = {"level": "ok", "says": ["read: 24 of 24 controls on its front"]}
+    if unread:
+        dfam = {"level": "warn", "says": ["read: 23 of 24 controls on its front",
+                                          "not read: noise_level, no pointer to see"],
+                "controls": {"noise_level": {"level": "warn",
+                                             "says": ["not read: no pointer to see"]}}}
+    return {
+        "patch": {"format": "carlos.patch", "version": 3, "name": "a concert",
+                  "modules": [{"id": "sub", "type": "moog.subharmonicon", "view": "front",
+                               "parameters": {"tempo": 80}},
+                              {"id": "dfam", "type": "moog.dfam", "view": "front",
+                               "parameters": {"tempo": tempo, "vcf_cutoff": cutoff}}],
+                  "connections": [CLOCK], "display": {"mode": "irl"}},
+        "devices": [],
+        "states": {"modules": {"sub": {"level": "ok", "says": ["read: 17 of 17"]},
+                               "dfam": dfam},
+                   "connections": [{**CLOCK, "level": "ok" if plugged else "fault",
+                                    "says": ["seen" if plugged else "declared: nothing plugged"]}]},
+    }
+
+
+def held(page, number: str) -> None:
+    until(page, "() => (document.querySelector('#status')?.textContent || '')"
+                f".startsWith('Held from Cue {number}')")
+
+
+def dfam(page, name: str) -> float:
+    return page.evaluate(f"() => system.modules.get('dfam').parameters.get('{name}').value")
+
+
+def test_a_held_rig_at_new_values_is_turned_where_it_stands(app, page):
+    following(page)
+    try:
+        assert deliver(app, "50", {"hold": a_frame(40, 30)})[0] == 200
+        held(page, "50")
+        assert (dfam(page, "tempo"), dfam(page, "vcf_cutoff")) == (40, 30)
+        page.evaluate("() => document.querySelectorAll('.module')"
+                      ".forEach(m => { m.drawnAtTheFirstFrame = true; })")
+
+        assert deliver(app, "51", {"hold": a_frame(90, 100, unread=True, plugged=False)})[0] == 200
+        held(page, "51")
+        # Turned, not drawn again: the devices are the elements the first frame drew.
+        assert page.evaluate("() => [...document.querySelectorAll('.module')]"
+                             ".every(m => m.drawnAtTheFirstFrame)")
+        assert (dfam(page, "tempo"), dfam(page, "vcf_cutoff")) == (90, 100)
+        tempo = page.locator('.module[data-module-id="dfam"] [data-param="tempo"]')
+        assert tempo.get_attribute("aria-valuenow") == "90"
+
+        # The frame's states are on the elements already there.
+        device = page.locator('.module[data-module-id="dfam"]')
+        assert device.get_attribute("data-held") == "warn"
+        assert device.locator(".face.active .held-says li").all_inner_texts() == [
+            "read: 23 of 24 controls on its front", "not read: noise_level, no pointer to see"]
+        noise = device.locator('[data-param="noise_level"]')
+        assert noise.get_attribute("data-held") == "warn"
+        assert noise.get_attribute("title") == "NOISE\nnot read: no pointer to see"
+        assert page.locator("path.cable.is-held-fault").count() > 0
+
+        # The next frame reads it again: its state goes, and the lead is back.
+        assert deliver(app, "52", {"hold": a_frame(90, 100)})[0] == 200
+        held(page, "52")
+        assert noise.get_attribute("data-held") is None
+        assert noise.get_attribute("title") == "NOISE"
+        assert device.get_attribute("data-held") == "ok"
+        assert page.locator("path.cable.is-held-fault").count() == 0
+        assert page.evaluate("() => [...document.querySelectorAll('.module')]"
+                             ".every(m => m.drawnAtTheFirstFrame)")
+        assert page.errors == []
+    finally:
+        deliver(app, "59", {"patch": EXAMPLE})
+
+
+def test_another_rig_held_is_drawn_afresh(app, page):
+    following(page)
+    try:
+        assert deliver(app, "53", {"hold": a_frame(40, 30)})[0] == 200
+        held(page, "53")
+        page.evaluate("() => document.querySelectorAll('.module')"
+                      ".forEach(m => { m.drawnAtTheFirstFrame = true; })")
+        other = a_frame(40, 30)
+        other["patch"]["modules"][1]["view"] = "back"  # the DFAM turned round: another rig
+        assert deliver(app, "54", {"hold": other})[0] == 200
+        held(page, "54")
+        assert not page.evaluate("() => [...document.querySelectorAll('.module')]"
+                                 ".some(m => m.drawnAtTheFirstFrame)")
+        assert page.evaluate("() => system.modules.get('dfam').view") == "back"
+        assert page.errors == []
+    finally:
+        deliver(app, "59", {"patch": EXAMPLE})

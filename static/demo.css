@@ -1586,3 +1586,23 @@ button.irl-cell.is-struck {
 .cable.is-held-fault { stroke: var(--held-fault); stroke-dasharray: 5 4; }
 .cable.is-held-warn { stroke: var(--held-warn); }
 .cable.is-held-none { stroke: var(--held-none); stroke-dasharray: 2 4; }
+
+/* A control a held rig gives a state of its own: one the sender could not
+   read. It keeps the rig's own value, so it is drawn faded and ringed in its
+   level, and its title says why. */
+.knob[data-held],
+.irl-knob[data-held],
+.irl-fader[data-held],
+.irl-switch[data-held] {
+    opacity: 0.45;
+    outline: 1px dashed var(--held-none);
+    outline-offset: 2px;
+}
+.knob[data-held="warn"],
+.irl-knob[data-held="warn"],
+.irl-fader[data-held="warn"],
+.irl-switch[data-held="warn"] { outline-color: var(--held-warn); }
+.knob[data-held="fault"],
+.irl-knob[data-held="fault"],
+.irl-fader[data-held="fault"],
+.irl-switch[data-held="fault"] { outline-color: var(--held-fault); }

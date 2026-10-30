@@ -206,7 +206,12 @@ A rig held from outside is the third action. An application that knows a rig
 a patch document, the devices it names that the catalogue does not have, and a
 level and some lines for each device and lead. Carlos checks only that it can
 draw it, and draws it: the devices for that rig alone, the cables as sent, each
-state as a colour and its lines. Loading an example lets it go; a turn keeps it.
+state as a colour and its lines. A device's state may give some of its controls
+a state of their own -- one the sender could not read, say -- and that control
+is drawn faded, its title saying why. The same rig held again at new values and
+states is turned where it stands rather than drawn again, so a rig followed
+through a concert turns frame by frame. Loading an example lets it go; a turn
+keeps it.
 
 ```python
 >>> board = {"id": "espressif.esp32-devkitc", "maker": "Espressif", "model": "DevKitC",

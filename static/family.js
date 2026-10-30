@@ -14,7 +14,10 @@
 // A rig held from outside is drawn as it is sent: its devices for that rig
 // only, its cables as they are, and each state as its level and its lines. The
 // sender knows what is in the rig; this draws it. A held rig is what the rack
-// is, so a tab that opens on one draws it at once.
+// is, so a tab that opens on one draws it at once. The same rig held again -- the
+// same devices on the same sides, the same leads -- at new values and states is
+// turned in place, so a rig followed through a concert turns rather than being
+// drawn again for every frame.
 const HUB_POLL_MS = 1000;
 
 const hub = {
@@ -25,14 +28,29 @@ const hub = {
     patch: null,
     document: null,
     // The hold last drawn, as its JSON, so a hold sent again unchanged is not
-    // drawn again.
+    // drawn again; and what makes it the rig it is, so one at new values and
+    // states only is turned in place.
     held: null,
+    rig: null,
 };
 
-// The held rig drawn: its devices, then its states, then the rack from its
-// document, so each device and each cable is drawn with its state.
-function drawTheHeldRig(held) {
-    ModuleFactory.held = Object.fromEntries(held.devices.map(device => [device.id, device]));
+// What makes a held rig the rig it is, as one string: its devices, the side
+// each shows, its leads, how it is drawn and the devices sent with it. Two
+// holds that agree on it are one rig at two moments.
+function rigOf(held) {
+    const patch = held.patch || {};
+    return JSON.stringify({
+        modules: (patch.modules || []).map(m => [m.id, m.type, m.view || 'front']),
+        connections: patch.connections || [],
+        groups: patch.groups || [],
+        display: patch.display || null,
+        devices: held.devices,
+    });
+}
+
+// The states a held rig gives its devices and its leads, put where they are
+// read as the rack is drawn.
+function holdTheStates(held) {
     HELD_MODULE_STATES.clear();
     HELD_LEAD_STATES.clear();
     Object.entries(held.states.modules).forEach(([id, state]) => {
@@ -43,7 +61,30 @@ function drawTheHeldRig(held) {
             `${lead.source.module}:${lead.source.jack}->${lead.target.module}:${lead.target.jack}`,
             lead);
     });
+}
+
+// The held rig drawn: its devices, then its states, then the rack from its
+// document, so each device and each cable is drawn with its state.
+function drawTheHeldRig(held) {
+    ModuleFactory.held = Object.fromEntries(held.devices.map(device => [device.id, device]));
+    holdTheStates(held);
     system.importState(held.patch);
+    hub.rig = rigOf(held);
+}
+
+// The rig already drawn, at this hold's values and states: each device turned
+// where it stands, and the cables drawn again for their states. What moved, by
+// device.
+function turnTheHeldRig(held) {
+    holdTheStates(held);
+    const moved = {};
+    (held.patch.modules || []).forEach(m => {
+        const module = system.modules.get(m.id);
+        const turned = module ? module.retouchHeld(m.parameters) : [];
+        if (turned.length) moved[m.id] = turned;
+    });
+    system.patchBay.redrawAll();
+    return moved;
 }
 
 // Let a held rig go: what loads next is the rack's own.
@@ -52,6 +93,7 @@ function letTheHeldRigGo() {
     HELD_MODULE_STATES.clear();
     HELD_LEAD_STATES.clear();
     hub.held = null;
+    hub.rig = null;
 }
 
 // Mirrors `document_facing` in src/family.py: the commonest view among a
@@ -111,10 +153,15 @@ async function followTheHub() {
     if (state.revision === hub.revision) return;
 
     let loaded = null;
+    let turned = null;
     if (state.held) {
         const key = JSON.stringify(state.held);
         if (key !== hub.held) {
-            drawTheHeldRig(state.held);
+            if (hub.held && rigOf(state.held) === hub.rig) {
+                turned = turnTheHeldRig(state.held);
+            } else {
+                drawTheHeldRig(state.held);
+            }
             hub.held = key;
             hub.patch = null;
             hub.document = state.held.patch;
@@ -132,7 +179,8 @@ async function followTheHub() {
         hub.document = loaded;
     }
     if (!hub.document) hub.document = await openingDocument();
-    faceTheRack(state.facing, hub.document);
+    // A rig turned in place already faces the way it did.
+    if (!turned) faceTheRack(state.facing, hub.document);
     hub.revision = state.revision;
 
     const what = loaded ? `"${loaded.name}"` : `facing ${state.facing}`;

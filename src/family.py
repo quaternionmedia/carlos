@@ -27,10 +27,16 @@ draws whatever changed since it last looked, in place.
 of it is in are the sender's to know: carlos checks only that it can draw it --
 the document reads as a `carlos.patch`, every type it names is a catalogue
 device or one of the `devices` sent with it, and each state is a level from
-`LEVELS` and the lines that say it. The devices are held for this rig and
-nowhere else: they are not in the palette or the catalogue, so they keep the
-vocabulary of whoever sent them. A held rig's cables are drawn as sent. Loading
-an example lets go of it; a turn keeps it.
+`LEVELS` and the lines that say it. A module's state may name some of its
+controls, by parameter, each with a state of its own -- one the sender could not
+read, say -- and a control its device does not have is refused. The devices are
+held for this rig and nowhere else: they are not in the palette or the
+catalogue, so they keep the vocabulary of whoever sent them. A held rig's
+cables are drawn as sent. Loading an example lets go of it; a turn keeps it.
+
+A rig held again with the same devices, sides and leads is the same rig at new
+values and states, and an open tab turns it in place rather than drawing it
+again: a rig followed through a concert is turned frame by frame.
 
 `patch` names an example by its file, `catalogue/examples/<device>.<kind>.json`,
 which is the device and the kind the menu loads it by. Loading one faces the
@@ -115,6 +121,21 @@ def _state(value: object, where: str) -> dict:
     return {"level": value["level"], "says": _text_list(value.get("says", []), where)}
 
 
+def _module_state(value: object, where: str, parameters: set[str]) -> dict:
+    """A module's state, and its controls' states by parameter name, if any."""
+    state = _state(value, where)
+    controls = value.get("controls") or {}
+    if not isinstance(controls, dict):
+        raise Refused(f"{where}'s controls are an object, by parameter name")
+    for name in controls:
+        if name not in parameters:
+            raise Refused(f"{where} names a control {_shown(name)} its device does not have")
+    if controls:
+        state["controls"] = {name: _state(control, f"{where}'s control {name}")
+                             for name, control in controls.items()}
+    return state
+
+
 def _device(value: object) -> dict:
     """A device sent with a held rig, checked for what drawing it needs."""
     if not isinstance(value, dict) or not isinstance(value.get("id"), str) \
@@ -155,6 +176,13 @@ def _held(value: object) -> dict:
             raise Refused(f"module {module['id']} is a {module['type']}, which is neither "
                           "in the catalogue nor sent with the rig")
     modules = {m["id"] for m in document["modules"]}
+    parameters = {
+        m["id"]: ({p.get("name") for p in by_id[m["type"]].get("parameters") or []
+                   if isinstance(p, dict)}
+                  if m["type"] in by_id
+                  else {p.name for p in known[m["type"]].parameters})
+        for m in document["modules"]
+    }
     states = value.get("states") or {}
     if not isinstance(states, dict):
         raise Refused("states are {modules, connections}")
@@ -184,7 +212,8 @@ def _held(value: object) -> dict:
         "patch": value["patch"],
         "devices": devices,
         "states": {
-            "modules": {k: _state(v, f"module {k}'s state") for k, v in module_states.items()},
+            "modules": {k: _module_state(v, f"module {k}'s state", parameters[k])
+                        for k, v in module_states.items()},
             "connections": checked_leads,
         },
     }

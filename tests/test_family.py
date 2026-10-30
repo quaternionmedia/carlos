@@ -167,6 +167,10 @@ NOT_HELD = {
         {"source": {"module": "host", "jack": "usb"},
          "target": {"module": "devkit", "jack": "usb"}, "level": "ok", "says": []}]}),
     "a field a hold does not have": a_hold(owner="apothecary"),
+    "a control its device does not have": a_hold(states={"modules": {"devkit": {
+        "level": "ok", "says": [], "controls": {"tempo": {"level": "warn", "says": []}}}}}),
+    "controls that are not by name": a_hold(states={"modules": {"devkit": {
+        "level": "ok", "says": [], "controls": ["tempo"]}}}),
 }
 
 
@@ -187,6 +191,25 @@ class AHeldRigTests(unittest.TestCase):
                          ["declared: the board is not answering"])
         self.assertEqual(answer["state"]["patch"], None)
         self.assertEqual(answer["state"]["facing"], "right")
+
+    def test_a_module_s_state_may_say_what_state_some_of_its_controls_are_in(self):
+        # A DFAM from the catalogue beside the board: a control read and one not,
+        # by the parameters its catalogue entry has.
+        hold = a_hold()
+        hold["patch"]["modules"].append({"id": "dfam", "type": "moog.dfam",
+                                         "parameters": {"tempo": 90}})
+        hold["states"]["modules"]["dfam"] = {
+            "level": "warn", "says": ["read: 23 of 24 controls on its front"],
+            "controls": {"vcf_cutoff": {"level": "warn", "says": ["not read: no pointer to see"]}}}
+
+        status, answer = self.rack.receive(cue("1", {"hold": hold}))
+
+        self.assertEqual(status, 200, answer)
+        dfam = answer["state"]["held"]["states"]["modules"]["dfam"]
+        self.assertEqual(dfam["controls"], {"vcf_cutoff": {
+            "level": "warn", "says": ["not read: no pointer to see"]}})
+        # A module whose state names no control is held as it always was.
+        self.assertNotIn("controls", answer["state"]["held"]["states"]["modules"]["devkit"])
 
     def test_its_devices_are_held_for_it_and_not_put_in_the_catalogue(self):
         self.rack.receive(cue("1", {"hold": a_hold()}))
