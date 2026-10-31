@@ -26,6 +26,22 @@ const RAD_BAR_DOCK_WITHIN = 26;
 const RAD_DOUBLE_TAP_MS = 320;
 const RAD_DOUBLE_TAP_SLOP = 24;
 
+// Cut a drawn line to `room` pixels, ending it with an ellipsis, when it is
+// wider: the longest start of `whole` that fits, found by halving.
+function radFitText(text, whole, room) {
+    if (typeof text.getComputedTextLength !== 'function') return;
+    if (text.getComputedTextLength() <= room) return;
+    let low = 0;
+    let high = whole.length;
+    while (low < high) {
+        const mid = Math.ceil((low + high) / 2);
+        text.textContent = whole.slice(0, mid).trimEnd() + '\u2026';
+        if (text.getComputedTextLength() <= room) low = mid;
+        else high = mid - 1;
+    }
+    text.textContent = low ? whole.slice(0, low).trimEnd() + '\u2026' : '';
+}
+
 // Break a hub label into lines that fit inside the dead zone.
 //
 // Word boundaries only, and never mid-word: a break falling inside a word reads
@@ -767,6 +783,28 @@ class RadMenu {
         let next = left + (measured || 300) + 18;
         let end = next;
 
+        // The hint retires itself. It is worth a strip of the bar exactly until
+        // somebody has held it once, and after that it is a label on a door
+        // they already know how to open.
+        //
+        // Measured before the answer is drawn: docked, it stands at the far
+        // right, and the answer has to end short of it rather than run under it.
+        let hint = null;
+        let hintWide = 0;
+        if (!this.hintLearned) {
+            hint = document.createElementNS(RAD_SVG_NS, 'text');
+            hint.setAttribute('y', middle);
+            hint.setAttribute('class', 'rad-bar-hint');
+            hint.setAttribute('id', 'rad-bar-hint');
+            hint.setAttribute('aria-hidden', 'true');
+            hint.setAttribute('text-anchor', this.docked ? 'end' : 'start');
+            hint.textContent = 'hold for the menu';
+            this.layer.appendChild(hint);
+            hintWide = typeof hint.getComputedTextLength === 'function'
+                ? hint.getComputedTextLength()
+                : 0;
+        }
+
         if (said) {
             const rule = document.createElementNS(RAD_SVG_NS, 'line');
             rule.setAttribute('x1', next);
@@ -785,31 +823,23 @@ class RadMenu {
             answer.setAttribute('aria-hidden', 'true');
             answer.textContent = said;
             this.layer.appendChild(answer);
+            // Docked, the bar is the window's width whatever is said, so a long
+            // answer - a cue held from outside says a lot - is cut to the room
+            // there is. `#status` still carries all of it.
+            if (this.docked) {
+                const stop = box.x + box.width - 16 - (hint ? (hintWide || 110) + 18 : 0);
+                radFitText(answer, said, stop - (next + 14));
+            }
             const saidWide = typeof answer.getComputedTextLength === 'function'
                 ? answer.getComputedTextLength()
                 : 0;
             end = next + 14 + (saidWide || 200);
         }
 
-        // The hint retires itself. It is worth a strip of the bar exactly until
-        // somebody has held it once, and after that it is a label on a door
-        // they already know how to open.
-        if (!this.hintLearned) {
-            const hint = document.createElementNS(RAD_SVG_NS, 'text');
+        if (hint) {
             // Far right while docked, where there is a window's worth of room.
             // Straight after the rest while floating, where there is not.
             hint.setAttribute('x', this.docked ? box.x + box.width - 16 : end + 18);
-            hint.setAttribute('y', middle);
-            hint.setAttribute('class', 'rad-bar-hint');
-            hint.setAttribute('id', 'rad-bar-hint');
-            hint.setAttribute('aria-hidden', 'true');
-            hint.setAttribute('text-anchor', this.docked ? 'end' : 'start');
-            hint.textContent = 'hold for the menu';
-            this.layer.appendChild(hint);
-
-            const hintWide = typeof hint.getComputedTextLength === 'function'
-                ? hint.getComputedTextLength()
-                : 0;
             if (!this.docked) end += 18 + (hintWide || 110);
         }
 
