@@ -29,8 +29,9 @@ underway and not finished, and this page is the honest state of it.
 - [x] Contributing, security, and code-of-conduct files exist.
 - [x] Issue and pull request templates exist.
 - [x] `governance/qm` submodule is added, pinned to `project/carlos`.
-- [x] Seed workflows are copied into `.github/workflows/`: every one
-      `governance/qm/project-seed/ci/seed-workflows.txt` lists.
+- [x] Seed workflows are copied into `.github/workflows/` — all six that fire here.
+      `leak-check.yml` and `timeless-check.yml` are not carried: each filters on a
+      branch named `main`, and this repository's default branch is `they`.
 - [x] The project's own tests run in CI, beside the gates
       (`.github/workflows/tests.yml`). Until that existed nothing ran them, and
       green checks meant six gates about paperwork.
@@ -70,8 +71,6 @@ python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they
 | `tests` / `image` | pass | This project's own, not gates out of the corpus |
 | `reuse-lint` | **fail** | The licensing pass has not been done, and is gated on the outbound licence class — a human decision nobody has made. Settling one to turn a check green decides the wrong question for the wrong reason. Publishing with this red is the accepted state |
 | `tag-claims` | skipped | Only fires on a `v*` tag |
-| `leak-check` | pass | Refuses a home path, a personal folder, a scratch path or a shared link in a tracked file |
-| `timeless-check` | pass | Reads the lines a pull request adds |
 
 One red, on purpose. `carlos gates` reports a second — `image.yml :: Start it`
 wants a running Docker daemon — which is a missing local runtime rather than a
