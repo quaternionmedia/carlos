@@ -51,10 +51,10 @@ That is not a slogan; it changes what a behaviour change costs you.
 
 ## Governance gates
 
-Six seed workflows run in CI — they are governance gates, about records,
+The seed's workflows run in CI — they are governance gates, about records,
 signatures and licensing rather than about whether the code works. **The suite
 runs beside them**, in `.github/workflows/tests.yml`: until that existed nothing
-ran the tests, and a reviewer seeing green checks was reading six gates and
+ran the tests, and a reviewer seeing green checks was reading gates and
 could reasonably have believed the suite had passed.
 
 The gates run locally too:
