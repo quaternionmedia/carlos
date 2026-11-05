@@ -29,11 +29,13 @@ underway and not finished, and this page is the honest state of it.
 - [x] Contributing, security, and code-of-conduct files exist.
 - [x] Issue and pull request templates exist.
 - [x] `governance/qm` submodule is added, pinned to `project/carlos`.
-- [x] Seed workflows are copied into `.github/workflows/` — all six.
+- [x] Seed workflows are copied into `.github/workflows/` — all six that fire here.
+      `leak-check.yml` and `timeless-check.yml` are not carried: each filters on a
+      branch named `main`, and this repository's default branch is `they`.
 - [x] The project's own tests run in CI, beside the gates
       (`.github/workflows/tests.yml`). Until that existed nothing ran them, and
       green checks meant six gates about paperwork.
-- [x] `AGENTS.md`, `CLAUDE.md`, and `.github/copilot-instructions.md` are wired.
+- [x] `AGENTS.md` and `CLAUDE.md`, the one-line import, are wired.
 - [x] The adoption record is written —
       `governance/qm/adr/DRAFT-adopt-the-qm-constitution.md`, numberless and
       Proposed. Ratification is a human commit.
@@ -62,7 +64,7 @@ python governance/qm/project-seed/ci/run_workflows_locally.py --base-ref they
 
 | Gate | State | Why |
 | --- | --- | --- |
-| `adr-lint` | pass | Now also refuses a commit trailer or author field naming a tool, or standing on an address nobody reads — see below |
+| `adr-lint` | pass | Refuses, among the rest, a commit trailer or author field naming a tool, or standing on an address nobody reads — see below |
 | `one-pr-check` | pass | |
 | `signature-check` | pass | Was failing under the runner while passing locally, because the CI path asks the forge about commits the forge had never seen and reports `E` — "could not be checked", not "bad signature". Closed when the branch was pushed |
 | `submodule-check` | pass | Closed when `project/carlos` was pushed to `quaternionmedia/qm` |
@@ -74,24 +76,12 @@ One red, on purpose. `carlos gates` reports a second — `image.yml :: Start it`
 wants a running Docker daemon — which is a missing local runtime rather than a
 finding; the same job passes on the forge.
 
-### The attribution gate, and where its upstream lives
+### The attribution gate
 
-`adr-lint` gained a step that runs `check_attribution.py` over the pull
-request's own commits. Until it did, **no seed workflow invoked that script at
-all** — an adopting project received it and no gate that ran it — and the script
-read commit subjects and record prose, never a trailer. Three documents describe
-the co-author rule as enforced; none of them was a detector. Found by acting on
-it: three commits here carried a vendor `noreply@` trailer through a full set of
-green checks.
-
-**The upstream change is on `quaternionmedia/qm` `project/carlos` only, and its
-`namespace` gate is red there on purpose.** That gate's refusal is correct — a
-`project/*` branch may only touch `adr/`, and org-level content added there is
-stranded because propagation is one-directional. Landing it there anyway was a
-deliberate call, taken because the alternative was merging 35 unrelated org
-commits into this project's line. It is recorded in the corpus's `ledger.yaml`
-as `2026-08-20-002`, with what it costs: **no other project receives this fix**,
-and giving it to them needs a second, deliberate branch targeting `main`.
+`adr-lint` runs `check_attribution.py` over the pull request's own commits. It
+refuses a commit trailer or author field naming a tool or standing on an address
+nobody reads, and a commit subject naming a tool. The script and its seed step
+live on the corpus's `main`, so every project takes them at its next seed re-copy.
 
 ## Known Conflicts With Org Records
 

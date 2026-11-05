@@ -36,47 +36,12 @@ The governance corpus is a submodule. On a fresh clone:
 git submodule update --init --recursive
 ```
 
-**On Windows, know what your `CLAUDE.md` is.** It and
-`.github/copilot-instructions.md` are real symlinks to `AGENTS.md` — mode
-`120000` in git. Without Developer Mode they check out as one-line text files
-containing the target path instead. Which you have:
-
-```sh
-git ls-files -s CLAUDE.md      # 120000 means git stores a symlink
-```
-
-**This is not worth repairing, and repairing it badly costs you both files.**
-Everything on this page works either way: the degraded files still name their
-target, and nothing reads them at build or test time. `git status` stays clean
-in both states, so there is nothing to clear up.
-
-If you want the real thing anyway, the obvious two lines are a trap and this
-page used to print them. `git config core.symlinks true` fails outright where
-the value is already set twice — it needs `--replace-all` — and `git checkout
--- .` is a no-op on files git considers unmodified, which these are. Force it
-without Developer Mode and `git checkout` removes the regular files, fails to
-create the symlinks, and leaves neither:
-
-```
-error: unable to create symlink CLAUDE.md: Permission denied
-```
-
-So: turn Developer Mode on first (Settings → For developers), confirm it, and
-only then replace the files rather than checking them out:
-
-```sh
-git config --replace-all core.symlinks true
-rm CLAUDE.md .github/copilot-instructions.md
-git checkout -- CLAUDE.md .github/copilot-instructions.md
-git ls-files -s CLAUDE.md && ls -l CLAUDE.md    # a symlink, not 9 bytes
-```
-
-If that errors, you do not have Developer Mode, and the answer is to leave it
-alone.
-
 Skipping it does not break the app; it breaks the CI gates, which run out of
 `governance/qm` and then fail for a reason that has nothing to do with your
 change.
+
+`CLAUDE.md` is a regular file holding the one line `@AGENTS.md`, an import the
+tool that reads it expands into `AGENTS.md`, on every platform, with no setup.
 
 ## Proving it worked
 
