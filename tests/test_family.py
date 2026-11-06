@@ -1,18 +1,51 @@
-"""A cue from the performing family's hub: `POST /family/cue`, `GET /family/state`.
+"""A cue from the performing family's hub, and the family's contract: `/family/*`.
 
 The rack the hub leaves is held by the server, so it is asserted here without a
 browser: what each action does to the state, what is refused and that a refusal
-changes nothing, and the two routes answering in their own words. That an open
-tab draws it is `tests/browser/test_family.py`.
+changes nothing, what the rack says it is, the state as a stream, and the four
+routes answering in their own words. That an open tab draws it is
+`tests/browser/test_family.py`.
+
+The four routes are `family/1`, which hearth publishes with the cases that test
+it. `TheContractTests` replays the member's cases at the version pinned below.
 """
 
 import asyncio
+import io
 import json
+import os
 import re
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
 from src import catalogue, family, main
+
+# The version of hearth's vector set, `conformance/vectors.json`, that this
+# suite replays. The corpus's `qm interop` reads this line and compares it with
+# the version hearth publishes.
+PINNED = "0.0.1"
+
+# That set's member cases by id, in the order `hearth check` asks them.
+MEMBER_CASES = (
+    "identity-answers",
+    "identity-is-an-object",
+    "identity-keeps-contract",
+    "identity-names-member",
+    "identity-names-family",
+    "identity-names-instance",
+    "identity-names-conformance",
+    "state-shape",
+    "cue-not-json-refused",
+    "cue-unknown-action-refused",
+    "refused-cue-changes-nothing",
+    "events-state-at-once",
+    "action-taken",
+    "cue-reaches-follower",
+)
+# Its hub cases, which a member does not answer.
+HUB_CASES = 10
 
 
 class _Posted:
@@ -23,6 +56,32 @@ class _Posted:
 
     async def body(self) -> bytes:
         return self.raw
+
+
+class _Following:
+    """The half of a request `family_events` reads: whether its follower has gone."""
+
+    def __init__(self):
+        self.gone = False
+
+    async def is_disconnected(self) -> bool:
+        return self.gone
+
+
+async def said(stream) -> str:
+    """The next thing a stream says, or a failure once it has said nothing for five seconds."""
+    return await asyncio.wait_for(anext(stream), 5)
+
+
+def states(stream: str) -> list[dict]:
+    """The data of each `state` event in a stretch of an event stream."""
+    found = []
+    for event in stream.split("\n\n"):
+        lines = event.split("\n")
+        if "event: state" in lines:
+            found.append(json.loads("".join(
+                line[len("data:"):] for line in lines if line.startswith("data:"))))
+    return found
 
 
 def cue(number: str, action, name: str = "A cue") -> dict:
@@ -70,7 +129,7 @@ class TheRackTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(answer, {"ok": True, "state": {
             "patch": "novation.launchpad-x.complex", "facing": "top", "revision": 1,
-            "held": None}})
+            "held": None}, "instance": self.rack.instance})
         self.assertEqual(self.rack.snapshot()["cue"]["number"], "3")
 
     def test_loading_a_patch_faces_the_rack_the_way_its_document_does(self):
@@ -118,6 +177,30 @@ class TheRackTests(unittest.TestCase):
         expected = {f"{device}.{kind}" for device in catalogue.load_all()
                     for kind in ("simple", "complex")}
         self.assertEqual(names, expected)
+
+    def test_it_says_what_it_is(self):
+        rack = family.Rack(version="1.2.3", instance="0123456789ab")
+
+        self.assertEqual(rack.identity(), {
+            "member": "carlos", "family": "instruments", "version": "1.2.3",
+            "contract": "family/1", "conformance": PINNED,
+            "verbs": ["patch", "turn", "hold"], "instance": "0123456789ab",
+            "pid": os.getpid()})
+
+    def test_a_cue_taken_names_the_instance_that_took_it(self):
+        rack = family.Rack(instance="0123456789ab")
+        self.assertEqual(rack.receive(cue("1", {"turn": "back"}))[1]["instance"],
+                         "0123456789ab")
+        # A restart is another rack, and never answers as the one before it.
+        self.assertNotEqual(family.Rack().instance, family.Rack().instance)
+
+    def test_the_verbs_it_names_are_the_actions_it_takes_and_no_others(self):
+        taken = {"patch": "moog.dfam.simple", "turn": "back", "hold": a_hold()}
+        self.assertEqual(set(taken), set(self.rack.identity()["verbs"]))
+        for verb, value in taken.items():
+            with self.subTest(verb):
+                self.assertEqual(self.rack.receive(cue("1", {verb: value}))[0], 200)
+        self.assertEqual(self.rack.receive(cue("1", {"clock": "start"}))[0], 422)
 
 
 # A rig held from outside: a board carlos's catalogue does not have, sent with
@@ -315,8 +398,108 @@ class DocumentFacingTests(unittest.TestCase):
         self.assertEqual(family.document_facing({"modules": []}), "front")
 
 
+class TheStreamTests(unittest.IsolatedAsyncioTestCase):
+    """The state as a stream: at once, then at every cue taken, until the follower goes."""
+
+    def setUp(self):
+        catalogue.load_all.cache_clear()
+        self.rack = family.Rack(catalogue.opening_rack())
+        self.follower = _Following()
+
+    def follow(self, **timing):
+        return family.frames(self.rack, self.follower.is_disconnected, **timing)
+
+    async def test_the_first_event_is_the_state_at_once(self):
+        self.rack.receive(cue("1", {"turn": "back"}))
+        stream = self.follow()
+
+        first = await said(stream)
+
+        self.assertTrue(first.startswith("event: state\ndata: "))
+        self.assertTrue(first.endswith("\n\n"))
+        self.assertEqual(states(first), [self.rack.snapshot()])
+        await stream.aclose()
+
+    async def test_a_cue_taken_is_an_event_carrying_it(self):
+        stream = self.follow()
+        await said(stream)
+
+        self.rack.receive(cue("5", {"patch": "moog.dfam.simple"}, "Second tune"))
+        after = states(await said(stream))
+
+        self.assertEqual(after, [self.rack.snapshot()])
+        self.assertEqual(after[0]["cue"]["number"], "5")
+        await stream.aclose()
+
+    async def test_a_follower_that_falls_behind_is_sent_the_newest_state_and_no_backlog(self):
+        stream = self.follow(heartbeat=0.02, look=0.01)
+        await said(stream)
+
+        for number, side in (("1", "back"), ("2", "top"), ("3", "left")):
+            self.rack.receive(cue(number, {"turn": side}))
+        after = states(await said(stream))
+
+        self.assertEqual([each["cue"]["number"] for each in after], ["3"])
+        # And nothing waits behind it: the stream is quiet until the next cue.
+        self.assertEqual(await said(stream), ": still here\n\n")
+        await stream.aclose()
+
+    async def test_a_refused_cue_is_no_event(self):
+        stream = self.follow(heartbeat=0.02, look=0.01)
+        await said(stream)
+
+        self.assertEqual(self.rack.receive(cue("9", {"turn": "sideways"}))[0], 422)
+
+        self.assertEqual(await said(stream), ": still here\n\n")
+        await stream.aclose()
+
+    async def test_a_quiet_stream_is_kept_open_by_a_comment(self):
+        stream = self.follow(heartbeat=0.02, look=0.01)
+        await said(stream)
+
+        quiet = await said(stream)
+
+        # A line beginning with a colon is a comment, which no follower reads as an event.
+        self.assertEqual(quiet, ": still here\n\n")
+        self.assertEqual(states(quiet), [])
+        await stream.aclose()
+
+    async def test_a_follower_that_has_gone_ends_its_stream_and_is_let_go(self):
+        stream = self.follow(look=0.01)
+        await said(stream)
+        self.assertEqual(len(self.rack.followers), 1)
+
+        self.follower.gone = True
+
+        with self.assertRaises(StopAsyncIteration):
+            await said(stream)
+        self.assertEqual(self.rack.followers, [])
+        # And a cue is taken as ever, with nobody to tell.
+        self.assertEqual(self.rack.receive(cue("1", {"turn": "back"}))[0], 200)
+
+    async def test_a_stream_the_server_closes_is_let_go_too(self):
+        stream = self.follow()
+        await said(stream)
+
+        await stream.aclose()
+
+        self.assertEqual(self.rack.followers, [])
+
+    async def test_each_follower_is_told(self):
+        one, other = self.follow(), self.follow()
+        await said(one)
+        await said(other)
+
+        self.rack.receive(cue("2", {"turn": "top"}))
+
+        for stream in (one, other):
+            told = states(await said(stream))
+            self.assertEqual(told[0]["cue"]["number"], "2")
+            await stream.aclose()
+
+
 class TheRoutesTests(unittest.TestCase):
-    """The two routes, called the way the application defines them."""
+    """The four routes, called the way the application defines them."""
 
     def setUp(self):
         self.kept = main.rack_from_the_hub
@@ -329,14 +512,72 @@ class TheRoutesTests(unittest.TestCase):
         response = asyncio.run(main.family_cue(_Posted(raw)))
         return response.status_code, json.loads(response.body)
 
+    def get(self, route):
+        response = asyncio.run(route())
+        return response, json.loads(response.body)
+
     def test_a_cue_is_answered_200_with_the_state_and_the_state_route_agrees(self):
         status, answer = self.post(json.dumps(cue("7", {"turn": "back"})).encode())
 
         self.assertEqual((status, answer["ok"]), (200, True))
-        state = asyncio.run(main.family_state())
+        response, state = self.get(main.family_state)
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(state["member"], "carlos")
         self.assertEqual(state["cue"]["number"], "7")
         self.assertEqual(state["state"], answer["state"])
+
+    def test_a_cue_taken_names_the_instance_the_identity_names(self):
+        status, answer = self.post(json.dumps(cue("7", {"turn": "back"})).encode())
+        response, identity = self.get(main.family_identity)
+
+        self.assertEqual((status, response.status_code), (200, 200))
+        self.assertEqual(identity, main.rack_from_the_hub.identity())
+        self.assertEqual(answer["instance"], identity["instance"])
+
+    def test_the_served_rack_names_the_instance_and_version_healthz_does(self):
+        # One id for a hub crediting a delivery and a collector attributing a
+        # measurement: two would be two instances to whoever reads both.
+        self.assertEqual(self.kept.instance, main.INSTANCE)
+        self.assertEqual(self.kept.version, main.settings.version)
+
+    def test_the_events_route_streams_the_state_at_once(self):
+        async def opened():
+            response = await main.family_events(_Following())
+            first = await anext(response.body_iterator)
+            await response.body_iterator.aclose()
+            return response, first
+
+        response, first = asyncio.run(opened())
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.media_type, "text/event-stream")
+        self.assertEqual(states(first), [main.rack_from_the_hub.snapshot()])
+        self.assertEqual(main.rack_from_the_hub.followers, [])
+
+    def test_the_routes_that_only_read_answer_any_origin(self):
+        # A follower is often a page served from somewhere else.
+        answered = {
+            "state": self.get(main.family_state)[0],
+            "identity": self.get(main.family_identity)[0],
+            "events": asyncio.run(main.family_events(_Following())),
+        }
+        for route, response in answered.items():
+            with self.subTest(route):
+                self.assertEqual(response.headers["access-control-allow-origin"], "*")
+        self.assertNotIn("access-control-allow-origin",
+                         asyncio.run(main.family_cue(_Posted(b"{}"))).headers)
+
+    def test_a_follower_still_attached_does_not_hold_a_stop_open(self):
+        # uvicorn waits for every open response before it stops, and a stream
+        # has no end of its own, so the server is started with the wait bounded.
+        with mock.patch("uvicorn.run") as run, \
+                mock.patch.object(main, "port_is_free", return_value=True), \
+                redirect_stdout(io.StringIO()):
+            main.main()
+
+        self.assertEqual(run.call_args.kwargs["timeout_graceful_shutdown"], main.STOP_WAITS)
+        self.assertGreater(main.STOP_WAITS, 0)
+        self.assertLessEqual(main.STOP_WAITS, 5)
 
     def test_an_action_it_does_not_understand_is_422_in_its_own_words(self):
         for what, body in NOT_UNDERSTOOD.items():
@@ -352,11 +593,110 @@ class TheRoutesTests(unittest.TestCase):
                 self.assertEqual(self.post(raw),
                                  (422, {"ok": False, "error": "the body is not JSON"}))
 
-    def test_both_routes_are_on_the_served_port(self):
+    def test_all_four_routes_are_on_the_served_port(self):
         served = {(method, route.path) for route in main.app.routes
                   for method in getattr(route, "methods", ())}
         self.assertIn(("POST", "/family/cue"), served)
-        self.assertIn(("GET", "/family/state"), served)
+        for path in ("/family/state", "/family/identity", "/family/events"):
+            with self.subTest(path):
+                self.assertIn(("GET", path), served)
+        # A stream has no end for a HEAD to stand in for.
+        self.assertNotIn(("HEAD", "/family/events"), served)
+
+
+class TheContractTests(unittest.IsolatedAsyncioTestCase):
+    """`family/1`'s member side, replayed against the routes as the application defines them.
+
+    `hearth check URL` asks these cases of a running member over HTTP. This
+    suite has no network, so it asks the same cases of the same route functions,
+    in the same order, and each case is named as it passes. What it cannot see
+    is the wire: a server that buffered the stream would pass here and fail
+    `hearth check`.
+    """
+
+    def setUp(self):
+        catalogue.load_all.cache_clear()
+        self.kept = main.rack_from_the_hub
+        main.rack_from_the_hub = family.Rack(catalogue.opening_rack())
+
+    def tearDown(self):
+        main.rack_from_the_hub = self.kept
+
+    async def asked(self, route) -> tuple[int, object]:
+        response = await route
+        return response.status_code, json.loads(response.body)
+
+    def refused(self, status: int, answer: object) -> None:
+        self.assertEqual(status, 422)
+        self.assertIsInstance(answer, dict)
+        self.assertIs(answer["ok"], False)
+        self.assertIsInstance(answer["error"], str)
+
+    async def test_every_member_case_of_the_pinned_set_passes(self):
+        passed = []
+        served = {(method, route.path) for route in main.app.routes
+                  for method in getattr(route, "methods", ())}
+
+        self.assertIn(("GET", "/family/identity"), served)
+        status, identity = await self.asked(main.family_identity())
+        passed.append("identity-answers")
+        self.assertEqual(status, 200)
+        self.assertIsInstance(identity, dict)
+        passed.append("identity-is-an-object")
+        self.assertEqual(identity["contract"], "family/1")
+        passed.append("identity-keeps-contract")
+        for key in ("member", "family", "instance", "conformance"):
+            self.assertIsInstance(identity[key], str)
+            self.assertTrue(identity[key])
+            passed.append(f"identity-names-{key}")
+        name = identity["member"]
+
+        status, before = await self.asked(main.family_state())
+        self.assertEqual(status, 200)
+        self.assertEqual(before["member"], name)
+        self.assertIn("cue", before)
+        self.assertIsInstance(before["state"], dict)
+        passed.append("state-shape")
+
+        self.refused(*await self.asked(main.family_cue(_Posted(b"{not json"))))
+        passed.append("cue-not-json-refused")
+
+        probe = {"cue": {"number": "hearth", "name": "conformance", "fired_at": None},
+                 "action": {"hearth-conformance-unknown-verb": True}}
+        self.refused(*await self.asked(main.family_cue(_Posted(json.dumps(probe).encode()))))
+        passed.append("cue-unknown-action-refused")
+
+        _, after = await self.asked(main.family_state())
+        self.assertEqual(after["cue"], before["cue"])
+        passed.append("refused-cue-changes-nothing")
+
+        opened = await main.family_events(_Following())
+        self.assertEqual(opened.status_code, 200)
+        self.assertEqual(opened.media_type, "text/event-stream")
+        stream = opened.body_iterator
+        first = states(await asyncio.wait_for(anext(stream), 5))
+        self.assertEqual(first[0]["member"], name)
+        passed.append("events-state-at-once")
+
+        # One real action, sent once the stream is open: a rig held from outside.
+        sent = cue("hearth-1", {"hold": a_hold()}, "conformance")
+        status, answer = await self.asked(main.family_cue(_Posted(json.dumps(sent).encode())))
+        self.assertIn(status, (200, 202))
+        self.assertIs(answer["ok"], True)
+        passed.append("action-taken")
+
+        told = states(await asyncio.wait_for(anext(stream), 5))
+        self.assertEqual(told[0]["cue"]["number"], "hearth-1")
+        passed.append("cue-reaches-follower")
+        await stream.aclose()
+
+        self.assertEqual(passed, list(MEMBER_CASES))
+        # The line the corpus's interop registry reads from a run of this file.
+        print(f"\nfamily/1 conformance: {len(passed)} applicable, all passing; "
+              f"{HUB_CASES} not applicable")
+
+    def test_the_identity_names_the_version_this_suite_replays(self):
+        self.assertEqual(family.CONFORMANCE, PINNED)
 
 
 class TheTabAndTheServerAgreeTests(unittest.TestCase):

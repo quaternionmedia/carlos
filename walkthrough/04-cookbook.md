@@ -162,16 +162,23 @@ its part. Carlos takes it on the port it is served on:
 
 ```python
 >>> sorted(r.path for r in app.routes if getattr(r, 'path', '').startswith('/family'))
-['/family/cue', '/family/state']
+['/family/cue', '/family/events', '/family/identity', '/family/state']
 
 ```
 
 | Route | Body | Answers |
 | --- | --- | --- |
-| `POST /family/cue` | `{"cue": {"number", "name", "fired_at"}, "action": {"patch": "<device>.<kind>"}}` or `"action": {"turn": "<side>"}` | `200 {"ok": true, "state": {...}}` |
+| `POST /family/cue` | `{"cue": {"number", "name", "fired_at"}, "action": {"patch": "<device>.<kind>"}}` or `"action": {"turn": "<side>"}` | `200 {"ok": true, "state": {...}, "instance": "..."}` |
 | | or `"action": {"hold": {"patch", "devices", "states"}}`, a rig held from outside | |
 | | anything it does not understand | `422 {"ok": false, "error": "..."}` |
 | `GET /family/state` | | `200 {"member": "carlos", "cue": {...} or null, "state": {"patch", "facing", "revision", "held"}}` |
+| `GET /family/events` | | `text/event-stream`: a `state` event with that object at once, then one at every cue taken |
+| `GET /family/identity` | | `200 {"member", "family", "version", "contract", "conformance", "verbs", "instance", "pid"}` |
+
+These four are the family's contract, `family/1`. hearth publishes it with the
+cases that test it, `hearth check <url>` asks them of a running server, and
+`tests/test_family.py` replays the member's cases at the version the identity
+names as `conformance`.
 
 The server holds what the cues did, and every open rack tab draws it within a
 second of it changing, in place. A patch is an example named by its device and
@@ -181,18 +188,60 @@ side turns to it, the rest keep the side their document gave them.
 
 ```python
 >>> from src import family
->>> rack = family.Rack()
+>>> rack = family.Rack(instance="0123456789ab")
 >>> def cue(number, action):
 ...     return {"cue": {"number": number, "name": "Second tune",
 ...                     "fired_at": "2026-10-10T20:00:00+00:00"}, "action": action}
 >>> rack.receive(cue("3", {"patch": "novation.launchpad-x.complex"}))
-(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'top', 'revision': 1, 'held': None}})
+(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'top', 'revision': 1, 'held': None}, 'instance': '0123456789ab'})
 >>> rack.receive(cue("4", {"turn": "back"}))
-(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'back', 'revision': 2, 'held': None}})
+(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'back', 'revision': 2, 'held': None}, 'instance': '0123456789ab'})
 >>> rack.receive(cue("5", {"turn": "sideways"}))[0]
 422
 >>> rack.snapshot()['cue']['number'], rack.revision
 ('4', 2)
+
+```
+
+Each cue taken is answered with the `instance` that took it: the running
+process, as its identity names it and as `/healthz` reports it. A hub credits a
+delivery to that instance, so a server restarted between two cues is never
+credited with the first.
+
+```python
+>>> said = rack.identity()
+>>> said["member"], said["family"], said["contract"], said["conformance"]
+('carlos', 'instruments', 'family/1', '0.0.1')
+>>> said["verbs"], said["instance"]
+(['patch', 'turn', 'hold'], '0123456789ab')
+
+```
+
+`GET /family/events` is the same state for a follower that would rather be told
+than ask: the state at once, then again at every cue taken, and a comment while
+nothing changes so the stream stays open. A follower that falls behind is sent
+the rack as it stands, never the cues it missed.
+
+```python
+>>> import asyncio
+>>> async def followed():
+...     async def gone():
+...         return False
+...     stream = family.frames(rack, gone)
+...     at_once = await anext(stream)
+...     rack.receive(cue("4a", {"turn": "front"}))
+...     then = await anext(stream)
+...     await stream.aclose()
+...     return at_once, then
+>>> at_once, then = asyncio.run(followed())
+>>> print(at_once)
+event: state
+data: {"member": "carlos", "cue": {"number": "4", ...}, "state": {"patch": "novation.launchpad-x.complex", "facing": "back", "revision": 2, "held": null}}
+<BLANKLINE>
+>>> print(then)
+event: state
+data: {"member": "carlos", "cue": {"number": "4a", ...}, "state": {"patch": "novation.launchpad-x.complex", "facing": "front", "revision": 3, "held": null}}
+<BLANKLINE>
 
 ```
 

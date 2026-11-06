@@ -8,7 +8,7 @@ from importlib.metadata import PackageNotFoundError, version as installed_versio
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field, ValidationError
@@ -145,6 +145,9 @@ db_manager: DatabaseManager | None = None
 # the second.
 STARTED_AT = datetime.now(timezone.utc).isoformat(timespec="seconds")
 INSTANCE = uuid.uuid4().hex[:12]
+
+# Seconds a stop waits for open responses before it cuts them. See `main()`.
+STOP_WAITS = 2
 
 
 @asynccontextmanager
@@ -619,8 +622,10 @@ async def validate_patch(document: dict):
 
 
 # The rack as the hub has left it. In this process and nowhere else: a restart
-# begins again at revision 0, facing the way the opening rig faces.
-rack_from_the_hub = family.Rack(catalogue.opening_rack())
+# begins again at revision 0, facing the way the opening rig faces. It names
+# the instance `/healthz` does, so a hub and a collector read one id.
+rack_from_the_hub = family.Rack(catalogue.opening_rack(), version=settings.version,
+                                instance=INSTANCE)
 
 
 @app.post("/family/cue")
@@ -646,7 +651,25 @@ async def family_state():
 
     Every open rack tab reads this once a second, which is how a cue reaches it.
     """
-    return rack_from_the_hub.snapshot()
+    return JSONResponse(rack_from_the_hub.snapshot(), headers=family.OPEN)
+
+
+@app.api_route("/family/identity", methods=PAGE)
+async def family_identity():
+    """What answers on this port: the member, its family and contract, and this instance."""
+    return JSONResponse(rack_from_the_hub.identity(), headers=family.OPEN)
+
+
+# GET alone: a stream has no end for a HEAD to stand in for.
+@app.get("/family/events")
+async def family_events(request: Request):
+    """The state as a stream: at once, then at every cue taken, until the follower goes."""
+    return StreamingResponse(
+        family.frames(rack_from_the_hub, request.is_disconnected),
+        media_type="text/event-stream",
+        # A proxy that buffers would hold each event until the next one.
+        headers={**family.OPEN, "Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 def lan_address() -> str | None:
@@ -752,6 +775,11 @@ def main() -> None:
         # container answers on.
         proxy_headers=True,
         forwarded_allow_ips=settings.forwarded_allow_ips,
+        # A follower's event stream has no end of its own, and uvicorn waits
+        # for every open response before it stops: measured, one follower
+        # still attached held a stop open for as long as it stayed. Past this
+        # many seconds the stream is cut and the stop goes on.
+        timeout_graceful_shutdown=STOP_WAITS,
     )
 
 

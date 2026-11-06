@@ -240,6 +240,31 @@ CADENCE: tuple[EndpointCadence, ...] = (
             "lets a cue reach it without a reload."
         ),
     ),
+    EndpointCadence(
+        path="/family/events",
+        method="GET",
+        side_effect="none",
+        staleness_budget_seconds=0,
+        min_interval_seconds=1,
+        why=(
+            "The same state as a stream: sent at once, then at every cue taken, "
+            "with a comment when it is quiet. Opened once and held rather than "
+            "asked again, so the interval is how soon to open it after it drops."
+        ),
+    ),
+    EndpointCadence(
+        path="/family/identity",
+        method="GET",
+        side_effect="none",
+        staleness_budget_seconds=0,
+        min_interval_seconds=15,
+        why=(
+            "Which member answers here, under which contract, and which running "
+            "instance - the one `/healthz` names. True until a restart, which "
+            "nothing announces: a hub asks before its first delivery, and again "
+            "when a cue's answer names another instance."
+        ),
+    ),
 )
 
 

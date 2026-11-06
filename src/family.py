@@ -6,18 +6,27 @@ the rack by hand: load an example from the menu, or turn the rack. A third
 action is a rig held from outside: another application that knows a rig sends
 it whole, and carlos holds it and draws it.
 
-    POST /family/cue    {"cue": {"number": "3", "name": "...", "fired_at": "..."},
-                         "action": {"patch": "<device>.<simple|complex>"}
-                                or {"turn": "<side>"}
-                                or {"hold": {"patch": <carlos.patch>,
-                                             "devices": [<device entry>, ...],
-                                             "states": {"modules": {<id>: <state>},
-                                                        "connections": [<lead state>]}}}}
-                        200 {"ok": true, "state": {...}}
-                        422 {"ok": false, "error": "..."}  for anything else
-    GET  /family/state  200 {"member": "carlos", "cue": {...} | null,
-                             "state": {"patch": name | null, "facing": side,
-                                       "revision": n, "held": <the hold> | null}}
+    POST /family/cue       {"cue": {"number": "3", "name": "...", "fired_at": "..."},
+                            "action": {"patch": "<device>.<simple|complex>"}
+                                   or {"turn": "<side>"}
+                                   or {"hold": {"patch": <carlos.patch>,
+                                                "devices": [<device entry>, ...],
+                                                "states": {"modules": {<id>: <state>},
+                                                           "connections": [<lead state>]}}}}
+                           200 {"ok": true, "state": {...}, "instance": "..."}
+                           422 {"ok": false, "error": "..."}  for anything else
+    GET  /family/state     200 {"member": "carlos", "cue": {...} | null,
+                                "state": {"patch": name | null, "facing": side,
+                                          "revision": n, "held": <the hold> | null}}
+    GET  /family/events    text/event-stream: a `state` event with that object at
+                           once, then one at every cue taken
+    GET  /family/identity  200 {"member", "family", "version", "contract",
+                                "conformance", "verbs", "instance", "pid"}
+
+Those four routes are the family's contract, `family/1`, which hearth
+publishes with the cases that test it. `instance` is this running process, the
+one `/healthz` names, on the identity and on every cue taken: a hub credits a
+delivery to the instance that took it, never to the one before a restart.
 
 **The server holds the truth for these two actions**, which is new: the rack
 has lived in the tab that draws it. An open tab reads `GET /family/state` and
@@ -56,7 +65,13 @@ saw them all.
 
 from __future__ import annotations
 
+import asyncio
+import json
+import os
 import re
+import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import suppress
 
 try:
     from . import catalogue, patch_format
@@ -65,6 +80,20 @@ except ImportError:
     import patch_format
 
 MEMBER = "carlos"
+# The family carlos is in on the corpus's roster, whichever family's hub
+# delivers the cue.
+FAMILY = "instruments"
+CONTRACT = "family/1"
+# The version of hearth's vector set that tests/test_family.py replays.
+CONFORMANCE = "0.0.1"
+# The action keys a cue's action may carry, one at a time.
+VERBS = ("patch", "turn", "hold")
+
+# The read-only routes answer a page served from another origin: a follower
+# is often one.
+OPEN = {"Access-Control-Allow-Origin": "*"}
+HEARTBEAT = 15.0  # seconds between keep-alive comments on a quiet stream
+LOOK = 1.0  # seconds between looks for a follower that has gone
 
 # The sides a device can have, in cycling order. Mirrors `SIDE_ORDER` in
 # static/models.js, and tests/test_family.py holds the two together.
@@ -290,12 +319,19 @@ class Rack:
     """What the hub talks to: the rack's patch and facing, the rig held from
     outside, and the last cue."""
 
-    def __init__(self, opening: dict | None = None) -> None:
+    def __init__(self, opening: dict | None = None, *, version: str = "0",
+                 instance: str | None = None) -> None:
+        """`version` and `instance` are the serving process's own, the ones
+        `/healthz` reports; a rack made with neither names an instance of its
+        own."""
         self.cue: dict | None = None
         self.patch: str | None = None
         self.facing = document_facing(opening)
         self.held: dict | None = None
         self.revision = 0
+        self.version = version
+        self.instance = instance or uuid.uuid4().hex[:12]
+        self.followers: list[Callable[[], None]] = []
 
     def state(self) -> dict:
         return {"patch": self.patch, "facing": self.facing, "revision": self.revision,
@@ -303,6 +339,22 @@ class Rack:
 
     def snapshot(self) -> dict:
         return {"member": MEMBER, "cue": self.cue, "state": self.state()}
+
+    def identity(self) -> dict:
+        """What this member is, so a reader can tell it from anything else on the port."""
+        return {"member": MEMBER, "family": FAMILY, "version": self.version,
+                "contract": CONTRACT, "conformance": CONFORMANCE,
+                "verbs": list(VERBS), "instance": self.instance, "pid": os.getpid()}
+
+    def follow(self, follower: Callable[[], None]) -> Callable[[], None]:
+        """Call `follower` at every cue taken; returns what stops it."""
+        self.followers.append(follower)
+
+        def unfollow() -> None:
+            if follower in self.followers:
+                self.followers.remove(follower)
+
+        return unfollow
 
     def receive(self, body: object) -> tuple[int, dict]:
         """Act on a cue's body. A refused cue changes nothing, its record included."""
@@ -313,7 +365,10 @@ class Rack:
         change()
         self.revision += 1
         self.cue = body["cue"]
-        return 200, {"ok": True, "state": self.state()}
+        for follower in list(self.followers):
+            with suppress(Exception):  # a follower gone is not the cue's fault
+                follower()
+        return 200, {"ok": True, "state": self.state(), "instance": self.instance}
 
     def _understood(self, body: object):
         if not isinstance(body, dict):
@@ -322,7 +377,7 @@ class Rack:
             raise Refused("cue must be an object: {number, name, fired_at}")
         action = body.get("action")
         if not isinstance(action, dict) or len(action) != 1 \
-                or not set(action) <= {"patch", "turn", "hold"}:
+                or not set(action) <= set(VERBS):
             raise Refused('carlos takes {"patch": "<device>.<kind>"}, '
                           '{"turn": "<side>"} or {"hold": {patch, devices, states}}, '
                           f'one at a time, not {_shown(action)}')
@@ -353,3 +408,45 @@ class Rack:
             self.facing = value
 
         return change
+
+
+def frame(snapshot: dict) -> str:
+    """One `state` event, as a `text/event-stream` carries it."""
+    return f"event: state\ndata: {json.dumps(snapshot)}\n\n"
+
+
+async def frames(rack: Rack, gone: Callable[[], Awaitable[bool]],
+                 heartbeat: float = HEARTBEAT, look: float = LOOK) -> AsyncIterator[str]:
+    """The rack's snapshot now, then at every cue taken, a comment when quiet, until `gone()`.
+
+    A follower is sent the state, not a log of it: one that falls behind by
+    several cues is sent the rack as it stands after the last. One that has
+    gone is noticed within `look` seconds rather than at the next write.
+    """
+    loop = asyncio.get_running_loop()
+    changed = asyncio.Event()
+
+    def follower() -> None:
+        with suppress(RuntimeError):  # the loop has closed
+            loop.call_soon_threadsafe(changed.set)
+
+    unfollow = rack.follow(follower)
+    try:
+        yield frame(rack.snapshot())
+        quiet = 0.0
+        while not await gone():
+            try:
+                await asyncio.wait_for(changed.wait(), look)
+            except TimeoutError:
+                quiet += look
+                if quiet >= heartbeat:
+                    quiet = 0.0
+                    yield ": still here\n\n"
+                continue
+            quiet = 0.0
+            # Cleared before the rack is read, so a cue taken while this frame
+            # is written wakes the stream again.
+            changed.clear()
+            yield frame(rack.snapshot())
+    finally:
+        unfollow()
