@@ -1297,6 +1297,33 @@ class TestTheBar:
             "() => !document.querySelector('#rad-bar-hint')", timeout=5_000)
         assert page.locator("#rad-bar-hint").count() == 0
 
+    LONG = "Held from apothecary: " + "a rig of many leads, " * 30 + "the end"
+
+    def say_a_lot(self, page):
+        page.evaluate("(said) => system.status.update(said)", self.LONG)
+        page.wait_for_function(
+            "() => (document.querySelector('#rad-bar-said')?.textContent || '')"
+            ".endsWith('\u2026')", timeout=5_000)
+        return page.locator("#rad-bar-said").bounding_box()
+
+    def test_a_long_answer_stops_short_of_the_hint(self, page):
+        # A cue held from outside says a lot. Docked, the answer ran on under
+        # the hint and out past the window; it is cut where the hint begins,
+        # and the live region still carries all of it.
+        said = self.say_a_lot(page)
+        hint = page.locator("#rad-bar-hint").bounding_box()
+        assert said["x"] + said["width"] <= hint["x"]
+        assert page.locator("#status").text_content() == self.LONG
+
+    def test_and_short_of_the_window_once_the_hint_retires(self, page):
+        self.hold(page)
+        page.mouse.up()
+        page.wait_for_function(
+            "() => !document.querySelector('#rad-bar-hint')", timeout=5_000)
+        said = self.say_a_lot(page)
+        bar = self.bar(page).bounding_box()
+        assert said["x"] + said["width"] <= bar["x"] + bar["width"]
+
     def test_and_stays_retired(self, page):
         self.hold(page)
         page.mouse.up()

@@ -176,8 +176,50 @@ const CONNECTOR_LOOK = {
     'IDC-16': 'header',
 };
 
+// A held rig keeps its sender's words for connectors (see static/family.js), so
+// one this table does not name is drawn by what it most plainly is: anything
+// called USB as a USB plug, anything else as the commonest jack.
 function lookOfConnector(connector) {
-    return CONNECTOR_LOOK[connector] || 'quarter';
+    return CONNECTOR_LOOK[connector]
+        || (/USB/.test(connector || '') ? 'usb' : 'quarter');
+}
+
+// The state each lead of a held rig is in, by `PatchBayManager.keyOf`: a level
+// and the lines that say it, set by static/family.js and read where a cable is
+// drawn. Empty for any rig carlos was not sent.
+const HELD_LEAD_STATES = new Map();
+// The same for each device of a held rig, by module id, read as it is rendered.
+const HELD_MODULE_STATES = new Map();
+
+// What a held state says, under the device's name: one line each, as sent.
+function heldSays(state) {
+    if (!state) return '';
+    return `<ul class="held-says">${heldLines(state)}</ul>`;
+}
+
+function heldLines(state) {
+    return (state?.says || []).map(line => `<li>${attr(line)}</li>`).join('');
+}
+
+// The state a held rig gives one control of one device, or null: the sender
+// could not read it, say. Drawn on the control, and said where its name is.
+function heldControl(moduleId, name) {
+    return HELD_MODULE_STATES.get(moduleId)?.controls?.[name] || null;
+}
+
+// A control's title: its name, and under it what a held state says of it.
+function heldTitle(param, held) {
+    return held ? [param.label, ...held.says].join('\n') : param.label;
+}
+
+// The state a held rig gives one jack of one device, or null: a plug in it no
+// lead names, say. Drawn on the socket, and said in its title.
+function heldJack(moduleId, name) {
+    return HELD_MODULE_STATES.get(moduleId)?.jacks?.[name] || null;
+}
+
+function heldJackTitle(label, held) {
+    return held ? [label, ...held.says].join('\n') : label;
 }
 
 // Each plug, as a shape in a 4x4 box: narrow where the cable enters, wide where
@@ -280,14 +322,19 @@ function announced(value) {
     return String(Number(Number(value).toFixed(3)));
 }
 
-function jackAria(jack, side) {
-    // The connector belongs in the name a screen reader reads out. Which plug
-    // a socket takes is the difference between a lead that works and one that
-    // does not, and it was recorded for every socket in the catalogue while
-    // being said out loud for none of them.
-    const label = `${jack.label || jack.name} `
-        + `(${jack.connector} ${jack.signal} ${jack.type}, ${side})`;
-    return `tabindex="0" role="button" title="${attr(label)}" aria-label="${attr(label)}"`;
+function jackAria(jack, side, held = null) {
+    const label = jackLabel(jack, side);
+    return `tabindex="0" role="button" title="${attr(heldJackTitle(label, held))}" `
+        + `aria-label="${attr(label)}"`
+        + (held ? ` data-held="${attr(held.level)}"` : '');
+}
+
+// The connector belongs in the name a screen reader reads out. Which plug
+// a socket takes is the difference between a lead that works and one that
+// does not, and it was recorded for every socket in the catalogue while
+// being said out loud for none of them.
+function jackLabel(jack, side) {
+    return `${jack.label || jack.name} (${jack.connector} ${jack.signal} ${jack.type}, ${side})`;
 }
 
 // Every side a layout puts something on. Mirrors `Layout.sides_used()`.
@@ -598,8 +645,9 @@ function hostSystem() {
 // A knob is a slider that happens to be round. Saying so is what makes it
 // reachable by keyboard and legible to a screen reader; the two arrangements
 // draw it differently and mean exactly the same control.
-function knobAria(param) {
-    return `tabindex="0" role="slider" title="${attr(param.label)}"`
+function knobAria(param, held = null) {
+    return `tabindex="0" role="slider" title="${attr(heldTitle(param, held))}"`
+        + (held ? ` data-held="${attr(held.level)}"` : '')
         + ` aria-label="${attr(param.label)}"`
         + ` aria-valuemin="${attr(param.minValue)}"`
         + ` aria-valuemax="${attr(param.maxValue)}"`
@@ -891,6 +939,10 @@ class EurorackModule {
         moduleEl.className = 'module';
         moduleEl.dataset.moduleId = this.id;
         moduleEl.dataset.view = this.view;
+        // A held rig's state for this device: coloured by its level, its lines
+        // said under the name. Read at every render, so a redraw keeps it.
+        const held = HELD_MODULE_STATES.get(this.id);
+        if (held) moduleEl.dataset.held = held.level;
 
         // A device drawn as laid out is drawn at something like its real size
         // relative to its neighbours - that comparison is most of what `irl`
@@ -908,6 +960,7 @@ class EurorackModule {
                     ${this.name}
                     ${side === 'front' ? '' : `<span class="side-tag">${side}</span>`}
                 </div>
+                ${heldSays(held)}
                 ${this.faceBody(side)}
             </div>
         `).join('') + `
@@ -945,7 +998,8 @@ class EurorackModule {
 
     renderParameters() {
         return Array.from(this.parameters.entries()).map(([name, param]) => `
-            <div class="knob" data-param="${attr(name)}" ${knobAria(param)}>
+            <div class="knob" data-param="${attr(name)}"
+                 ${knobAria(param, heldControl(this.id, name))}>
                 <div class="knob-base">
                     <div class="knob-indicator"></div>
                 </div>
@@ -1033,7 +1087,7 @@ class EurorackModule {
                     <div class="jack" data-jack="${attr(name)}" data-type="${attr(jack.type)}"
                          data-signal="${attr(jack.signal)}" data-side="${attr(side)}"
                          data-connector="${attr(jack.connector)}"
-                         ${jackAria(jack, side)}></div>
+                         ${jackAria(jack, side, heldJack(this.id, name))}></div>
                     <span class="irl-jack-label">${jack.label || name}</span>
                 </div>`;
         }).join('');
@@ -1079,7 +1133,7 @@ class EurorackModule {
                      style="${seat};
                             --travel:${travel * 100}%;
                             ${across ? 'height' : 'width'}:${travel * 100}%"
-                     ${knobAria(parameter)}>
+                     ${knobAria(parameter, heldControl(this.id, name))}>
                     <div class="irl-fader-slot"></div>
                     <div class="irl-fader-cap"></div>
                 </div>`;
@@ -1088,7 +1142,7 @@ class EurorackModule {
         if (kind === 'switch') {
             return `
                 <div class="irl-switch" data-param="${attr(name)}" style="${seat}"
-                     ${knobAria(parameter)}>
+                     ${knobAria(parameter, heldControl(this.id, name))}>
                     <div class="irl-switch-body"><div class="knob-indicator"></div></div>
                 </div>`;
         }
@@ -1096,7 +1150,7 @@ class EurorackModule {
         // knob and encoder differ by their ring, which is CSS, not markup.
         return `
             <div class="irl-knob irl-${attr(kind)}" data-param="${attr(name)}"
-                 style="${seat}" ${knobAria(parameter)}>
+                 style="${seat}" ${knobAria(parameter, heldControl(this.id, name))}>
                 <div class="knob-base"><div class="knob-indicator"></div></div>
                 <span class="irl-knob-label">${parameter.label}</span>
             </div>`;
@@ -1174,7 +1228,7 @@ class EurorackModule {
                     <div class="jack" data-jack="${attr(name)}" data-type="${attr(type)}"
                          data-signal="${attr(jack.signal)}" data-side="${attr(side)}"
                          data-connector="${attr(jack.connector)}"
-                         ${jackAria(jack, side)}></div>
+                         ${jackAria(jack, side, heldJack(this.id, name))}></div>
                     <span class="jack-label">${jack.label || name}</span>
                 </div>
             `).join('');
@@ -1644,6 +1698,48 @@ class EurorackModule {
         return knobEl;
     }
 
+    // The same rig held again at new values and states, turned where it stands:
+    // each control that moved is painted to its value, and the device's state,
+    // its lines and each control's own state are put on the elements already
+    // drawn. Nothing is drawn again, so a rig followed through a concert turns
+    // rather than flickers. What moved, by parameter name.
+    retouchHeld(values) {
+        const moved = [];
+        Object.entries(values || {}).forEach(([name, value]) => {
+            const param = this.parameters.get(name);
+            if (!param || param.value === value) return;
+            param.setValue(value);
+            this.paintKnob(param, { duration: 300 });
+            moved.push(name);
+        });
+        const element = this.element;
+        if (!element) return moved;
+        const held = HELD_MODULE_STATES.get(this.id);
+        if (held) element.dataset.held = held.level;
+        else delete element.dataset.held;
+        element.querySelectorAll('.held-says').forEach(list => {
+            list.innerHTML = heldLines(held);
+        });
+        this.parameters.forEach((param, name) => {
+            const control = element.querySelector(`[data-param="${attr(name)}"]`);
+            if (!control) return;
+            const said = heldControl(this.id, name);
+            if (said) control.dataset.held = said.level;
+            else delete control.dataset.held;
+            control.setAttribute('title', heldTitle(param, said));
+        });
+        element.querySelectorAll('.jack[data-jack]').forEach(socket => {
+            const jack = this.jacks.get(socket.dataset.jack);
+            if (!jack) return;
+            const said = heldJack(this.id, jack.name);
+            if (said) socket.dataset.held = said.level;
+            else delete socket.dataset.held;
+            socket.setAttribute('title',
+                                heldJackTitle(jackLabel(jack, socket.dataset.side), said));
+        });
+        return moved;
+    }
+
     // State management
     getState() {
         const parameters = {};
@@ -1681,6 +1777,13 @@ class ModuleFactory {
     // drift the frontend contract tests were invented to chase.
     static definitions = {};
     static categories = [];
+    // The devices a held rig was sent with (static/family.js), by id: drawn
+    // for that rig, and in neither the palette nor the catalogue.
+    static held = {};
+
+    static definitionOf(type) {
+        return this.definitions[type] || this.held[type] || null;
+    }
 
     static load(payload) {
         this.categories = payload.categories || [];
@@ -1706,7 +1809,7 @@ class ModuleFactory {
     }
 
     static create(type) {
-        const def = this.definitions[type];
+        const def = this.definitionOf(type);
         if (!def) throw new Error(`Unknown device: ${type}`);
 
         const module = new EurorackModule(type, def.model || def.id);
@@ -1915,7 +2018,10 @@ class PatchBayManager {
 
     // Pull one lead out. The jacks either end keep whatever else is plugged
     // into them: an output feeding three inputs loses one cable, not three.
-    remove(key) {
+    //
+    // `redraw: false` leaves the drawing to the caller, which re-patches many
+    // leads at once and draws them once at the end.
+    remove(key, { redraw = true } = {}) {
         const conn = this.find(key);
         if (!conn) return null;
 
@@ -1933,7 +2039,7 @@ class PatchBayManager {
             );
         });
 
-        this.redrawAll();
+        if (redraw) this.redrawAll();
         return conn;
     }
 
@@ -1945,7 +2051,7 @@ class PatchBayManager {
         );
     }
 
-    createConnection(jack1, jack2) {
+    createConnection(jack1, jack2, { redraw = true } = {}) {
         if (jack1.connect(jack2)) {
             // Normalize so the record always reads output -> input, which is
             // what the interchange format stores. A cable's sides are read off
@@ -1959,7 +2065,7 @@ class PatchBayManager {
             const target = bus || jack1.type === 'output' ? jack2 : jack1;
             this.connections.push({ source, target, cable: null });
             this.markThrough(source, target);
-            this.redrawAll();
+            if (redraw) this.redrawAll();
             return true;
         }
         return false;
@@ -2402,6 +2508,14 @@ class PatchBayManager {
                 // thing than a Eurorack patch cable, and a rack of each should
                 // read that way without anything being labelled.
                 classes.push(`is-plug-${lookOfConnector(source.connector)}`);
+                const held = HELD_LEAD_STATES.get(PatchBayManager.keyOf(source, target));
+                if (held) {
+                    classes.push(`is-held-${held.level}`);
+                    const said = document.createElementNS(
+                        'http://www.w3.org/2000/svg', 'title');
+                    said.textContent = held.says.join('\n');
+                    path.appendChild(said);
+                }
                 if (piece.hidden) classes.push('is-occluded');
                 if (lane) {
                     classes.push('is-lane');
@@ -3345,7 +3459,7 @@ class EurorackSystem {
 
         const modules = document.modules || [];
         modules.forEach(m => {
-            if (!ModuleFactory.definitions[m.type]) {
+            if (!ModuleFactory.definitionOf(m.type)) {
                 throw new Error(`Unknown module type: ${m.type}`);
             }
         });

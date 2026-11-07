@@ -162,15 +162,23 @@ its part. Carlos takes it on the port it is served on:
 
 ```python
 >>> sorted(r.path for r in app.routes if getattr(r, 'path', '').startswith('/family'))
-['/family/cue', '/family/state']
+['/family/cue', '/family/events', '/family/identity', '/family/state']
 
 ```
 
 | Route | Body | Answers |
 | --- | --- | --- |
-| `POST /family/cue` | `{"cue": {"number", "name", "fired_at"}, "action": {"patch": "<device>.<kind>"}}` or `"action": {"turn": "<side>"}` | `200 {"ok": true, "state": {...}}` |
+| `POST /family/cue` | `{"cue": {"number", "name", "fired_at"}, "action": {"patch": "<device>.<kind>"}}` or `"action": {"turn": "<side>"}` | `200 {"ok": true, "state": {...}, "instance": "..."}` |
+| | or `"action": {"hold": {"patch", "devices", "states"}}`, a rig held from outside | |
 | | anything it does not understand | `422 {"ok": false, "error": "..."}` |
-| `GET /family/state` | | `200 {"member": "carlos", "cue": {...} or null, "state": {"patch", "facing", "revision"}}` |
+| `GET /family/state` | | `200 {"member": "carlos", "cue": {...} or null, "state": {"patch", "facing", "revision", "held"}}` |
+| `GET /family/events` | | `text/event-stream`: a `state` event with that object at once, then one at every cue taken |
+| `GET /family/identity` | | `200 {"member", "family", "version", "contract", "conformance", "verbs", "instance", "pid"}` |
+
+These four are the family's contract, `family/1`. hearth publishes it with the
+cases that test it, `hearth check <url>` asks them of a running server, and
+`tests/test_family.py` replays the member's cases at the version the identity
+names as `conformance`.
 
 The server holds what the cues did, and every open rack tab draws it within a
 second of it changing, in place. A patch is an example named by its device and
@@ -180,14 +188,14 @@ side turns to it, the rest keep the side their document gave them.
 
 ```python
 >>> from src import family
->>> rack = family.Rack()
+>>> rack = family.Rack(instance="0123456789ab")
 >>> def cue(number, action):
 ...     return {"cue": {"number": number, "name": "Second tune",
 ...                     "fired_at": "2026-10-10T20:00:00+00:00"}, "action": action}
 >>> rack.receive(cue("3", {"patch": "novation.launchpad-x.complex"}))
-(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'top', 'revision': 1}})
+(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'top', 'revision': 1, 'held': None}, 'instance': '0123456789ab'})
 >>> rack.receive(cue("4", {"turn": "back"}))
-(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'back', 'revision': 2}})
+(200, {'ok': True, 'state': {'patch': 'novation.launchpad-x.complex', 'facing': 'back', 'revision': 2, 'held': None}, 'instance': '0123456789ab'})
 >>> rack.receive(cue("5", {"turn": "sideways"}))[0]
 422
 >>> rack.snapshot()['cue']['number'], rack.revision
@@ -195,10 +203,89 @@ side turns to it, the rest keep the side their document gave them.
 
 ```
 
+Each cue taken is answered with the `instance` that took it: the running
+process, as its identity names it and as `/healthz` reports it. A hub credits a
+delivery to that instance, so a server restarted between two cues is never
+credited with the first.
+
+```python
+>>> said = rack.identity()
+>>> said["member"], said["family"], said["contract"], said["conformance"]
+('carlos', 'instruments', 'family/1', '0.0.1')
+>>> said["verbs"], said["instance"]
+(['patch', 'turn', 'hold'], '0123456789ab')
+
+```
+
+`GET /family/events` is the same state for a follower that would rather be told
+than ask: the state at once, then again at every cue taken, and a comment while
+nothing changes so the stream stays open. A follower that falls behind is sent
+the rack as it stands, never the cues it missed.
+
+```python
+>>> import asyncio
+>>> async def followed():
+...     async def gone():
+...         return False
+...     stream = family.frames(rack, gone)
+...     at_once = await anext(stream)
+...     rack.receive(cue("4a", {"turn": "front"}))
+...     then = await anext(stream)
+...     await stream.aclose()
+...     return at_once, then
+>>> at_once, then = asyncio.run(followed())
+>>> print(at_once)
+event: state
+data: {"member": "carlos", "cue": {"number": "4", ...}, "state": {"patch": "novation.launchpad-x.complex", "facing": "back", "revision": 2, "held": null}}
+<BLANKLINE>
+>>> print(then)
+event: state
+data: {"member": "carlos", "cue": {"number": "4a", ...}, "state": {"patch": "novation.launchpad-x.complex", "facing": "front", "revision": 3, "held": null}}
+<BLANKLINE>
+
+```
+
 What the hub left is held in the serving process and nowhere else, so a
 restart begins again at revision 0. A tab follows from the moment it opens: one
 opened after a cue keeps the rig it opened on until the next cue, and then
 draws the whole of the state.
+
+A rig held from outside is the third action. An application that knows a rig
+-- what is plugged into what, and what state each part is in -- sends it whole:
+a patch document, the devices it names that the catalogue does not have, and a
+level and some lines for each device and lead. Carlos checks only that it can
+draw it, and draws it: the devices for that rig alone, the cables as sent, each
+state as a colour and its lines. A lead it could not draw as a cable -- to a
+jack its device does not have, from one output into another, or sent twice --
+is refused, rather than left off the rack without a word. A device's state may
+give some of its controls and its jacks a state of their own: a control the
+sender could not read is drawn faded, a socket is ringed in its level, and each
+title says why. The same rig held again -- the same devices on the same sides --
+at new values, leads and states is turned where it stands rather than drawn
+again, so a rig followed through a concert turns frame by frame, and a lead
+moved to another socket is that one cable taken out and put in. Loading an
+example lets it go; a turn keeps it.
+
+```python
+>>> board = {"id": "espressif.esp32-devkitc", "maker": "Espressif", "model": "DevKitC",
+...          "category": "board", "summary": "A devkit.",
+...          "jacks": [{"name": "usb", "label": "USB", "type": "output", "signal": "data",
+...                     "carrier": "usb", "connector": "micro-USB", "side": "right"}]}
+>>> hold = {"patch": {"format": "carlos.patch", "version": 3, "name": "bench",
+...                   "modules": [{"id": "devkit", "type": board["id"]}]},
+...         "devices": [board],
+...         "states": {"modules": {"devkit": {"level": "fault",
+...                                           "says": ["absent: expected, and not answering"]}}}}
+>>> status, answer = rack.receive(cue("6", {"hold": hold}))
+>>> status, answer["state"]["held"]["states"]["modules"]["devkit"]["level"]
+(200, 'fault')
+>>> rack.receive(cue("7", {"hold": {**hold, "devices": []}}))[1]["error"]
+'module devkit is a espressif.esp32-devkitc, which is neither in the catalogue nor sent with the rig'
+>>> lead = {"source": {"module": "devkit", "jack": "usb"}, "target": {"module": "devkit", "jack": "ethernet"}}
+>>> rack.receive(cue("8", {"hold": {**hold, "patch": {**hold["patch"], "connections": [lead]}}}))[1]["error"]
+"lead 0's target is 'ethernet' on devkit, which its device does not have"
+
+```
 
 ## Reshaping a patch for somebody else
 

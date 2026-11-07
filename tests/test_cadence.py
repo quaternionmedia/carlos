@@ -31,6 +31,20 @@ class _ArrivedOn:
         self.scope = {"server": server}
 
 
+class _Following:
+    """The half of a request `family_events` reads: whether its follower has gone."""
+
+    async def is_disconnected(self) -> bool:
+        return False
+
+
+async def _opened_and_let_go(route):
+    """An event stream read as far as its first event, then closed."""
+    response = await route
+    await anext(response.body_iterator)
+    await response.body_iterator.aclose()
+
+
 # Routes that are deliberately not part of the seam, each with the reason.
 #
 # An allowlist rather than a prefix rule. The prefix rule this replaces only
@@ -181,6 +195,9 @@ class NoneMeansNoneTests(unittest.TestCase):
             ("POST", "/api/midi/route"):
                 lambda: main.midi_route({"bytes": [144, 60, 100], "bindings": []}),
             ("GET", "/family/state"): lambda: main.family_state(),
+            ("GET", "/family/identity"): lambda: main.family_identity(),
+            ("GET", "/family/events"):
+                lambda: _opened_and_let_go(main.family_events(_Following())),
         }
         make = by_path.get((method, path))
         if make is None:
